@@ -1,88 +1,54 @@
 import os
+import shutil
+import tempfile
 import pytest
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import event
+
+# Create a temporary SQLite database file for the whole test session
+_TEMP_DIR = tempfile.mkdtemp(prefix="payroll_tests_")
+_DB_FILE = os.path.join(_TEMP_DIR, "test_payroll.db")
+os.environ["PAYROLL_DATABASE_URL"] = f"sqlite:///{_DB_FILE}"
 
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_database():
-    """Set up SQLite test database and initialize schema."""
-    db_path = "./data/test_payroll.db"
-    os.environ["PAYROLL_DATABASE_URL"] = f"sqlite:///{db_path}"
-    
-    # Import all models AFTER setting env var to ensure they use test DB
-    from app import auth  # noqa: F401
-    from app import models  # noqa: F401
-    
-    # Recreate engine with proper SQLite config
-    from app.database import Base, engine, SessionLocal, init_db
-    
-    # For SQLite in testing, we need to enable foreign keys and use proper threading
+    """Initialize a fresh temporary SQLite database for tests and clean it up after."""
+    # Import after setting env var so the app uses the temp DB
+    from app.database import Base, engine, init_db
+
+    # Enable SQLite foreign keys
     if "sqlite" in str(engine.url):
         @event.listens_for(engine, "connect")
         def set_sqlite_pragma(dbapi_conn, connection_record):
             cursor = dbapi_conn.cursor()
             cursor.execute("PRAGMA foreign_keys=ON")
             cursor.close()
-    
-    # Create all tables
-    Base.metadata.drop_all(bind=engine)  # Clean slate for tests
+
+    # Create schema and seed admin
     Base.metadata.create_all(bind=engine)
-    
-    # Initialize database (creates admin user if not exists)
     init_db()
-    
+
     yield
-    
-    # Cleanup after tests
-    Base.metadata.drop_all(bind=engine)
+
+    # Dispose engine and remove temp directory
+    try:
+        engine.dispose()
+    except Exception:
+        pass
+    shutil.rmtree(_TEMP_DIR, ignore_errors=True)
 
 
 @pytest.fixture
 def test_db():
-    """Pytest configuration and fixtures for testing."""
-    import os
-    import pytest
-    from sqlalchemy import event
+    """Provide a database session for each test with automatic rollback."""
+    from app.database import SessionLocal
 
-    # Test database URL (file-based SQLite)
-    TEST_DATABASE_URL = "sqlite:///./data/test_payroll.db"
-
-
-    @pytest.fixture(scope="session", autouse=True)
-    def setup_test_database():
-        """Set the test database URL and initialize schema before tests run."""
-        os.environ["PAYROLL_DATABASE_URL"] = TEST_DATABASE_URL
-
-        # Import after setting env var so the app uses the test DB
-        from app.database import Base, engine, init_db
-
-        # For SQLite in testing, enable foreign keys
-        if "sqlite" in str(engine.url):
-            @event.listens_for(engine, "connect")
-            def set_sqlite_pragma(dbapi_conn, connection_record):
-                cursor = dbapi_conn.cursor()
-                cursor.execute("PRAGMA foreign_keys=ON")
-                cursor.close()
-
-        # Create all tables and initialize default data
-        Base.metadata.create_all(bind=engine)
-        init_db()
-
-        yield
-
-        # Optionally drop tables after tests (commented out for inspection)
-        # Base.metadata.drop_all(bind=engine)
-
-
-    @pytest.fixture
-    def test_db():
-        """Provide a database session for each test."""
-        from app.database import SessionLocal
-
-        session = SessionLocal()
+    session = SessionLocal()
+    try:
+        yield session
+    finally:
         try:
-            yield session
-        finally:
             session.rollback()
-            session.close()
+        except Exception:
+            pass
+        session.close()
