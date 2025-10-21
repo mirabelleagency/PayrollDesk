@@ -19,11 +19,6 @@
     <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
     
     <aside class="sidebar" id="sidebar">
-        <button class="sidebar__toggle" id="sidebarToggle" aria-label="Toggle sidebar">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
-            </svg>
-        </button>
         <div class="sidebar__brand">
             <div class="sidebar__logo">PD</div>
             <div class="sidebar__brand-text">
@@ -31,6 +26,11 @@
                 <span class="sidebar__tagline">Manage payroll cycles with confidence</span>
             </div>
         </div>
+        <button class="sidebar__toggle" id="sidebarToggle" aria-label="Toggle sidebar">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
+            </svg>
+        </button>
         <nav class="nav-links">
             {% set path = request.url.path %}
             <p class="sidebar__section-label">Workspace</p>

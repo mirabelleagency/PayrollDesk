@@ -82,20 +82,25 @@ section {
 .sidebar.collapsed .sidebar__brand {
     justify-content: center;
     padding-bottom: 20px;
+    gap: 0;
 }
 
 .sidebar.collapsed .nav-link {
     justify-content: center;
     padding: 12px;
+    gap: 0;
 }
 
 .sidebar.collapsed .sidebar__user {
     justify-content: center;
+    padding: 10px;
+    gap: 0;
 }
 
 .sidebar.collapsed .sidebar__logout {
     justify-content: center;
     padding: 10px;
+    gap: 0;
 }
 
 .sidebar::-webkit-scrollbar {
@@ -459,7 +464,7 @@ section {
 
 .sidebar__toggle {
     position: absolute;
-    top: 28px;
+    top: 110px;
     right: -16px;
     width: 32px;
     height: 32px;
