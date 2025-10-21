@@ -7,8 +7,8 @@ This guide explains how to migrate existing payment data into the Schedules syst
 The system has three main data entities:
 
 1. **Models** - Roster of payment recipients with their metadata
-2. **Schedule Runs** - Monthly payroll cycles generated for a specific month/year
-3. **Payouts** - Individual payments within a schedule run with status tracking
+2. **Payroll Cycles (ScheduleRuns)** - Monthly payroll cycles generated for a specific month/year
+3. **Payouts** - Individual payments within a payroll cycle with status tracking
 
 ## Migration Approaches
 
@@ -53,9 +53,9 @@ python payroll.py --month 2025-11 --input your_models.csv --preview
 
 #### Step 3: Generate Payroll Schedules
 
-1. Go to **Schedules** → **Run Schedule**
+1. Go to **Schedules** and click **New Payroll Cycle**
 2. Select the target month and year
-3. Click **Generate Schedule**
+3. Click **Create Cycle**
 4. The system will:
    - Calculate payment dates based on frequency
    - Generate individual payout records
@@ -79,7 +79,7 @@ schedule_run_id,code,working_name,payment_method,payment_frequency,amount,status
 ```
 
 **Required Columns:**
-- `schedule_run_id` - ID of the schedule run this payout belongs to
+- `schedule_run_id` - ID of the payroll cycle (`ScheduleRun.id`) this payout belongs to
 - `code` - Model code (must match existing Model)
 - `working_name` - Display name
 - `payment_method` - How payment was sent
@@ -149,9 +149,9 @@ This ensures:
 
 #### Phase 2: Generate Future Schedules (Day 1-2)
 
-1. Navigate to **Schedules** → **Run Schedule** (`/schedules/new`)
+1. Navigate to **Schedules** → **Start Payroll Cycle** (`/schedules/new`)
 2. Select October 2025 (or your current month)
-3. Click **Run Schedule** to generate payroll
+3. Click **Create Cycle** to generate payroll
 4. Review the generated table:
    - Verify pay dates are correct
    - Confirm amounts match expectations
@@ -186,7 +186,7 @@ This ensures:
 
 #### Phase 4: Start Using for Live Payroll (Day 3+)
 
-1. Each month, go to `/schedules/new` and run payroll for that month
+1. Each month, go to `/schedules/new` and start a payroll cycle for that period
 2. Review the generated schedule
 3. Use the UI to track payment status:
    - Initially all payouts show as "Not Paid"
@@ -273,7 +273,7 @@ If validation fails, check the error message and fix your CSV before retrying.
 After migration:
 
 1. **Monthly workflow:**
-   - On first business day of month: Run payroll schedule (`/schedules/new`)
+   - On first business day of month: Start payroll cycle (`/schedules/new`)
    - Review generated payouts
    - Process payments
    - Update status in UI as each payment completes

@@ -46,7 +46,7 @@ If you encounter duplicate code errors:
 
 ---
 
-## 2. Payroll Schedule Runs (`/schedules/`)
+## 2. Payroll Cycles (`/schedules/`)
 
 **Single Source of Truth:** (ScheduleRun + Payout) tuple by `(year, month)`
 
@@ -86,7 +86,7 @@ Result: Payouts table has exactly 3 October 2025 payouts (no duplicates)
 
 | Scenario | What Prevents It | Result |
 |----------|------------------|--------|
-| **Accidentally run payroll twice** | Smart refresh logic | Old run replaced cleanly |
+| **Accidentally start payroll cycle twice** | Smart refresh logic | Old cycle replaced cleanly |
 | **Change model roster → re-run October** | Refresh logic + old_payout_data | Payouts regenerated, old notes kept |
 | **Add new model → re-run October** | Clear + regenerate | New model included, others unchanged |
 | **Delete inactive model → re-run** | Refresh filters by current roster | Inactive model's payout removed |
@@ -101,10 +101,10 @@ Result: Payouts table has exactly 3 October 2025 payouts (no duplicates)
 
 ```python
 def import_payouts(csv_path, run_id, db_url):
-    # Step 1: Verify schedule run exists
+    # Step 1: Verify payroll cycle (ScheduleRun) exists
     run = session.query(ScheduleRun).filter(ScheduleRun.id == run_id).first()
     if not run:
-        raise Error(f"Schedule run {run_id} not found")
+        raise Error(f"Payroll cycle (ScheduleRun {run_id}) not found")
     
     # Step 2: Validate each payout row
     for row_num, row in enumerate(reader, start=2):
@@ -246,7 +246,7 @@ if existing:
 **Resolution:**
 - Check Model via `/models/{id}` → Verify amount_monthly and status
 - Edit Model if needed
-- Re-run payroll (refresh will use updated values, preserve paid status)
+- Re-run the payroll cycle (refresh will use updated values, preserve paid status)
 
 ### Scenario: Historical payouts won't import
 
@@ -279,7 +279,7 @@ Row 5: Model with code 'BADCODE' not found in database
 
 ### What's Tracked
 - ✅ Model creation/updates: `Model.created_at`, `Model.updated_at`
-- ✅ Payroll runs: `ScheduleRun.created_at`, `ScheduleRun.target_year/month`
+- ✅ Payroll cycles: `ScheduleRun.created_at`, `ScheduleRun.target_year/month`
 - ✅ Payout status changes: `Payout.status` updates preserved on refresh
 - ✅ Notes on payouts: `Payout.notes` preserved during refresh
 - ❌ Import history: Not explicitly logged (rely on CSV export with timestamps)
@@ -296,11 +296,11 @@ Row 5: Model with code 'BADCODE' not found in database
 | Layer | Data Type | Duplicate Prevention | Enforcement |
 |-------|-----------|----------------------|--------------|
 | **Models** | Roster (code) | Unique constraint on `code` | Database + App check |
-| **Payroll Runs** | Schedule (year/month) | Smart refresh (replace, don't duplicate) | App logic |
-| **Payouts** | Individual payments | Foreign key to valid run + model | Database constraint |
-| **Imports** | Historical data | Admin specifies target run_id | Manual control |
+| **Payroll Cycles** | Schedule (year/month) | Smart refresh (replace, don't duplicate) | App logic |
+| **Payouts** | Individual payments | Foreign key to valid cycle + model | Database constraint |
+| **Imports** | Historical data | Admin specifies target run_id (ScheduleRun id) | Manual control |
 
-**Golden Rule:** Use descriptive codes, import in order (models → runs → historical), and leverage the refresh logic to avoid orphaned data.
+**Golden Rule:** Use descriptive codes, import in order (models → cycles → historical), and leverage the refresh logic to avoid orphaned data.
 
 ---
 

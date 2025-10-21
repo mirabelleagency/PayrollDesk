@@ -39,16 +39,16 @@
     Added {{ import_summary.models_created }} model(s), updated {{ import_summary.models_updated }},
     and created {{ import_summary.payouts_created }} payout(s)
     {% if import_summary.schedule_run_ids and import_summary.schedule_run_ids|length > 1 %}
-        across schedule runs
+    across schedule cycles
         <span>
             {% for run_id in import_summary.schedule_run_ids %}
                 #{{ run_id }}{% if not loop.last %}, {% endif %}
             {% endfor %}
         </span>.
     {% elif import_summary.schedule_run_id %}
-        in schedule run #{{ import_summary.schedule_run_id }}.
+        in schedule cycle #{{ import_summary.schedule_run_id }}.
     {% else %}
-        but no schedule run was created.
+        but no schedule cycle was created.
     {% endif %}
     {% if skipped_rows %}
     <details>
@@ -302,7 +302,7 @@
         </div>
         <div class="checkbox-row">
             <input id="auto_runs" name="auto_runs" type="checkbox" {% if import_auto_runs %}checked{% endif %} onchange="toggleAutoRuns(this.checked)" />
-            <label for="auto_runs">Auto-create payroll runs from payout months</label>
+            <label for="auto_runs">Auto-create payroll cycles from payout months</label>
         </div>
         <div class="form-row">
             <label for="currency">Currency</label>
@@ -463,7 +463,7 @@ async function loadModelPayments(modelId) {
                         <th>Frequency</th>
                         <th>Method</th>
                         <th>Status</th>
-                        <th>Run</th>
+                        <th>Cycle</th>
                         <th>Notes</th>
                         <th>Actions</th>
                     </tr>
@@ -479,7 +479,7 @@ async function loadModelPayments(modelId) {
                 ? `<a href="/schedules/${payout.run.id}">${escapeHtml(payout.run.label)}</a>`
                 : '—';
             const actionCell = payout.run
-                ? `<a class="button secondary button--compact" href="/schedules/${payout.run.id}">View Run</a>`
+                ? `<a class="button secondary button--compact" href="/schedules/${payout.run.id}">View Cycle</a>`
                 : '—';
 
             tableHTML += `

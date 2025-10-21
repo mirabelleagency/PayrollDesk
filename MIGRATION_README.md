@@ -34,7 +34,7 @@ python payroll.py --month 2025-10 --input your_models.csv --preview
 python payroll.py --month 2025-10 --input your_models.csv --out ./exports
 ```
 
-Or use the web UI: `/schedules/new` → Select month → Run Schedule
+Or use the web UI: `/schedules/new` → Select month → Start Payroll Cycle
 
 ### 3. Import Historical Payment Records (Optional)
 
@@ -71,7 +71,7 @@ Optional:
 ### Historical Payouts CSV
 
 Required columns:
-- `schedule_run_id` - ID of the schedule run
+- `schedule_run_id` - ID of the payroll cycle (`ScheduleRun.id`)
 - `code` - Model code (must exist)
 - `working_name` - Display name
 - `payment_method` - How payment was sent

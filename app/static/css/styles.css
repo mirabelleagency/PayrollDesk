@@ -4903,6 +4903,210 @@ section {
     font-weight: 600;
 }
 
+/* Analytics Compact Inline Filter Card */
+.analytics-filter-card {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.75), rgba(15, 23, 42, 0.9));
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: 12px;
+    padding: 18px 22px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.analytics-filter-form__row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.analytics-filter-form__label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #cbd5e1;
+    font-weight: 600;
+    font-size: 0.95rem;
+    white-space: nowrap;
+}
+
+.analytics-filter-form__icon {
+    font-size: 1.1rem;
+    opacity: 0.9;
+}
+
+.analytics-filter-form__inputs {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.analytics-filter-form__date {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(15, 23, 42, 0.6);
+    color: #e2e8f0;
+    font-size: 0.9rem;
+    font-family: inherit;
+    transition: all 0.2s ease;
+    min-width: 145px;
+}
+
+.analytics-filter-form__date:hover {
+    border-color: rgba(148, 163, 184, 0.35);
+    background: rgba(15, 23, 42, 0.75);
+}
+
+.analytics-filter-form__date:focus {
+    outline: none;
+    border-color: rgba(59, 130, 246, 0.5);
+    background: rgba(15, 23, 42, 0.85);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.analytics-filter-form__date::-webkit-calendar-picker-indicator {
+    filter: invert(0.8);
+    cursor: pointer;
+    opacity: 0.7;
+}
+
+.analytics-filter-form__date::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+}
+
+.analytics-filter-form__arrow {
+    color: #64748b;
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+.analytics-filter-form__quick {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.analytics-quick-chip {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    background: rgba(15, 23, 42, 0.5);
+    color: #94a3b8;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.analytics-quick-chip:hover {
+    border-color: rgba(59, 130, 246, 0.35);
+    background: rgba(59, 130, 246, 0.12);
+    color: #93c5fd;
+}
+
+.analytics-quick-chip--active {
+    border-color: rgba(59, 130, 246, 0.6);
+    background: rgba(59, 130, 246, 0.2);
+    color: #bfdbfe;
+    font-weight: 600;
+}
+
+.analytics-filter-form__actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+}
+
+.analytics-filter-form__actions .button {
+    padding: 8px 16px;
+    font-size: 0.9rem;
+}
+
+.analytics-filter-form__actions .button--ghost {
+    background: transparent;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    color: #cbd5e1;
+}
+
+.analytics-filter-form__actions .button--ghost:hover {
+    background: rgba(148, 163, 184, 0.08);
+    border-color: rgba(148, 163, 184, 0.3);
+}
+
+/* Responsive adjustments for compact filter */
+@media (max-width: 1200px) {
+    .analytics-filter-form__row {
+        gap: 12px;
+    }
+    
+    .analytics-filter-form__actions {
+        margin-left: 0;
+    }
+}
+
+@media (max-width: 768px) {
+    .analytics-filter-card {
+        padding: 16px 18px;
+    }
+    
+    .analytics-filter-form__row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+    }
+    
+    .analytics-filter-form__label {
+        justify-content: flex-start;
+    }
+    
+    .analytics-filter-form__inputs {
+        flex-wrap: wrap;
+    }
+    
+    .analytics-filter-form__date {
+        flex: 1;
+        min-width: 130px;
+    }
+    
+    .analytics-filter-form__quick {
+        width: 100%;
+    }
+    
+    .analytics-filter-form__actions {
+        width: 100%;
+        margin-left: 0;
+    }
+    
+    .analytics-filter-form__actions .button {
+        flex: 1;
+    }
+}
+
+@media (max-width: 480px) {
+    .analytics-filter-form__inputs {
+        flex-direction: column;
+        width: 100%;
+        gap: 8px;
+    }
+    
+    .analytics-filter-form__date {
+        width: 100%;
+    }
+    
+    .analytics-filter-form__arrow {
+        display: none;
+    }
+    
+    .analytics-quick-chip {
+        flex: 1;
+        text-align: center;
+    }
+}
+
 /* Responsive Enhancements */
 @media (max-width: 768px) {
     .filter-row {
@@ -4936,5 +5140,7 @@ section {
         font-size: 1.25rem;
     }
 }
+
+
 
 

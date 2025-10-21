@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}All Payroll Runs · Payroll Desk{% endblock %}
+{% block title %}All Payroll Cycles · Payroll Desk{% endblock %}
 
 {% macro render_run_card(run, allow_delete=False) %}
 <article class="run-card-compact">
@@ -49,8 +49,8 @@
             <span class="run-card-compact__action-arrow">→</span>
         </a>
         {% if allow_delete %}
-        <form method="post" action="/schedules/{{ run.id }}/delete" onsubmit="return confirm('Delete this payroll run?');" style="margin-left:8px;">
-            <button class="run-card-compact__action-button run-card-compact__action-button--danger" type="submit" aria-label="Delete run">Delete</button>
+        <form method="post" action="/schedules/{{ run.id }}/delete" onsubmit="return confirm('Delete this payroll cycle?');" style="margin-left:8px;">
+            <button class="run-card-compact__action-button run-card-compact__action-button--danger" type="submit" aria-label="Delete cycle">Delete</button>
         </form>
         {% endif %}
     </div>
@@ -60,14 +60,14 @@
 {% block content %}
 <section class="page-header">
     <div>
-        <h1 class="page-title">All Payroll Runs</h1>
+    <h1 class="page-title">All Payroll Cycles</h1>
         <p>Browse every payroll cycle for {{ year }}.</p>
     </div>
     <div class="header-actions">
         <a class="button secondary" href="/schedules">Back to Dashboard</a>
         <a class="button secondary" href="{{ table_view_url }}">Table View</a>
         {% if user.role == 'admin' %}
-        <a class="button" href="/schedules/new">Run Payroll</a>
+    <a class="button" href="/schedules/new">Start Payroll Cycle</a>
         {% endif %}
     </div>
 </section>
@@ -76,7 +76,7 @@
     <div class="section-heading">
         <div>
             <h2>Select Year</h2>
-            <p>Jump to a different archive of runs.</p>
+            <p>Jump to a different archive of cycles.</p>
         </div>
     </div>
     <form class="year-filter" method="get">
@@ -98,8 +98,8 @@
 <section class="card">
     <div class="section-heading">
         <div>
-            <h2>Payroll Runs</h2>
-            <p>{{ runs|length }} run{% if runs|length != 1 %}s{% endif %} recorded for {{ year }}.</p>
+            <h2>Payroll Cycles</h2>
+            <p>{{ runs|length }} cycle{% if runs|length != 1 %}s{% endif %} recorded for {{ year }}.</p>
         </div>
     </div>
     {% if runs %}
@@ -109,7 +109,7 @@
         {% endfor %}
     </div>
     {% else %}
-    <p class="empty-state">No payroll runs were recorded for {{ year }}.</p>
+    <p class="empty-state">No payroll cycles were recorded for {{ year }}.</p>
     {% endif %}
 </section>
 {% endblock %}

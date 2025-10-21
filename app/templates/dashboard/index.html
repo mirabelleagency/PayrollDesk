@@ -51,11 +51,11 @@ document.addEventListener('DOMContentLoaded', function () {
 {% if summary.latest_run_is_current_month %}
     {% set run_paid_title = 'Current Month Paid' %}
     {% set run_outstanding_title = 'Current Month Outstanding' %}
-    {% set run_detail_title = 'Current Month Run' %}
+    {% set run_detail_title = 'Current Month Cycle' %}
 {% else %}
-    {% set run_paid_title = 'Latest Run Paid' %}
-    {% set run_outstanding_title = 'Latest Run Outstanding' %}
-    {% set run_detail_title = 'Latest Run' %}
+    {% set run_paid_title = 'Latest Cycle Paid' %}
+    {% set run_outstanding_title = 'Latest Cycle Outstanding' %}
+    {% set run_detail_title = 'Latest Cycle' %}
 {% endif %}
 
 <!-- Hero KPI Section -->
@@ -142,10 +142,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     {% if summary.latest_run %}
                         {{ summary.latest_run.cycle_display }} · Generated {{ summary.latest_run.created_at|display_date }}
                     {% else %}
-                        No runs yet
+                        No cycles yet
                     {% endif %}
                 </div>
-                <div class="metric-number" style="font-size: 1rem; margin-top: 4px;">Total Runs: {{ summary.total_runs }}</div>
+                <div class="metric-number" style="font-size: 1rem; margin-top: 4px;">Total Cycles: {{ summary.total_runs }}</div>
             </div>
             <div class="metric-item">
                 <div class="metric-label">{{ run_paid_title }}</div>
@@ -215,11 +215,11 @@ document.addEventListener('DOMContentLoaded', function () {
     <div class="card summary-card">
         <div class="card-heading">
             <h2>Recent Activity</h2>
-            <a class="button secondary button--compact" href="/schedules/all-table">View All Runs</a>
+            <a class="button secondary button--compact" href="/schedules/all-table">View All Cycles</a>
         </div>
         <div class="summary-stats">
             <div class="summary-stat">
-                <div class="summary-stat-label">Last 5 Runs</div>
+                <div class="summary-stat-label">Last 5 Cycles</div>
                 <div class="summary-stat-value">{{ recent_runs|length }}</div>
             </div>
             <div class="summary-stat">
@@ -240,7 +240,7 @@ document.addEventListener('DOMContentLoaded', function () {
             {% endfor %}
         </div>
         {% else %}
-        <p class="empty-state" style="padding: 16px;">No runs yet. Create your first payroll run to get started.</p>
+    <p class="empty-state" style="padding: 16px;">No cycles yet. Create your first payroll cycle to get started.</p>
         {% endif %}
     </div>
 

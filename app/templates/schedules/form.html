@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Run Payroll · Payroll Desk{% endblock %}
+{% block title %}Start Payroll Cycle · Payroll Desk{% endblock %}
 {% block content %}
 <section class="page-header">
     <div>
-        <h1 class="page-title">Run Payroll</h1>
-        <p>Choose the cycle, currency, and export destination for this schedule run.</p>
+    <h1 class="page-title">Start Payroll Cycle</h1>
+    <p>Select the period, currency, and export destination for this payroll cycle.</p>
     </div>
 </section>
 
@@ -27,7 +27,7 @@
             <input id="output_dir" name="output_dir" type="text" required value="{{ default_output }}" />
         </div>
         <div class="form-actions">
-            <button class="button" type="submit">Generate Schedule</button>
+            <button class="button" type="submit">Create Cycle</button>
             <a class="button secondary" href="/schedules">Cancel</a>
         </div>
     </form>

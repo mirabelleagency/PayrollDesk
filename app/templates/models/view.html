@@ -510,7 +510,7 @@
         </div>
         
         <div style="padding: 24px; background: rgba(15, 23, 42, 0.3); border-bottom: 1px solid rgba(148, 163, 184, 0.08);">
-            <p style="margin: 0; font-size: 14px; color: #94a3b8;">Log one-off payments that fall outside scheduled payroll runs.</p>
+            <p style="margin: 0; font-size: 14px; color: #94a3b8;">Log one-off payments that fall outside scheduled payroll cycles.</p>
         </div>
 
         {% if user.role == 'admin' %}
@@ -662,7 +662,7 @@
         <div class="model-view-empty">
             <div class="model-view-empty__icon">📭</div>
             <p class="model-view-empty__text">No payments recorded yet for this model.</p>
-            <p class="model-view-empty__subtext">Payments will appear here once they're scheduled in <a href="/schedules" style="color: #60a5fa;">Schedule Runs</a>.</p>
+            <p class="model-view-empty__subtext">Payments will appear here once they're scheduled in <a href="/schedules" style="color: #60a5fa;">Schedule Cycles</a>.</p>
         </div>
         {% endif %}
     </div>

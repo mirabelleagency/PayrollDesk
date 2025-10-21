@@ -1,6 +1,6 @@
 # Payroll Desk
 
-Automates recurring payroll schedules for the agency, supports manual roster imports via CLI, and now provides a web UI for managing models and schedule runs with persistent storage.
+Automates recurring payroll schedules for the agency, supports manual roster imports via CLI, and now provides a web UI for managing models and payroll cycles with persistent storage.
 
 ## Requirements
 
@@ -22,7 +22,7 @@ The CLI writes Excel and CSV bundles to the chosen output directory and prints a
 
 ## Web Application
 
-Launch the FastAPI server to manage models, run schedules, and download exports via the browser:
+Launch the FastAPI server to manage models, orchestrate payroll cycles, and download exports via the browser:
 
 ```powershell
 uvicorn app.main:app --reload
@@ -31,9 +31,9 @@ uvicorn app.main:app --reload
 Visit `http://127.0.0.1:8000` and use the navigation links to:
 
 - Add, edit, or delete model records
-- Trigger payroll runs for the target month
+- Trigger payroll cycles for the target month
 - Inspect payout schedules and validation findings
-- Download Excel/CSV exports generated for each run
+- Download Excel/CSV exports generated for each cycle
 
 The application stores data in `data/payroll.db` (SQLite). Override the location by setting the `PAYROLL_DATABASE_URL` environment variable.
 

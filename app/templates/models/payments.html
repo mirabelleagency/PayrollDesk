@@ -177,7 +177,7 @@
                     <th>Frequency</th>
                     <th>Method</th>
                     <th>Status</th>
-                    <th>Run</th>
+                    <th>Cycle</th>
                     <th>Notes</th>
                     <th>Actions</th>
                 </tr>
@@ -222,7 +222,7 @@
                     <td>
                         {% if run %}
                         <a href="/schedules/{{ run.id }}" style="color: #60a5fa; text-decoration: none;">
-                            Run #{{ run.id }}
+                            Cycle #{{ run.id }}
                         </a>
                         <br><small style="color: #94a3b8;">{{ run.target_year }}-{{ '%02d'|format(run.target_month) }}</small>
                         {% else %}
@@ -245,7 +245,7 @@
                             {% if run %}
                             <a href="/schedules/{{ run.id }}#payment-{{ payout.id }}" class="action-button action-button--purple">
                                 <span>📋</span>
-                                <span>View in Run</span>
+                                <span>View in Cycle</span>
                             </a>
                             {% endif %}
                         </div>

@@ -1,13 +1,13 @@
 {% extends "base.html" %}
-{% block title %}Schedule {{ run.id }} · Payroll Desk{% endblock %}
+{% block title %}Payroll Cycle {{ run.id }} · Payroll Desk{% endblock %}
 {% block content %}
 
 <!-- Page Header -->
 <section class="page-header" style="margin-bottom: 24px;">
     <div>
-        <h1 class="page-title">💳 {{ run.cycle_display }} Payroll</h1>
+    <h1 class="page-title">💳 {{ run.cycle_display }} Payroll Cycle</h1>
         <p style="color: #94a3b8; margin: 8px 0 0 0;">
-            <span>Run #{{ run.id }}</span>
+            <span>Cycle #{{ run.id }}</span>
             <span style="margin: 0 8px; color: #475569;">•</span>
             <span>Generated {{ run.created_at|display_date }}</span>
             <span style="margin: 0 8px; color: #475569;">•</span>
@@ -16,7 +16,7 @@
     </div>
     <div class="header-actions">
         <a class="button secondary" href="/schedules">
-            <span>← Back to Runs</span>
+            <span>← Back to Cycles</span>
         </a>
         <a class="button button--primary" href="/schedules/{{ run.id }}/download/schedule_csv">
             <span>📥</span>
@@ -44,7 +44,7 @@
     <div class="schedule-metric schedule-metric--primary">
         <div class="schedule-metric__header">
             <span class="schedule-metric__icon">✅</span>
-            <span class="schedule-metric__label">Paid This Run</span>
+            <span class="schedule-metric__label">Paid This Cycle</span>
         </div>
         <div class="schedule-metric__value">{{ run.currency }} {{ summary.paid_total|money }}</div>
         <div class="schedule-metric__breakdown">
@@ -57,7 +57,7 @@
     <div class="schedule-metric schedule-metric--warning">
         <div class="schedule-metric__header">
             <span class="schedule-metric__icon">⏳</span>
-            <span class="schedule-metric__label">Unpaid This Run</span>
+            <span class="schedule-metric__label">Unpaid This Cycle</span>
         </div>
         <div class="schedule-metric__value">{{ run.currency }} {{ summary.unpaid_total|money }}</div>
         <div class="schedule-metric__breakdown">
@@ -118,7 +118,7 @@
     <div class="section-heading">
         <div>
             <h2><span class="section-icon">📋</span> Payment Schedule</h2>
-            <p style="color: #94a3b8; margin: 4px 0 0 0;">{{ payouts|length }} payment{{ 's' if payouts|length != 1 else '' }} in this run</p>
+            <p style="color: #94a3b8; margin: 4px 0 0 0;">{{ payouts|length }} payment{{ 's' if payouts|length != 1 else '' }} in this cycle</p>
         </div>
     </div>
 
@@ -354,7 +354,7 @@
             </tbody>
             <tfoot>
                 <tr style="background: rgba(59, 130, 246, 0.05); font-weight: 600;">
-                    <th colspan="6" style="text-align: right; padding: 16px;">Run Total</th>
+                    <th colspan="6" style="text-align: right; padding: 16px;">Cycle Total</th>
                     <th style="font-size: 16px; color: #3b82f6;">{{ run.currency }} {{ payout_total|money }}</th>
                     <th colspan="2"></th>
                 </tr>

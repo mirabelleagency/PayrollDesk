@@ -14,7 +14,7 @@
         <div class="export-card__icon">💰</div>
         <div class="export-card__content">
             <h3 class="export-card__title">Payroll Payouts</h3>
-            <p class="export-card__description">All scheduled payments from payroll runs with status tracking</p>
+            <p class="export-card__description">All scheduled payments from payroll cycles with status tracking</p>
         </div>
         <label class="export-card__checkbox">
             <input type="checkbox" name="datasets" value="payouts" checked data-card="payouts">
@@ -26,7 +26,7 @@
         <div class="export-card__icon">📝</div>
         <div class="export-card__content">
             <h3 class="export-card__title">Ad Hoc Payments</h3>
-            <p class="export-card__description">One-off transactions and special payments outside regular runs</p>
+            <p class="export-card__description">One-off transactions and special payments outside regular cycles</p>
         </div>
         <label class="export-card__checkbox">
             <input type="checkbox" name="datasets" value="adhoc" data-card="adhoc">
@@ -49,8 +49,8 @@
     <div class="export-card export-card--runs">
         <div class="export-card__icon">🗓️</div>
         <div class="export-card__content">
-            <h3 class="export-card__title">Schedule Runs</h3>
-            <p class="export-card__description">Complete payroll run history with summary totals</p>
+            <h3 class="export-card__title">Schedule Cycles</h3>
+            <p class="export-card__description">Complete payroll cycle history with summary totals</p>
         </div>
         <label class="export-card__checkbox">
             <input type="checkbox" name="datasets" value="runs" data-card="runs">
@@ -59,42 +59,35 @@
     </div>
 </section>
 
-<!-- Date Range & Export Controls -->
-<section class="card">
-    <form id="analytics-form" class="export-controls">
-        <div class="export-controls__date-section export-controls__date-section--inline">
-            <div class="export-controls__heading-inline">
-                <span class="export-controls__icon">📅</span>
-                <label for="analytics-start" class="export-controls__inline-label">Date range</label>
+<!-- Compact Inline Filter Card -->
+<section class="analytics-filter-card">
+    <form id="analytics-form" class="analytics-filter-form">
+        <div class="analytics-filter-form__row">
+            <div class="analytics-filter-form__label">
+                <span class="analytics-filter-form__icon">📅</span>
+                <span>Date Range</span>
             </div>
-            <div class="export-controls__date-inputs--inline">
-                <div class="filter-group">
-                    <label class="visually-hidden" for="analytics-start">Start Date</label>
-                    <input id="analytics-start" name="start" type="date" value="{{ default_start }}" required>
-                </div>
-                <div class="export-controls__date-separator">→</div>
-                <div class="filter-group">
-                    <label class="visually-hidden" for="analytics-end">End Date</label>
-                    <input id="analytics-end" name="end" type="date" value="{{ default_end }}" required>
-                </div>
-                <div class="export-controls__quick-ranges--inline" id="analytics-quick-ranges">
-                    <button class="quick-range-chip" type="button" data-range="past_7_days" data-days="7">7d</button>
-                    <button class="quick-range-chip" type="button" data-range="past_30_days" data-days="30">30d</button>
-                    <button class="quick-range-chip" type="button" data-range="past_3_months" data-months="3">3m</button>
-                    <button class="quick-range-chip" type="button" data-range="past_6_months" data-months="6">6m</button>
-                    <button class="quick-range-chip" type="button" data-range="past_1_year" data-months="12">1y</button>
-                </div>
+            <div class="analytics-filter-form__inputs">
+                <input id="analytics-start" name="start" type="date" value="{{ default_start }}" required class="analytics-filter-form__date" aria-label="Start Date">
+                <span class="analytics-filter-form__arrow">→</span>
+                <input id="analytics-end" name="end" type="date" value="{{ default_end }}" required class="analytics-filter-form__date" aria-label="End Date">
             </div>
-        </div>
-        
-        <div class="export-controls__actions">
-            <button class="button button--primary button--large" type="submit">
-                <span class="button__icon">🔍</span>
-                <span>Generate Export</span>
-            </button>
-            <button class="button secondary button--large" type="button" id="analytics-reset">
-                <span>Reset Filters</span>
-            </button>
+            <div class="analytics-filter-form__quick" id="analytics-quick-ranges">
+                <button class="analytics-quick-chip" type="button" data-range="past_7_days" data-days="7" aria-label="Last 7 days">7d</button>
+                <button class="analytics-quick-chip" type="button" data-range="past_30_days" data-days="30" aria-label="Last 30 days">30d</button>
+                <button class="analytics-quick-chip" type="button" data-range="past_3_months" data-months="3" aria-label="Last 3 months">3m</button>
+                <button class="analytics-quick-chip" type="button" data-range="past_6_months" data-months="6" aria-label="Last 6 months">6m</button>
+                <button class="analytics-quick-chip" type="button" data-range="past_1_year" data-months="12" aria-label="Last year">1y</button>
+            </div>
+            <div class="analytics-filter-form__actions">
+                <button class="button button--primary" type="submit">
+                    <span class="button__icon">🔍</span>
+                    <span>Generate</span>
+                </button>
+                <button class="button button--ghost" type="button" id="analytics-reset" aria-label="Reset filters">
+                    <span>Reset</span>
+                </button>
+            </div>
         </div>
     </form>
 </section>
@@ -274,8 +267,8 @@
         if (!quickRangeContainer) {
             return;
         }
-        quickRangeContainer.querySelectorAll('.quick-range-chip').forEach((button) => {
-            button.classList.remove('quick-range-chip--active');
+        quickRangeContainer.querySelectorAll('.analytics-quick-chip').forEach((button) => {
+            button.classList.remove('analytics-quick-chip--active');
         });
     }
 
@@ -299,11 +292,11 @@
         endInput.value = formatDate(today);
         activeQuickRange = button.getAttribute('data-range');
         if (quickRangeContainer) {
-            quickRangeContainer.querySelectorAll('.quick-range-chip').forEach((btn) => {
+            quickRangeContainer.querySelectorAll('.analytics-quick-chip').forEach((btn) => {
                 if (btn === button) {
-                    btn.classList.add('quick-range-chip--active');
+                    btn.classList.add('analytics-quick-chip--active');
                 } else {
-                    btn.classList.remove('quick-range-chip--active');
+                    btn.classList.remove('analytics-quick-chip--active');
                 }
             });
         }
@@ -360,7 +353,7 @@
             rangeField.textContent = `${meta.start} → ${meta.end}`;
             
             const datasetLabels = meta.datasets.map(key => {
-                const labels = { payouts: 'Payouts', adhoc: 'Ad Hoc', adjustments: 'Adjustments', runs: 'Runs' };
+                const labels = { payouts: 'Payouts', adhoc: 'Ad Hoc', adjustments: 'Adjustments', runs: 'Cycles' };
                 return labels[key] || key;
             });
             datasetsField.textContent = datasetLabels.join(', ') || 'None';
@@ -430,7 +423,7 @@
     });
     
     if (quickRangeContainer) {
-        quickRangeContainer.querySelectorAll('.quick-range-chip').forEach((button) => {
+        quickRangeContainer.querySelectorAll('.analytics-quick-chip').forEach((button) => {
             button.addEventListener('click', () => {
                 setQuickRange(button);
                 runAnalytics();

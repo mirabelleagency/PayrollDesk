@@ -5,13 +5,13 @@
 <section class="page-header">
     <div>
         <h1 class="page-title">💼 Payroll Hub</h1>
-        <p>Centralized command center for payroll runs, payments, and financial tracking.</p>
+        <p>Centralized command center for payroll cycles, payments, and financial tracking.</p>
     </div>
     <div class="header-actions">
         {% if user.role == 'admin' %}
         <a class="button button--primary" href="/schedules/new">
             <span class="button__icon">➕</span>
-            <span>New Payroll Run</span>
+            <span>New Payroll Cycle</span>
         </a>
         {% endif %}
     </div>
@@ -56,7 +56,7 @@
         <div class="hero-stat-card__value">{{ current_year_summary.currency or 'USD' }} {{ current_year_summary.total_payout|money }}</div>
         <div class="hero-stat-card__meta">
             <span>{{ scope_label }}</span>
-            <span class="hero-stat-card__badge">{{ current_year_summary.run_count }} run{{ 's' if current_year_summary.run_count != 1 else '' }}</span>
+            <span class="hero-stat-card__badge">{{ current_year_summary.run_count }} cycle{{ 's' if current_year_summary.run_count != 1 else '' }}</span>
         </div>
     </div>
     
@@ -99,11 +99,11 @@
 
 <!-- Quick Access Navigation Grid -->
 <section class="dashboard-nav-grid">
-    <a class="dashboard-nav-card dashboard-nav-card--scheduled" href="#current-month-runs">
+    <a class="dashboard-nav-card dashboard-nav-card--scheduled" href="#all-cycles-table">
         <div class="dashboard-nav-card__icon">🗓️</div>
         <div class="dashboard-nav-card__content">
-            <h3 class="dashboard-nav-card__title">Monthly Runs</h3>
-            <p class="dashboard-nav-card__description">View and manage scheduled payroll runs for {{ selected_month_year_label or current_month_year_label }}</p>
+                <h3 class="dashboard-nav-card__title">Monthly Cycles</h3>
+            <p class="dashboard-nav-card__description">View and manage scheduled payroll cycles for {{ selected_month_year_label or current_month_year_label }}</p>
             <div class="dashboard-nav-card__badge">{{ monthly_summary.run_count }} active</div>
         </div>
         <span class="dashboard-nav-card__arrow">→</span>
@@ -128,8 +128,8 @@
     <a class="dashboard-nav-card dashboard-nav-card--history" href="/schedules/all?year={{ current_year }}">
         <div class="dashboard-nav-card__icon">📊</div>
         <div class="dashboard-nav-card__content">
-            <h3 class="dashboard-nav-card__title">All Runs</h3>
-            <p class="dashboard-nav-card__description">Complete history and archive of all payroll runs</p>
+                <h3 class="dashboard-nav-card__title">All Cycles</h3>
+            <p class="dashboard-nav-card__description">Complete history and archive of all payroll cycles</p>
             <div class="dashboard-nav-card__badge">{{ current_year }} archive</div>
         </div>
         <span class="dashboard-nav-card__arrow">→</span>
@@ -139,7 +139,7 @@
         <div class="dashboard-nav-card__icon">💳</div>
         <div class="dashboard-nav-card__content">
             <h3 class="dashboard-nav-card__title">All Payments</h3>
-            <p class="dashboard-nav-card__description">Comprehensive view of all payments across all runs</p>
+            <p class="dashboard-nav-card__description">Comprehensive view of all payments across all cycles</p>
             <div class="dashboard-nav-card__badge">Consolidated</div>
         </div>
         <span class="dashboard-nav-card__arrow">→</span>
@@ -147,16 +147,17 @@
 </section>
 
 
-<!-- All Runs Table -->
-<section class="card" id="all-runs-table">
+<!-- All Cycles Table -->
+<section class="card" id="all-cycles-table">
     <div class="section-heading">
         <div>
-            <h2><span class="section-icon">📋</span> All Payroll Runs</h2>
-            <p>{{ current_year_summary.run_count }} run{% if current_year_summary.run_count != 1 %}s{% endif %} recorded · {{ current_year_summary.currency }} {{ current_year_summary.total_payout|money }} total payout</p>
+            <h2><span class="section-icon">📋</span> All Payroll Cycles</h2>
+            <p>{{ current_year_summary.run_count }} cycle{% if current_year_summary.run_count != 1 %}s{% endif %} recorded · {{ current_year_summary.currency }} {{ current_year_summary.total_payout|money }} total payout</p>
         </div>
         <div class="heading-actions">
-            <a class="button secondary button--compact" href="{{ table_view_url }}">
-                <span>Open Full Table →</span>
+            <a class="button button--compact" href="{{ export_url }}">
+                <span class="button__icon">⬇️</span>
+                <span>Export to Excel</span>
             </a>
         </div>
     </div>
@@ -204,9 +205,9 @@
         <table class="data-table">
             <thead>
                 <tr>
-                    <th>Run</th>
+                    <th>Cycle ID</th>
                     <th>Created</th>
-                    <th>Cycle</th>
+                    <th>Period</th>
                     <th>Currency</th>
                     <th>Models Paid</th>
                     <th>Total</th>
@@ -230,7 +231,7 @@
                         <div class="table-actions">
                             <a class="button button--compact" href="/schedules/{{ run.id }}">Open</a>
                             {% if user.role == 'admin' %}
-                            <form method="post" action="/schedules/{{ run.id }}/delete" onsubmit="return confirm('Delete this payroll run?');">
+                            <form method="post" action="/schedules/{{ run.id }}/delete" onsubmit="return confirm('Delete this payroll cycle?');">
                                 <button class="button button--compact button--danger" type="submit">Delete</button>
                             </form>
                             {% endif %}
@@ -242,7 +243,7 @@
         </table>
     </div>
     {% else %}
-    <p class="empty-state">No payroll runs recorded for {{ scope_label }}.</p>
+    <p class="empty-state">No payroll cycles recorded for {{ scope_label }}.</p>
     {% endif %}
 </section>
 
@@ -252,12 +253,12 @@
     <div class="empty-state-card">
         <span class="empty-state-card__icon">🚀</span>
         <h2 class="empty-state-card__title">Welcome to Payroll Hub</h2>
-        <p class="empty-state-card__description">Get started by creating your first payroll run or adding ad hoc payments</p>
+    <p class="empty-state-card__description">Get started by creating your first payroll cycle or adding ad hoc payments</p>
         <div class="empty-state-card__actions">
             {% if user.role == 'admin' %}
             <a class="button button--primary" href="/schedules/new">
                 <span>➕</span>
-                <span>Create First Payroll Run</span>
+                <span>Create First Payroll Cycle</span>
             </a>
             {% endif %}
             <a class="button secondary" href="/schedules/adhoc">
@@ -308,7 +309,7 @@
                     <td>{{ payment.notes or '—' }}</td>
                     <td>
                         <div class="actions">
-                            <a class="button secondary button--compact" href="/schedules/{{ payment.run_id }}?show=overdue">Open Run</a>
+                            <a class="button secondary button--compact" href="/schedules/{{ payment.run_id }}?show=overdue">Open Cycle</a>
                         </div>
                     </td>
                 </tr>
@@ -358,7 +359,7 @@
                     <td>{{ payment.notes or '—' }}</td>
                     <td>
                         <div class="actions">
-                            <a class="button secondary button--compact" href="/schedules/{{ payment.run_id }}">Open Run</a>
+                            <a class="button secondary button--compact" href="/schedules/{{ payment.run_id }}">Open Cycle</a>
                         </div>
                     </td>
                 </tr>
@@ -604,7 +605,7 @@
     color: #fca5a5;
 }
 
-/* Run Cards Grid */
+/* Cycle Cards Grid */
 .run-cards-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
