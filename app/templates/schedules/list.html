@@ -99,12 +99,33 @@
 
 <!-- Quick Access Navigation Grid -->
 <section class="dashboard-nav-grid">
-    <a class="dashboard-nav-card dashboard-nav-card--scheduled" href="#all-cycles-table">
-        <div class="dashboard-nav-card__icon">🗓️</div>
+    <a class="dashboard-nav-card dashboard-nav-card--review" href="#all-cycles-table">
+        <div class="dashboard-nav-card__icon">⚠️</div>
         <div class="dashboard-nav-card__content">
-                <h3 class="dashboard-nav-card__title">Monthly Cycles</h3>
-            <p class="dashboard-nav-card__description">View and manage scheduled payroll cycles for {{ selected_month_year_label or current_month_year_label }}</p>
-            <div class="dashboard-nav-card__badge">{{ monthly_summary.run_count }} active</div>
+                <h3 class="dashboard-nav-card__title">Pending Approvals</h3>
+            <p class="dashboard-nav-card__description">Payments requiring review and action</p>
+            {% set pending_total = overdue_count + on_hold_count %}
+            {% if pending_total > 0 %}
+            <div class="dashboard-nav-card__badge dashboard-nav-card__badge--warning">{{ pending_total }} need attention</div>
+            {% else %}
+            <div class="dashboard-nav-card__badge dashboard-nav-card__badge--success">All clear</div>
+            {% endif %}
+        </div>
+        <span class="dashboard-nav-card__arrow">→</span>
+    </a>
+
+    <a class="dashboard-nav-card dashboard-nav-card--history" href="/schedules/all?year={{ current_year }}">
+        <div class="dashboard-nav-card__icon">📊</div>
+        <div class="dashboard-nav-card__content">
+                <h3 class="dashboard-nav-card__title">Overdue Payments</h3>
+            <p class="dashboard-nav-card__description">Payments that require immediate attention and processing</p>
+            <div class="dashboard-nav-card__badge">
+                {% if overdue_count > 0 %}
+                <span class="badge-alert">{{ overdue_count }} overdue</span>
+                {% else %}
+                No overdue payments
+                {% endif %}
+            </div>
         </div>
         <span class="dashboard-nav-card__arrow">→</span>
     </a>
@@ -125,21 +146,11 @@
         <span class="dashboard-nav-card__arrow">→</span>
     </a>
 
-    <a class="dashboard-nav-card dashboard-nav-card--history" href="/schedules/all?year={{ current_year }}">
-        <div class="dashboard-nav-card__icon">📊</div>
-        <div class="dashboard-nav-card__content">
-                <h3 class="dashboard-nav-card__title">All Cycles</h3>
-            <p class="dashboard-nav-card__description">Complete history and archive of all payroll cycles</p>
-            <div class="dashboard-nav-card__badge">{{ current_year }} archive</div>
-        </div>
-        <span class="dashboard-nav-card__arrow">→</span>
-    </a>
-
     <a class="dashboard-nav-card dashboard-nav-card--payments" href="/models/payments">
         <div class="dashboard-nav-card__icon">💳</div>
         <div class="dashboard-nav-card__content">
-            <h3 class="dashboard-nav-card__title">All Payments</h3>
-            <p class="dashboard-nav-card__description">Comprehensive view of all payments across all cycles</p>
+            <h3 class="dashboard-nav-card__title">Salary Payments</h3>
+            <p class="dashboard-nav-card__description">Comprehensive view of salary payments across all cycles</p>
             <div class="dashboard-nav-card__badge">Consolidated</div>
         </div>
         <span class="dashboard-nav-card__arrow">→</span>
@@ -469,6 +480,16 @@
     border-color: rgba(16, 185, 129, 0.3);
 }
 
+.dashboard-nav-card--review {
+    border-left: 4px solid #eab308;
+}
+
+.dashboard-nav-card--review .dashboard-nav-card__badge {
+    background: rgba(234, 179, 8, 0.15);
+    color: #facc15;
+    border-color: rgba(234, 179, 8, 0.3);
+}
+
 .dashboard-nav-card--payments {
     border-left: 4px solid #f59e0b;
 }
@@ -484,6 +505,18 @@
     color: #ef4444 !important;
     border-color: rgba(239, 68, 68, 0.4) !important;
     animation: pulse-alert 2s ease-in-out infinite;
+}
+
+.dashboard-nav-card__badge--warning {
+    background: rgba(234, 179, 8, 0.2) !important;
+    color: #facc15 !important;
+    border-color: rgba(234, 179, 8, 0.4) !important;
+}
+
+.dashboard-nav-card__badge--success {
+    background: rgba(16, 185, 129, 0.15) !important;
+    color: #34d399 !important;
+    border-color: rgba(16, 185, 129, 0.3) !important;
 }
 
 /* Dashboard Filters */
