@@ -18,33 +18,9 @@
 </section>
 
 <!-- Alert Banners for Action Items -->
-{% set overdue_count = overdue_payments|length if overdue_payments else 0 %}
-{% set on_hold_count = on_hold_payments|length if on_hold_payments else 0 %}
-{% if overdue_count > 0 or on_hold_count > 0 %}
-<section class="alert-banner-strip">
-    {% if overdue_count > 0 %}
-    <a class="alert-banner alert-banner--danger" href="/schedules?show=overdue">
-        <span class="alert-banner__icon">🚨</span>
-        <div class="alert-banner__content">
-            <strong class="alert-banner__title">{{ overdue_count }} Overdue Payment{{ 's' if overdue_count != 1 else '' }}</strong>
-            <span class="alert-banner__text">Immediate attention required</span>
-        </div>
-        <span class="alert-banner__arrow">→</span>
-    </a>
-    {% endif %}
-    {% if on_hold_count > 0 %}
-    <a class="alert-banner alert-banner--warning" href="/schedules?show=on_hold">
-        <span class="alert-banner__icon">⏸️</span>
-        <div class="alert-banner__content">
-            <strong class="alert-banner__title">{{ on_hold_count }} On-Hold Payment{{ 's' if on_hold_count != 1 else '' }}</strong>
-            <span class="alert-banner__text">Awaiting resolution</span>
-        </div>
-        <span class="alert-banner__arrow">→</span>
-    </a>
-    {% endif %}
-</section>
-{% endif %}
-
+{% set overdue_count = overdue_count | default(overdue_payments|length if overdue_payments else 0) %}
+{% set on_hold_count = on_hold_count | default(on_hold_payments|length if on_hold_payments else 0) %}
+{% set compliance_count = on_hold_overdue_count | default(compliance_payments|length if compliance_payments else 0) %}
 {% if has_runs %}
 <!-- Financial Summary Cards -->
 <section class="hero-stats-grid">
@@ -99,14 +75,13 @@
 
 <!-- Quick Access Navigation Grid -->
 <section class="dashboard-nav-grid">
-    <a class="dashboard-nav-card dashboard-nav-card--review" href="#all-cycles-table">
-        <div class="dashboard-nav-card__icon">⚠️</div>
+    <a class="dashboard-nav-card dashboard-nav-card--compliance" href="{{ compliance_target_url }}">
+        <div class="dashboard-nav-card__icon">🛡️</div>
         <div class="dashboard-nav-card__content">
-                <h3 class="dashboard-nav-card__title">Pending Approvals</h3>
-            <p class="dashboard-nav-card__description">Payments requiring review and action</p>
-            {% set pending_total = overdue_count + on_hold_count %}
-            {% if pending_total > 0 %}
-            <div class="dashboard-nav-card__badge dashboard-nav-card__badge--warning">{{ pending_total }} need attention</div>
+                <h3 class="dashboard-nav-card__title">Compliance Holds</h3>
+            <p class="dashboard-nav-card__description">Payments paused pending compliance review</p>
+            {% if compliance_count > 0 %}
+            <div class="dashboard-nav-card__badge dashboard-nav-card__badge--danger">{{ compliance_count }} flagged</div>
             {% else %}
             <div class="dashboard-nav-card__badge dashboard-nav-card__badge--success">All clear</div>
             {% endif %}
@@ -114,16 +89,16 @@
         <span class="dashboard-nav-card__arrow">→</span>
     </a>
 
-    <a class="dashboard-nav-card dashboard-nav-card--history" href="/schedules/all?year={{ current_year }}">
+    <a class="dashboard-nav-card dashboard-nav-card--history" href="{{ overdue_target_url }}">
         <div class="dashboard-nav-card__icon">📊</div>
         <div class="dashboard-nav-card__content">
                 <h3 class="dashboard-nav-card__title">Overdue Payments</h3>
             <p class="dashboard-nav-card__description">Payments that require immediate attention and processing</p>
-            <div class="dashboard-nav-card__badge">
+            <div class="dashboard-nav-card__badge {% if overdue_count > 0 %}dashboard-nav-card__badge--danger{% else %}dashboard-nav-card__badge--success{% endif %}">
                 {% if overdue_count > 0 %}
-                <span class="badge-alert">{{ overdue_count }} overdue</span>
+                {{ overdue_count }} overdue
                 {% else %}
-                No overdue payments
+                All clear
                 {% endif %}
             </div>
         </div>
@@ -274,6 +249,56 @@
                 <span>Manage Ad Hoc Payments</span>
             </a>
         </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- Compliance Hold Detail View -->
+{% if show_filter == 'compliance' and compliance_payments %}
+<section class="card card--urgent" style="margin-top: 32px;">
+    <div class="section-heading">
+        <div>
+            <h2><span class="section-icon">🛡️</span> Compliance Holds (Overdue)</h2>
+            <p>{{ compliance_payments|length }} payment{% if compliance_payments|length != 1 %}s{% endif %} on hold past their pay date</p>
+        </div>
+        <div class="heading-actions">
+            <a class="link-button" href="/schedules">← Back to Hub</a>
+        </div>
+    </div>
+    <div class="data-table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Model</th>
+                    <th>Pay Date</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Notes</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for payment in compliance_payments %}
+                <tr id="payment-{{ payment.id }}" class="row-overdue">
+                    <td>
+                        <a href="/models/{{ payment.model_code }}">{{ payment.model_code }}</a>
+                        {% if payment.model_name %}
+                        <br><small>{{ payment.model_name }}</small>
+                        {% endif %}
+                    </td>
+                    <td>{{ payment.pay_date.strftime('%b %d, %Y') }}</td>
+                    <td>USD {{ "{:,.2f}".format(payment.amount) }}</td>
+                    <td><span class="status-chip status-chip--danger">{{ payment.status|replace('_', ' ')|title }}</span></td>
+                    <td>{{ payment.notes or '—' }}</td>
+                    <td>
+                        <div class="actions">
+                            <a class="button secondary button--compact" href="/schedules/{{ payment.run_id }}?status=on_hold">Open Cycle</a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </section>
 {% endif %}
@@ -477,14 +502,14 @@
     border-color: rgba(16, 185, 129, 0.3);
 }
 
-.dashboard-nav-card--review {
-    border-left: 4px solid #eab308;
+.dashboard-nav-card--compliance {
+    border-left: 4px solid #f97316;
 }
 
-.dashboard-nav-card--review .dashboard-nav-card__badge {
-    background: rgba(234, 179, 8, 0.15);
-    color: #facc15;
-    border-color: rgba(234, 179, 8, 0.3);
+.dashboard-nav-card--compliance .dashboard-nav-card__badge {
+    background: rgba(249, 115, 22, 0.15);
+    color: #fb923c;
+    border-color: rgba(249, 115, 22, 0.3);
 }
 
 .dashboard-nav-card--payments {
@@ -514,6 +539,12 @@
     background: rgba(16, 185, 129, 0.15) !important;
     color: #34d399 !important;
     border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+.dashboard-nav-card__badge--danger {
+    background: rgba(239, 68, 68, 0.2) !important;
+    color: #f87171 !important;
+    border-color: rgba(239, 68, 68, 0.4) !important;
 }
 
 /* Dashboard Filters */

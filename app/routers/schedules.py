@@ -22,7 +22,7 @@ from app.auth import User
 from app.database import get_session
 from app.dependencies import templates
 from app.core.formatting import format_display_date
-from app.models import AdhocPayment, PAYOUT_STATUS_ENUM, Payout
+from app.models import AdhocPayment, PAYOUT_STATUS_ENUM, Payout, Model
 from app.routers.auth import get_current_user, get_admin_user
 from app.services import PayrollService
 
@@ -782,12 +782,110 @@ def list_runs(
         "recent_runs": bool(dashboard["recent_run_cards"]),
     }
 
+    # Aggregate counts for overdue and on-hold payouts
+    overdue_count = (
+        db.query(func.count(Payout.id))
+        .filter(
+            Payout.status.in_(["not_paid", "on_hold"]),
+            Payout.pay_date.isnot(None),
+            Payout.pay_date < today,
+        )
+        .scalar()
+        or 0
+    )
+
+    on_hold_count = (
+        db.query(func.count(Payout.id))
+        .filter(Payout.status == "on_hold")
+        .scalar()
+        or 0
+    )
+
+    on_hold_overdue_count = (
+        db.query(func.count(Payout.id))
+        .filter(
+            Payout.status == "on_hold",
+            Payout.pay_date.isnot(None),
+            Payout.pay_date < today,
+        )
+        .scalar()
+        or 0
+    )
+
+    overdue_target_run_id = (
+        db.query(Payout.schedule_run_id)
+        .filter(
+            Payout.status.in_(["not_paid", "on_hold"]),
+            Payout.pay_date.isnot(None),
+            Payout.pay_date < today,
+            Payout.schedule_run_id.isnot(None),
+        )
+        .order_by(Payout.pay_date.asc())
+        .limit(1)
+        .scalar()
+    )
+
+    on_hold_target_run_id = (
+        db.query(Payout.schedule_run_id)
+        .filter(
+            Payout.status == "on_hold",
+            Payout.pay_date.isnot(None),
+            Payout.pay_date < today,
+            Payout.schedule_run_id.isnot(None),
+        )
+        .order_by(Payout.pay_date.asc())
+        .limit(1)
+        .scalar()
+    )
+
+    overdue_filter_params: dict[str, object] = {"show": "overdue"}
+    if target_year != today.year:
+        overdue_filter_params["year"] = target_year
+    if active_preset:
+        overdue_filter_params["range"] = active_preset
+    elif filter_active:
+        if effective_start:
+            overdue_filter_params["start"] = effective_start.isoformat()
+        if effective_end:
+            overdue_filter_params["end"] = effective_end.isoformat()
+
+    overdue_query = urlencode(overdue_filter_params)
+    overdue_query_suffix = f"?{overdue_query}" if overdue_query else ""
+    overdue_fallback_url = f"/schedules{overdue_query_suffix}"
+
+    overdue_target_url = (
+        f"/schedules/{overdue_target_run_id}{overdue_query_suffix}"
+        if overdue_target_run_id
+        else overdue_fallback_url
+    )
+
+    compliance_filter_params: dict[str, object] = {"show": "compliance"}
+    if target_year != today.year:
+        compliance_filter_params["year"] = target_year
+    if active_preset:
+        compliance_filter_params["range"] = active_preset
+    elif filter_active:
+        if effective_start:
+            compliance_filter_params["start"] = effective_start.isoformat()
+        if effective_end:
+            compliance_filter_params["end"] = effective_end.isoformat()
+
+    compliance_query = urlencode(compliance_filter_params)
+    compliance_query_suffix = f"?{compliance_query}" if compliance_query else ""
+    compliance_fallback_url = f"/schedules{compliance_query_suffix}"
+
+    compliance_target_url = (
+        f"/schedules/{on_hold_target_run_id}?status=on_hold"
+        if on_hold_target_run_id
+        else compliance_fallback_url
+    )
+
     # Fetch overdue and on-hold payments if requested
-    overdue_payments = []
-    on_hold_payments = []
+    overdue_payments: list[dict[str, object]] = []
+    on_hold_payments: list[dict[str, object]] = []
+    compliance_payments: list[dict[str, object]] = []
     
     if show == "overdue":
-        from app.models import Payout, Model
         from sqlalchemy import select
         stmt = (
             select(Payout, Model)
@@ -812,7 +910,6 @@ def list_runs(
             })
     
     if show == "on_hold":
-        from app.models import Payout, Model
         from sqlalchemy import select
         stmt = (
             select(Payout, Model)
@@ -823,6 +920,31 @@ def list_runs(
         results = db.execute(stmt).all()
         for payout, model in results:
             on_hold_payments.append({
+                "id": payout.id,
+                "pay_date": payout.pay_date,
+                "amount": payout.amount,
+                "status": payout.status,
+                "notes": payout.notes,
+                "model_code": model.code,
+                "model_name": model.working_name,
+                "run_id": payout.schedule_run_id,
+            })
+
+    if show == "compliance":
+        from sqlalchemy import select
+        stmt = (
+            select(Payout, Model)
+            .join(Model, Payout.model_id == Model.id)
+            .where(
+                Payout.status == "on_hold",
+                Payout.pay_date.isnot(None),
+                Payout.pay_date < today,
+            )
+            .order_by(Payout.pay_date.asc())
+        )
+        results = db.execute(stmt).all()
+        for payout, model in results:
+            compliance_payments.append({
                 "id": payout.id,
                 "pay_date": payout.pay_date,
                 "amount": payout.amount,
@@ -866,6 +988,7 @@ def list_runs(
             "show_filter": show,
             "overdue_payments": overdue_payments,
             "on_hold_payments": on_hold_payments,
+            "compliance_payments": compliance_payments,
             "available_years": available_years,
             "selected_year": target_year,
             "quick_ranges": quick_ranges,
@@ -878,6 +1001,11 @@ def list_runs(
             "has_custom_range": bool(start_input or end_input),
             "filtered_adhoc_summary": filtered_adhoc_summary,
             "adhoc_filter_url": adhoc_filter_url,
+            "overdue_count": overdue_count,
+            "on_hold_count": on_hold_count,
+            "on_hold_overdue_count": on_hold_overdue_count,
+            "overdue_target_url": overdue_target_url,
+            "compliance_target_url": compliance_target_url,
         },
     )
 
