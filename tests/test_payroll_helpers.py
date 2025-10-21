@@ -61,3 +61,26 @@ def test_build_pay_schedule_respects_compensation_adjustments():
 
     assert list(amounts) == [250.0, 500.0, 500.0, 500.0]
     assert summary["total_payout"] == 1750.0
+
+
+def test_build_pay_schedule_prorates_first_month_for_late_start():
+    record = ModelRecord(
+        row_number=1,
+        status="Active",
+        code="LATE1",
+        real_name="Late Starter",
+        working_name="Late",
+        start_date=date(2025, 10, 8),
+        payment_method="Wire",
+        payment_frequency="weekly",
+        amount_monthly=Decimal("1000"),
+        compensation_adjustments=[],
+    )
+
+    schedule_df, summary = build_pay_schedule([record], 2025, 10, "USD")
+    pay_dates = list(schedule_df["Pay Date"].dt.date)
+    amounts = list(schedule_df["Amount (USD)"])
+
+    assert pay_dates == [date(2025, 10, 14), date(2025, 10, 21), date(2025, 10, 31)]
+    assert amounts == [250.0, 250.0, 250.0]
+    assert summary["total_payout"] == 750.0

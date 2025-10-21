@@ -307,8 +307,8 @@ def build_pay_schedule(
             continue
 
         plan_length = len(plan)
-        carryover = Decimal("0")
         skipped_due_to_start = False
+        paid_this_month = False
 
         for position, plan_index in enumerate(plan):
             pay_date = pay_dates[plan_index]
@@ -317,18 +317,15 @@ def build_pay_schedule(
                 continue
             base_amount = (monthly_amount / plan_length).quantize(MONEY_QUANT, rounding=ROUND_HALF_UP)
             if not is_eligible_for_date(record, pay_date):
-                carryover += base_amount
-                skipped_due_to_start = True
+                if record.start_date and record.start_date > pay_date:
+                    skipped_due_to_start = True
                 continue
 
-            payout_amount = base_amount + carryover
-            carryover = Decimal("0")
+            payout_amount = base_amount
             notes: List[str] = []
             if skipped_due_to_start:
                 notes.append("Start date blocks earlier payouts")
                 skipped_due_to_start = False
-            if payout_amount != base_amount:
-                notes.append("Includes deferred payouts")
 
             rows.append(
                 {
@@ -345,8 +342,9 @@ def build_pay_schedule(
             total_payout += payout_amount
             frequency_counter[record.payment_frequency.title()] += 1
             scheduled_codes.add(record.code)
+            paid_this_month = True
 
-        if carryover > Decimal("0"):
+        if not paid_this_month and record.start_date and record.start_date > pay_dates[-1]:
             record.add_message(
                 "warning",
                 "Start date falls after all scheduled pay dates; nothing released this month.",
