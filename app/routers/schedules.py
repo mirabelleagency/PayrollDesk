@@ -597,6 +597,8 @@ def list_runs(
     # Apply year and range filtering to current_year_runs
     all_runs_unfiltered = dashboard["current_year_runs"]
 
+    clear_requested = request.query_params.get("clear") == "1"
+
     start_input = _parse_date_param(start, "Start date")
     end_input = _parse_date_param(end, "End date")
     if start_input and end_input and end_input < start_input:
@@ -608,7 +610,23 @@ def list_runs(
     effective_start = preset_start if active_preset else start_input
     effective_end = preset_end if active_preset else end_input
 
-    filter_active = bool(active_preset or start_input or end_input)
+    default_filter_applied = False
+    if (
+        not clear_requested
+        and not active_preset
+        and not start_input
+        and not end_input
+        and target_year == today.year
+    ):
+        first_day = date(today.year, today.month, 1)
+        last_day = date(today.year, today.month, calendar.monthrange(today.year, today.month)[1])
+        effective_start = first_day
+        effective_end = last_day
+        default_filter_applied = True
+
+    filter_active = bool(active_preset or start_input or end_input or default_filter_applied)
+    if clear_requested:
+        filter_active = False
 
     if filter_active and (effective_start or effective_end):
         filtered_runs = _filter_runs_by_range(all_runs_unfiltered, effective_start, effective_end)
@@ -656,8 +674,18 @@ def list_runs(
         "currency": filtered_currency,
     }
     
-    filter_start_value = start_input.isoformat() if start_input else ""
-    filter_end_value = end_input.isoformat() if end_input else ""
+    if active_preset:
+        filter_start_value = preset_start.isoformat() if preset_start else ""
+        filter_end_value = preset_end.isoformat() if preset_end else ""
+    elif start_input or end_input:
+        filter_start_value = start_input.isoformat() if start_input else ""
+        filter_end_value = end_input.isoformat() if end_input else ""
+    elif default_filter_applied and not clear_requested:
+        filter_start_value = effective_start.isoformat() if effective_start else ""
+        filter_end_value = effective_end.isoformat() if effective_end else ""
+    else:
+        filter_start_value = ""
+        filter_end_value = ""
 
     if filter_active:
         adhoc_range_start = effective_start
@@ -708,6 +736,8 @@ def list_runs(
     # Determine scope label
     if active_preset and preset_start and preset_end:
         scope_label = _format_range_label(preset_start, preset_end, str(target_year))
+    elif default_filter_applied and effective_start and effective_end:
+        scope_label = _format_range_label(effective_start, effective_end, str(target_year))
     elif start_input or end_input:
         scope_label = _format_range_label(start_input, end_input, str(target_year))
     else:
@@ -716,27 +746,29 @@ def list_runs(
     clear_params: dict[str, object] = {}
     if target_year != today.year:
         clear_params["year"] = target_year
-    clear_filter_url = f"/schedules?{urlencode(clear_params)}" if clear_params else "/schedules"
+    clear_params["clear"] = "1"
+    clear_filter_url = f"/schedules?{urlencode(clear_params)}"
 
     adhoc_filter_params: dict[str, object] = {}
     if active_preset:
         adhoc_filter_params["quick_range"] = active_preset
     else:
-        if start_input:
-            adhoc_filter_params["start_date"] = filter_start_value
-        if end_input:
-            adhoc_filter_params["end_date"] = filter_end_value
+        if filter_active and effective_start:
+            adhoc_filter_params["start_date"] = effective_start.isoformat()
+        if filter_active and effective_end:
+            adhoc_filter_params["end_date"] = effective_end.isoformat()
     adhoc_filter_url = "/schedules/adhoc"
     if adhoc_filter_params:
         adhoc_filter_url = f"{adhoc_filter_url}?{urlencode(adhoc_filter_params)}"
 
     export_params: dict[str, object] = {"year": target_year}
-    if start_input:
-        export_params["start"] = filter_start_value
-    if end_input:
-        export_params["end"] = filter_end_value
     if active_preset:
         export_params["range"] = active_preset
+    elif filter_active:
+        if effective_start:
+            export_params["start"] = effective_start.isoformat()
+        if effective_end:
+            export_params["end"] = effective_end.isoformat()
     export_query = urlencode(export_params)
     export_url = "/schedules/all-table/export"
     if export_query:
