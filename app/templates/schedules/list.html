@@ -212,7 +212,7 @@
                     <td>{{ current_year_summary.currency }} {{ run.unpaid_total|money }}</td>
                     <td>
                         <div class="table-actions">
-                            <a class="button button--compact" href="/schedules/{{ run.id }}">Open</a>
+                            <a class="button secondary button--compact" href="/schedules/{{ run.id }}">Open</a>
                             {% if user.role == 'admin' %}
                             <form method="post" action="/schedules/{{ run.id }}/delete" onsubmit="return confirm('Delete this payroll cycle?');">
                                 <button class="button button--compact button--danger" type="submit">Delete</button>
