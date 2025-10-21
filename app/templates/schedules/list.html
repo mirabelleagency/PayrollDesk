@@ -173,40 +173,37 @@
         </div>
     </div>
 
-    <!-- Filter Section -->
-    <div class="inline-filter-card">
+    <!-- Filter Section (compact single-line layout) -->
+    <div class="inline-filter-card inline-filter-card--compact">
         <form method="get" action="/schedules" class="inline-filter-form">
-            <div class="inline-filter-row">
-                <div class="inline-filter-group">
-                    <label class="inline-filter-label" for="year-select-inline">Year</label>
-                    <select id="year-select-inline" name="year" class="inline-filter-control">
-                        {% for option in available_years %}
-                        <option value="{{ option }}" {% if option == selected_year %}selected{% endif %}>{{ option }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="inline-filter-group">
-                    <label class="inline-filter-label" for="start-date-input">Start Date</label>
-                    <input id="start-date-input" class="inline-filter-control" type="date" name="start" value="{{ filter_start_value }}">
-                </div>
-                <div class="inline-filter-group">
-                    <label class="inline-filter-label" for="end-date-input">End Date</label>
-                    <input id="end-date-input" class="inline-filter-control" type="date" name="end" value="{{ filter_end_value }}">
-                </div>
-                <div class="inline-filter-actions">
+            <div class="inline-filter-row--compact">
+                <label class="sr-only" for="year-select-inline">Year</label>
+                <select id="year-select-inline" name="year" class="inline-filter-control inline-filter-control--small">
+                    {% for option in available_years %}
+                    <option value="{{ option }}" {% if option == selected_year %}selected{% endif %}>{{ option }}</option>
+                    {% endfor %}
+                </select>
+
+                <label class="sr-only" for="start-date-input">Start date</label>
+                <input id="start-date-input" class="inline-filter-control inline-filter-control--small" type="date" name="start" value="{{ filter_start_value }}">
+
+                <label class="sr-only" for="end-date-input">End date</label>
+                <input id="end-date-input" class="inline-filter-control inline-filter-control--small" type="date" name="end" value="{{ filter_end_value }}">
+
+                <div class="inline-filter-actions--compact">
                     <button class="button button--compact" type="submit">Apply</button>
                     {% if filter_active %}
                     <a class="button button--ghost button--compact" href="{{ clear_filter_url }}">Clear</a>
                     {% endif %}
                 </div>
-            </div>
-            <div class="inline-filter-quick-row">
-                <span class="inline-filter-quick-label">Quick Ranges</span>
-                <div class="inline-filter-quick-buttons">
+
+                <label class="sr-only" for="quick-range-select">Quick ranges</label>
+                <select id="quick-range-select" class="inline-filter-control inline-filter-control--small" onchange="if(this.value) window.location=this.value">
+                    <option value="">Quick ranges</option>
                     {% for option in quick_ranges %}
-                    <a class="button button--compact {% if option.is_active %}active{% else %}secondary{% endif %}" href="{{ option.url }}">{{ option.label }}</a>
+                    <option value="{{ option.url }}" {% if option.is_active %}selected{% endif %}>{{ option.label }}</option>
                     {% endfor %}
-                </div>
+                </select>
             </div>
         </form>
     </div>
@@ -623,6 +620,40 @@
     display: flex;
     gap: 8px;
     align-items: center;
+}
+
+/* Compact single-line filter card */
+.inline-filter-card--compact {
+    padding: 10px 12px;
+}
+
+.inline-filter-row--compact {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: nowrap;
+}
+
+.inline-filter-control--small {
+    padding: 8px 10px;
+    font-size: 0.9rem;
+    min-width: 120px;
+}
+
+.inline-filter-actions--compact {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+}
+
+@media (max-width: 820px) {
+    .inline-filter-row--compact {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .inline-filter-control--small {
+        min-width: 100%;
+    }
 }
 
 .button--danger {
