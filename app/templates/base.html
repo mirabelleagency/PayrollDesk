@@ -19,6 +19,11 @@
     <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
     
     <aside class="sidebar" id="sidebar">
+        <button class="sidebar__toggle" id="sidebarToggle" aria-label="Toggle sidebar">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
+            </svg>
+        </button>
         <div class="sidebar__brand">
             <div class="sidebar__logo">PD</div>
             <div class="sidebar__brand-text">
@@ -63,27 +68,46 @@
         <div class="sidebar__footer">
             <div class="sidebar__user">
                 <div class="sidebar__avatar">{{ user.username[:2]|upper }}</div>
-                <div class="sidebar__user-details">
+                <div class="sidebar__user-info">
                     <span class="sidebar__user-name">{{ user.username }}</span>
                     <span class="sidebar__user-role">{{ user.role|title }}</span>
                 </div>
             </div>
             <a class="sidebar__logout" href="/logout">
                 <span class="nav-link__icon">🚪</span>
-                <span class="nav-link__text">Logout</span>
+                <span>Logout</span>
             </a>
         </div>
         {% endif %}
     </aside>
-    <main class="content">
+    <main class="content" id="mainContent">
         {% block content %}{% endblock %}
     </main>
 </div>
 
 <script>
+    // Sidebar collapse toggle functionality
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebar = document.getElementById('sidebar');
+    const mainContent = document.getElementById('mainContent');
+    
+    sidebarToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+        mainContent.classList.toggle('sidebar-collapsed');
+        
+        // Save state to localStorage
+        const isCollapsed = sidebar.classList.contains('collapsed');
+        localStorage.setItem('sidebarCollapsed', isCollapsed);
+    });
+    
+    // Restore collapsed state from localStorage
+    if (localStorage.getItem('sidebarCollapsed') === 'true') {
+        sidebar.classList.add('collapsed');
+        mainContent.classList.add('sidebar-collapsed');
+    }
+
     // Mobile menu toggle functionality
     const menuToggle = document.getElementById('mobileMenuToggle');
-    const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('mobileMenuOverlay');
     
     function closeMenu() {

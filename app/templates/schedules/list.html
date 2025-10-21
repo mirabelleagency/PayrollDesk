@@ -155,8 +155,8 @@
             <p>{{ current_year_summary.run_count }} cycle{% if current_year_summary.run_count != 1 %}s{% endif %} recorded · {{ current_year_summary.currency }} {{ current_year_summary.total_payout|money }} total payout</p>
         </div>
         <div class="heading-actions">
-            <a class="button button--compact" href="{{ export_url }}">
-                <span class="button__icon">⬇️</span>
+            <a class="button export button--compact" href="{{ export_url }}">
+                <span class="button__icon">📊</span>
                 <span>Export to Excel</span>
             </a>
         </div>
