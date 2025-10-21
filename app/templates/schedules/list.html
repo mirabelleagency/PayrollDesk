@@ -212,7 +212,7 @@
                     <td>{{ current_year_summary.currency }} {{ run.unpaid_total|money }}</td>
                     <td>
                         <div class="table-actions">
-                            <a class="button secondary button--compact" href="/schedules/{{ run.id }}">Open</a>
+                            <a class="button button--compact button--info" href="/schedules/{{ run.id }}">Open</a>
                             {% if user.role == 'admin' %}
                             <form method="post" action="/schedules/{{ run.id }}/delete" onsubmit="return confirm('Delete this payroll cycle?');">
                                 <button class="button button--compact button--danger" type="submit">Delete</button>
@@ -691,6 +691,19 @@
     background: rgba(239, 68, 68, 0.12);
     border: 1px solid rgba(239, 68, 68, 0.4);
     color: #f87171;
+}
+
+.button--info {
+    background: rgba(59, 130, 246, 0.12);
+    border: 1px solid rgba(59, 130, 246, 0.4);
+    color: #60a5fa;
+}
+
+.button--info:hover,
+.button--info:focus {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: rgba(59, 130, 246, 0.6);
+    color: #93c5fd;
 }
 
 .button--danger:hover,
