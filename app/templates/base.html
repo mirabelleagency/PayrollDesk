@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Payroll Desk{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+<div class="layout">
+    <!-- Mobile hamburger menu button -->
+    <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle menu">
+        <span></span>
+        <span></span>
+        <span></span>
+    </button>
+    
+    <!-- Mobile menu overlay -->
+    <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
+    
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar__brand">
+            <div class="sidebar__logo">PD</div>
+            <div class="sidebar__brand-text">
+                <span class="sidebar__title">Payroll Desk</span>
+                <span class="sidebar__tagline">Run payroll with confidence</span>
+            </div>
+        </div>
+        <nav class="nav-links">
+            {% set path = request.url.path %}
+            <p class="sidebar__section-label">Workspace</p>
+            <a class="nav-link {% if path == '/' or path.startswith('/dashboard') %}active{% endif %}" href="/dashboard">
+                <span class="nav-link__icon">📊</span>
+                <span class="nav-link__text">Dashboard</span>
+            </a>
+            <a class="nav-link {% if path.startswith('/models') %}active{% endif %}" href="/models">
+                <span class="nav-link__icon">🧾</span>
+                <span class="nav-link__text">Models</span>
+            </a>
+            <a class="nav-link {% if path.startswith('/schedules') %}active{% endif %}" href="/schedules">
+                <span class="nav-link__icon">🗓️</span>
+                <span class="nav-link__text">Payroll Hub</span>
+            </a>
+            <a class="nav-link {% if path.startswith('/analytics') %}active{% endif %}" href="/analytics">
+                <span class="nav-link__icon">📈</span>
+                <span class="nav-link__text">Analytics</span>
+            </a>
+            {% if user %}
+            <p class="sidebar__section-label">Account</p>
+            <a class="nav-link {% if path.startswith('/profile') %}active{% endif %}" href="/profile">
+                <span class="nav-link__icon">👤</span>
+                <span class="nav-link__text">Profile</span>
+            </a>
+            {% if user.is_admin() %}
+            <a class="nav-link {% if path.startswith('/admin') %}active{% endif %}" href="/admin/users">
+                <span class="nav-link__icon">�️</span>
+                <span class="nav-link__text">User Admin</span>
+            </a>
+            {% endif %}
+            {% endif %}
+        </nav>
+        {% if user %}
+        <div class="sidebar__footer">
+            <div class="sidebar__user">
+                <div class="sidebar__avatar">{{ user.username[:2]|upper }}</div>
+                <div class="sidebar__user-details">
+                    <span class="sidebar__user-name">{{ user.username }}</span>
+                    <span class="sidebar__user-role">{{ user.role|title }}</span>
+                </div>
+            </div>
+            <a class="sidebar__logout" href="/logout">
+                <span class="nav-link__icon">🚪</span>
+                <span class="nav-link__text">Logout</span>
+            </a>
+        </div>
+        {% endif %}
+    </aside>
+    <main class="content">
+        {% block content %}{% endblock %}
+    </main>
+</div>
+
+<script>
+    // Mobile menu toggle functionality
+    const menuToggle = document.getElementById('mobileMenuToggle');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('mobileMenuOverlay');
+    
+    function closeMenu() {
+        sidebar.classList.remove('active');
+        overlay.classList.remove('active');
+        menuToggle.classList.remove('active');
+    }
+    
+    function toggleMenu() {
+        sidebar.classList.toggle('active');
+        overlay.classList.toggle('active');
+        menuToggle.classList.toggle('active');
+    }
+    
+    // Toggle menu on button click
+    menuToggle.addEventListener('click', toggleMenu);
+    
+    // Close menu on overlay click
+    overlay.addEventListener('click', closeMenu);
+    
+    // Close menu when clicking on a nav link
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', closeMenu);
+    });
+
+    document.querySelectorAll('.nav-group__toggle').forEach(toggle => {
+        const group = toggle.closest('.nav-group');
+        if (!group) {
+            return;
+        }
+        toggle.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const expanded = group.classList.toggle('nav-group--expanded');
+            toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        });
+    });
+</script>
+</body>
+</html>

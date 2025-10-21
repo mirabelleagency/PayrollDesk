@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+{% block title %}Ad Hoc Payments · Payroll Desk{% endblock %}
+
+{% block content %}
+{% set status_counts = (monthly_adhoc_summary.status_counts | default({})) %}
+{% set pending_count = status_counts.get('pending', 0) %}
+{% set paid_count = status_counts.get('paid', 0) %}
+{% set filter_status_values = (filters.status | default([])) %}
+
+<section class="page-header">
+    <div>
+        <h1 class="page-title">📝 Ad Hoc Payments Workspace</h1>
+        <p>Accounting command center for one-off payment management and reconciliation.</p>
+    </div>
+    <div class="header-actions">
+        <a class="button secondary" href="/schedules">
+            <span class="button__icon">←</span>
+            <span>Back to Hub</span>
+        </a>
+        <button class="button button--export" onclick="window.print()">
+            <span class="button__icon">📄</span>
+            <span>Export</span>
+        </button>
+    </div>
+</section>
+
+<!-- Quick Action Bar -->
+{% if monthly_adhoc_summary.has_payments and pending_count > 0 %}
+<section class="quick-action-bar">
+    <div class="quick-action-bar__content">
+        <div class="quick-action-bar__info">
+            <span class="quick-action-bar__icon">⚠️</span>
+            <div>
+                <strong>{{ pending_count }} Pending Payment{{ 's' if pending_count != 1 else '' }}</strong>
+                <span>{{ monthly_adhoc_summary.currency or 'USD' }} {{ (monthly_adhoc_summary.pending_total or 0)|money }} awaiting processing</span>
+            </div>
+        </div>
+        <a class="button button--primary button--compact" href="/schedules/adhoc?status=pending">
+            <span>Review Pending →</span>
+        </a>
+    </div>
+</section>
+{% endif %}
+
+<!-- Financial Overview Row -->
+<section class="financial-overview-row">
+    <div class="financial-card financial-card--total">
+        <div class="financial-card__icon">💰</div>
+        <div class="financial-card__content">
+            <span class="financial-card__label">Total Period</span>
+            <span class="financial-card__value">{{ monthly_adhoc_summary.currency or 'USD' }} {{ (monthly_adhoc_summary.total_amount or 0)|money }}</span>
+            <span class="financial-card__meta">{{ monthly_adhoc_summary.month_label }} · {{ monthly_adhoc_summary.count or 0 }} txns</span>
+        </div>
+    </div>
+    
+    <div class="financial-card financial-card--pending">
+        <div class="financial-card__icon">⏳</div>
+        <div class="financial-card__content">
+            <span class="financial-card__label">Pending</span>
+            <span class="financial-card__value">{{ monthly_adhoc_summary.currency or 'USD' }} {{ (monthly_adhoc_summary.pending_total or 0)|money }}</span>
+            <span class="financial-card__meta">{{ pending_count }} to process</span>
+        </div>
+    </div>
+    
+    <div class="financial-card financial-card--cleared">
+        <div class="financial-card__icon">✅</div>
+        <div class="financial-card__content">
+            <span class="financial-card__label">Cleared</span>
+            <span class="financial-card__value">{{ monthly_adhoc_summary.currency or 'USD' }} {{ (monthly_adhoc_summary.paid_total or 0)|money }}</span>
+            <span class="financial-card__meta">{{ paid_count }} paid</span>
+        </div>
+    </div>
+    
+    <div class="financial-card financial-card--models">
+        <div class="financial-card__icon">👥</div>
+        <div class="financial-card__content">
+            <span class="financial-card__label">Models</span>
+            <span class="financial-card__value">{{ monthly_adhoc_summary.models_impacted or 0 }}</span>
+            <span class="financial-card__meta">Unique payees</span>
+        </div>
+    </div>
+</section>
+
+<!-- Period Selector + Filters Combined -->
+<div class="accounting-toolbar">
+    {% if monthly_adhoc_summary.has_payments %}
+    <!-- Advanced Filters -->
+    <section class="card card--filters-compact">
+        <details class="filter-accordion" open>
+            <summary class="filter-accordion__toggle">
+                <div class="filter-accordion__header">
+                    <h3><span class="section-icon">🔍</span> Filters</h3>
+                    {% if active_filter_chips %}
+                    <span class="filter-count-badge">{{ active_filter_chips|length }} active</span>
+                    {% endif %}
+                </div>
+                <span class="filter-accordion__chevron">▼</span>
+            </summary>
+            <form class="adhoc-filter-form-compact" method="get">
+
+                <!-- Primary Filters Row -->
+                <div class="filter-row filter-row--primary">
+                    <div class="filter-field-inline">
+                        <label class="filter-field__label" for="adhoc_search">Search</label>
+                        <input class="filter-input-compact" id="adhoc_search" name="search" placeholder="Model, description..." type="text" value="{{ filters.search }}" />
+                    </div>
+
+                    <div class="filter-field-inline">
+                        <span class="filter-field__label">Status</span>
+                        <div class="filter-pill-group-inline">
+                            {% for option in status_options %}
+                            <label class="filter-pill-compact">
+                                <input {% if option.value in filter_status_values %}checked{% endif %} name="status" type="checkbox" value="{{ option.value }}" />
+                                <span>{{ option.label }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="filter-field-inline">
+                        <label class="filter-field__label" for="adhoc_sort">Sort</label>
+                        <select class="filter-select-compact" id="adhoc_sort" name="sort">
+                            <option value="pay_date_desc" {% if filters.sort == 'pay_date_desc' %}selected{% endif %}>Date (newest)</option>
+                            <option value="pay_date_asc" {% if filters.sort == 'pay_date_asc' %}selected{% endif %}>Date (oldest)</option>
+                            <option value="amount_desc" {% if filters.sort == 'amount_desc' %}selected{% endif %}>Amount (high)</option>
+                            <option value="amount_asc" {% if filters.sort == 'amount_asc' %}selected{% endif %}>Amount (low)</option>
+                            <option value="status" {% if filters.sort == 'status' %}selected{% endif %}>Status</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-actions-inline">
+                        <button class="button button--primary button--compact" type="submit">
+                            <span>Apply</span>
+                        </button>
+                        <a class="button secondary button--compact" href="/schedules/adhoc">
+                            <span>Clear</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Advanced Filters Row (Collapsible) -->
+                <details class="filter-advanced-section">
+                    <summary class="filter-advanced-toggle">Advanced filters</summary>
+                    <div class="filter-row filter-row--advanced">
+                        <div class="filter-field-inline">
+                            <label class="filter-field__label" for="adhoc_quick_range">Quick Range</label>
+                            <select class="filter-select-compact" id="adhoc_quick_range" name="quick_range">
+                                <option value="">Custom range</option>
+                                {% for option in quick_range_options %}
+                                <option value="{{ option.id }}" {% if filters.quick_range == option.id %}selected{% endif %}>{{ option.label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="filter-field-inline">
+                            <label class="filter-field__label" for="adhoc_start_date">From</label>
+                            <input class="filter-input-compact" id="adhoc_start_date" name="start_date" type="date" value="{{ filters.start_date }}" />
+                        </div>
+
+                        <div class="filter-field-inline">
+                            <label class="filter-field__label" for="adhoc_end_date">To</label>
+                            <input class="filter-input-compact" id="adhoc_end_date" name="end_date" type="date" value="{{ filters.end_date }}" />
+                        </div>
+
+                        <div class="filter-field-inline">
+                            <label class="filter-field__label" for="adhoc_min_amount">Min</label>
+                            <input class="filter-input-compact" id="adhoc_min_amount" min="0" name="min_amount" step="0.01" type="number" value="{{ filters.min_amount }}" placeholder="0.00" />
+                        </div>
+
+                        <div class="filter-field-inline">
+                            <label class="filter-field__label" for="adhoc_max_amount">Max</label>
+                            <input class="filter-input-compact" id="adhoc_max_amount" min="0" name="max_amount" step="0.01" type="number" value="{{ filters.max_amount }}" placeholder="0.00" />
+                        </div>
+                    </div>
+                </details>
+
+                {% if active_filter_chips %}
+                <div class="adhoc-filter-chips-compact">
+                    {% for chip in active_filter_chips %}
+                    <span class="filter-chip-compact">{{ chip.label }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </form>
+        </details>
+    </section>
+    {% endif %}
+</div>
+
+{% if monthly_adhoc_summary.has_payments %}
+<!-- Transactions Table with Pending Focus -->
+<section id="pending-section" class="card card--transactions">
+    <div class="section-heading">
+        <div>
+            <h2><span class="section-icon">💵</span> Transaction Register — {{ monthly_adhoc_summary.month_label }}</h2>
+            <p>
+                {{ filtered_adhoc_summary.count or 0 }} payment{{ 's' if (filtered_adhoc_summary.count or 0) != 1 else '' }} 
+                · {{ monthly_adhoc_summary.currency or 'USD' }} {{ (filtered_adhoc_summary.total_amount or 0)|money }}
+                {% if active_filter_chips %} (filtered){% endif %}
+            </p>
+        </div>
+        <div class="heading-actions">
+            {% if filtered_adhoc_summary.count > 0 %}
+            <span class="results-badge">{{ filtered_adhoc_summary.count }} result{{ 's' if filtered_adhoc_summary.count != 1 else '' }}</span>
+            {% endif %}
+        </div>
+    </div>
+    {% set table_return_url = '/schedules/adhoc' %}
+    {% if filters.month %}
+        {% set table_return_url = table_return_url + '?month=' + filters.month %}
+    {% endif %}
+    <div class="data-table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Model</th>
+                    <th>Pay Date</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Description</th>
+                    <th>Notes</th>
+                    {% if user.role == 'admin' %}
+                    <th class="adhoc-table__status-column">Update Status</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for payment in monthly_adhoc_payments %}
+                <tr {% if payment.status == 'pending' %}id="payment-{{ payment.id }}" class="row-pending"{% endif %}>
+                    <td>
+                        <div class="adhoc-table__model">{{ payment.model.working_name or payment.model.code }}</div>
+                        <div class="adhoc-table__code">{{ payment.model.code }}</div>
+                    </td>
+                    <td>{{ payment.pay_date|display_date }}</td>
+                    <td class="info-value">{{ monthly_adhoc_summary.currency or 'USD' }} {{ payment.amount|money }}</td>
+                    <td>
+                        {% if payment.status == 'paid' %}
+                        <span class="status-chip status-chip--active">Paid</span>
+                        {% elif payment.status == 'pending' %}
+                        <span class="status-chip status-chip--warning">Pending</span>
+                        {% else %}
+                        <span class="status-chip status-chip--neutral">Cancelled</span>
+                        {% endif %}
+                    </td>
+                    <td class="info-value--muted">{{ payment.description or '—' }}</td>
+                    <td class="info-value--muted">{{ payment.notes or '—' }}</td>
+                    {% if user.role == 'admin' %}
+                    <td class="adhoc-table__status-cell">
+                        <form class="adhoc-status-form" action="/models/{{ payment.model_id }}/adhoc-payments/{{ payment.id }}/status" method="post">
+                            <input name="return_url" type="hidden" value="{{ table_return_url }}" />
+                            <label class="sr-only" for="status_select_{{ payment.id }}">Update status for {{ payment.model.working_name or payment.model.code }}</label>
+                            <select class="adhoc-status-select" id="status_select_{{ payment.id }}" name="action">
+                                <option value="mark_pending" {% if payment.status == 'pending' %}selected{% endif %}>Pending</option>
+                                <option value="mark_paid" {% if payment.status == 'paid' %}selected{% endif %}>Paid</option>
+                                <option value="cancel" {% if payment.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                            </select>
+                            <noscript>
+                                <button class="button secondary" type="submit">Apply</button>
+                            </noscript>
+                        </form>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% else %}
+                <tr class="empty-row">
+                    <td class="empty-row__cell" colspan="{% if user.role == 'admin' %}7{% else %}6{% endif %}">No payments match the current filters.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% else %}
+<!-- Empty State -->
+<section class="card card--empty-state">
+    <div class="empty-state-content">
+        <span class="empty-state-icon">📭</span>
+        <h2>No Ad Hoc Payments</h2>
+        <p>No ad hoc activity recorded for {{ monthly_adhoc_summary.month_label }}.</p>
+        <a class="button secondary" href="/schedules" style="margin-top: 16px;">
+            <span class="button__icon">←</span>
+            <span>Back to Payroll Hub</span>
+        </a>
+    </div>
+</section>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const statusSelects = document.querySelectorAll('.adhoc-status-select');
+    statusSelects.forEach(function (select) {
+        select.addEventListener('change', function () {
+            const parentForm = select.closest('form');
+            if (parentForm) {
+                parentForm.submit();
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

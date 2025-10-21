@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}All Runs Table · Payroll Desk{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div>
+        <h1 class="page-title">All Payroll Runs · Table</h1>
+        <p>Detailed table view of every payroll run recorded for {{ scope_label }}.</p>
+    </div>
+    <div class="header-actions">
+        <a class="button secondary" href="/schedules">Back to Dashboard</a>
+        <a class="button secondary" href="{{ card_view_url }}">Card View</a>
+        {% if user.role == 'admin' %}
+        <a class="button" href="/schedules/new">Run Payroll</a>
+        {% endif %}
+    </div>
+</section>
+
+<section class="card">
+    <div class="section-heading">
+        <div>
+            <h2>Select Year</h2>
+            <p>Switch between archive years or focus on a specific date range.</p>
+        </div>
+    </div>
+    <div class="inline-year-selector">
+        <form method="get" action="/schedules/all-table" class="inline-year-form">
+            <label class="inline-year-label" for="year-select-inline">Year</label>
+            <select id="year-select-inline" name="year">
+                {% for option in available_years %}
+                <option value="{{ option }}" {% if option == year %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+            </select>
+            <button class="button button--compact" type="submit">Update</button>
+            <div class="inline-quick-ranges">
+                {% for option in quick_ranges %}
+                <a class="button button--compact {% if option.is_active %}active{% else %}secondary{% endif %}" href="{{ option.url }}">{{ option.label }}</a>
+                {% endfor %}
+            </div>
+        </form>
+    </div>
+    {% if not has_previous_years %}
+    <p class="empty-state" style="margin-top: 16px;">No prior years recorded yet.</p>
+    {% endif %}
+</section>
+
+<section class="stat-grid">
+    <article class="card stat-card">
+        <p class="stat-card__label">Runs Recorded</p>
+        <p class="stat-card__value">{{ year_summary.run_count }}</p>
+        <p class="stat-card__hint">In {{ scope_label }}</p>
+    </article>
+    <article class="card stat-card">
+        <p class="stat-card__label">Total Payout</p>
+    <p class="stat-card__value">{{ year_summary.currency }} {{ year_summary.total_payout|money }}</p>
+        <p class="stat-card__hint">Across all runs</p>
+    </article>
+    <article class="card stat-card">
+        <p class="stat-card__label">Paid</p>
+    <p class="stat-card__value">{{ year_summary.currency }} {{ year_summary.paid_total|money }}</p>
+        <p class="stat-card__hint">Completed payouts</p>
+    </article>
+    <article class="card stat-card">
+        <p class="stat-card__label">Outstanding</p>
+    <p class="stat-card__value{% if year_summary.unpaid_total > 0 %} is-warning{% endif %}">{{ year_summary.currency }} {{ year_summary.unpaid_total|money }}</p>
+        <p class="stat-card__hint">Pending balances</p>
+    </article>
+    <article class="card stat-card">
+        <p class="stat-card__label">Models Paid</p>
+        <p class="stat-card__value">{{ year_summary.models_paid }}</p>
+        <p class="stat-card__hint">Unique payouts</p>
+    </article>
+</section>
+
+<section class="card table-card">
+    <div class="section-heading">
+        <div>
+            <h2>Payroll Runs ({{ scope_label }})</h2>
+            <p>{{ year_summary.run_count }} run{% if year_summary.run_count != 1 %}s{% endif %} captured.</p>
+        </div>
+        <div class="heading-actions">
+            <a class="button" href="{{ export_url }}">Export Excel</a>
+        </div>
+    </div>
+    {% if runs %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Run</th>
+                <th>Created</th>
+                <th>Cycle</th>
+                <th>Currency</th>
+                <th>Models Paid</th>
+                <th>Total Payout</th>
+                <th>Paid</th>
+                <th>Outstanding</th>
+                <th>Frequencies</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for run in runs %}
+            <tr>
+                <td>#{{ run.id }}</td>
+                <td>{{ run.created_at|display_date }}</td>
+                <td>{{ run.month_year_label }}</td>
+                <td>{{ run.currency }}</td>
+                <td>{{ run.summary_models_paid }}</td>
+                <td>{{ year_summary.currency }} {{ run.summary_total_payout|money }}</td>
+                <td>{{ year_summary.currency }} {{ run.paid_total|money }}</td>
+                <td>{{ year_summary.currency }} {{ run.unpaid_total|money }}</td>
+                <td>
+                    {% if run.frequency_counts %}
+                        {% for name, count in run.frequency_counts|dictsort %}
+                            {{ name|replace('_', ' ')|title }}: {{ count }}{% if not loop.last %}<br>{% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <span class="table-muted">None</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="actions">
+                        <a class="link-button" href="/schedules/{{ run.id }}">Open</a>
+                        {% if user.role == 'admin' %}
+                        <form method="post" action="/schedules/{{ run.id }}/delete" onsubmit="return confirm('Delete this payroll run?');">
+                            <button class="link-button danger" type="submit">Delete</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-state">No runs were recorded for {{ scope_label }}.</p>
+    {% endif %}
+</section>
+{% endblock %}

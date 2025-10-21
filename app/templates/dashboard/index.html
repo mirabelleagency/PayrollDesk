@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · Payroll Desk{% endblock %}
+{% block content %}
+<section class="page-header">
+    <div>
+        <h1 class="page-title">Executive Dashboard</h1>
+        <p>Key performance indicators and financial oversight at a glance.</p>
+    </div>
+    <div class="header-actions">
+        {% if user and user.is_admin() %}
+        <button id="exportAllBtn" class="button secondary">Export All Data (XLSX)</button>
+        {% endif %}
+    </div>
+</section>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const btn = document.getElementById('exportAllBtn');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        btn.textContent = 'Preparing export...';
+        try {
+            const resp = await fetch('/dashboard/export-xlsx', { credentials: 'same-origin' });
+            if (!resp.ok) {
+                throw new Error(`Export failed: ${resp.status}`);
+            }
+            const blob = await resp.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            // Try to derive filename from Content-Disposition
+            const cd = resp.headers.get('Content-Disposition') || '';
+            const match = /filename=(.+)$/i.exec(cd);
+            const filename = match ? match[1].replace(/"/g, '') : 'payroll_export.xlsx';
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error(err);
+            alert('Export failed. Check console for details.');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Export All Data (XLSX)';
+        }
+    });
+});
+</script>
+
+{% if summary.latest_run_is_current_month %}
+    {% set run_paid_title = 'Current Month Paid' %}
+    {% set run_outstanding_title = 'Current Month Outstanding' %}
+    {% set run_detail_title = 'Current Month Run' %}
+{% else %}
+    {% set run_paid_title = 'Latest Run Paid' %}
+    {% set run_outstanding_title = 'Latest Run Outstanding' %}
+    {% set run_detail_title = 'Latest Run' %}
+{% endif %}
+
+<!-- Hero KPI Section -->
+<section class="hero-kpis" style="margin-top: 24px;">
+    <div class="hero-kpi-card hero-kpi-card--primary">
+        <div class="hero-kpi-label">{{ current_month_name }} Total Paid</div>
+        <div class="hero-kpi-value">${{ summary.monthly_burn|money }}</div>
+        {% if summary.burn_change_pct is not none %}
+        <div class="hero-kpi-trend {% if summary.burn_change_pct > 0 %}hero-kpi-trend--up{% else %}hero-kpi-trend--down{% endif %}">
+            {% if summary.burn_change_pct > 0 %}↑{% else %}↓{% endif %} {{ summary.burn_change_pct|abs|round(1) }}% from last month
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="hero-kpi-card">
+        <div class="hero-kpi-label">{{ current_month_name }} Total Unpaid</div>
+        <div class="hero-kpi-value hero-kpi-value--secondary">${{ summary.latest_run_unpaid|money }}</div>
+        <div class="hero-kpi-subtitle">Current month outstanding</div>
+    </div>
+    
+    <div class="hero-kpi-card">
+        <div class="hero-kpi-label">{{ current_year }} Total Paid</div>
+        <div class="hero-kpi-value hero-kpi-value--secondary">${{ summary.run_rate|money }}</div>
+        <div class="hero-kpi-subtitle">Year to date</div>
+    </div>
+    
+    <div class="hero-kpi-card {% if summary.overdue_count > 0 %}hero-kpi-card--alert{% endif %}">
+        <div class="hero-kpi-label">Requires Attention</div>
+        <div class="hero-kpi-value hero-kpi-value--secondary">{{ summary.overdue_count }}</div>
+        <div class="hero-kpi-subtitle">{% if summary.overdue_count > 0 %}Overdue payments{% else %}All payments current{% endif %}</div>
+    </div>
+</section>
+
+<section class="card-grid columns-3" style="margin-top: 24px;">
+    <div class="card metric-card">
+        <h3 class="metric-card-title">Model Roster</h3>
+        <div class="metric-grid">
+            <div class="metric-item">
+                <div class="metric-label">Total Models</div>
+                <div class="metric-number">{{ summary.total_models }}</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">Active</div>
+                <div class="metric-number metric-number--success">{{ summary.active_models }}</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">Inactive</div>
+                <div class="metric-number metric-number--muted">{{ summary.inactive_models }}</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">Avg. Cost Per Model</div>
+                <div class="metric-number" style="font-size: 1.2rem;">${{ summary.avg_per_model|money }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card metric-card">
+        <h3 class="metric-card-title">Financial Overview</h3>
+        <div class="metric-grid">
+            <div class="metric-item">
+                <div class="metric-label">Lifetime Paid</div>
+                <div class="metric-number">${{ summary.lifetime_paid|money }}</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">Total Outstanding</div>
+                <div class="metric-number metric-number--warning">${{ summary.outstanding_total|money }}</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">Pending</div>
+                <div class="metric-number">{{ summary.pending_count }}</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">On Hold</div>
+                <div class="metric-number metric-number--muted">{{ summary.on_hold_count }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card metric-card">
+        <h3 class="metric-card-title">{{ run_detail_title }}</h3>
+        <div class="metric-grid">
+            <div class="metric-item" style="grid-column: span 2;">
+                <div class="metric-label">
+                    {% if summary.latest_run %}
+                        {{ summary.latest_run.cycle_display }} · Generated {{ summary.latest_run.created_at|display_date }}
+                    {% else %}
+                        No runs yet
+                    {% endif %}
+                </div>
+                <div class="metric-number" style="font-size: 1rem; margin-top: 4px;">Total Runs: {{ summary.total_runs }}</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">{{ run_paid_title }}</div>
+                <div class="metric-number metric-number--success">${{ summary.latest_run_paid|money }}</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">{{ run_outstanding_title }}</div>
+                <div class="metric-number metric-number--warning">${{ summary.latest_run_unpaid|money }}</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Alert/Action Items Section -->
+{% if summary.overdue_count > 0 or summary.on_hold_count > 0 or pending_adhoc_payments %}
+<section class="card alert-card" style="margin-top: 24px;">
+    <div class="alert-card-header">
+        <h2 class="alert-card-title">⚠️ Requires Attention</h2>
+        <span class="alert-card-badge">{{ summary.overdue_count + summary.on_hold_count }}</span>
+    </div>
+    <div class="alert-items">
+        {% if summary.overdue_count > 0 %}
+        <div class="alert-item alert-item--urgent">
+            <div class="alert-item-icon">🚨</div>
+            <div class="alert-item-content">
+                <div class="alert-item-title">{{ summary.overdue_count }} Overdue Payment{{ 's' if summary.overdue_count != 1 else '' }}</div>
+                <div class="alert-item-description">Payments past due date requiring immediate attention</div>
+            </div>
+            {% if summary.overdue_payments and summary.overdue_payments[0].run_id %}
+                <a class="button secondary button--compact" href="/schedules/{{ summary.overdue_payments[0].run_id }}?show=overdue">Review</a>
+            {% else %}
+                <a class="button secondary button--compact" href="/schedules?show=overdue#payments-overdue">Review</a>
+            {% endif %}
+        </div>
+        {% endif %}
+        
+        {% if summary.on_hold_count > 0 %}
+        <div class="alert-item alert-item--warning">
+            <div class="alert-item-icon">⏸️</div>
+            <div class="alert-item-content">
+                <div class="alert-item-title">{{ summary.on_hold_count }} Payment{{ 's' if summary.on_hold_count != 1 else '' }} On Hold</div>
+                <div class="alert-item-description">Pending review or additional information</div>
+            </div>
+            {% if summary.on_hold_payments and summary.on_hold_payments[0].run_id %}
+                <a class="button secondary button--compact" href="/schedules/{{ summary.on_hold_payments[0].run_id }}#payment-{{ summary.on_hold_payments[0].id }}">Manage</a>
+            {% else %}
+                <a class="button secondary button--compact" href="/schedules?show=on_hold#payments-on-hold">Manage</a>
+            {% endif %}
+        </div>
+        {% endif %}
+        
+        {% if pending_adhoc_payments %}
+        <div class="alert-item alert-item--info">
+            <div class="alert-item-icon">📋</div>
+            <div class="alert-item-content">
+                <div class="alert-item-title">{{ pending_adhoc_payments|length }} Pending Ad Hoc Payment{{ 's' if pending_adhoc_payments|length != 1 else '' }}</div>
+                <div class="alert-item-description">Special payments awaiting processing</div>
+            </div>
+            <a class="button secondary button--compact" href="/schedules/adhoc?status=pending">Process</a>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endif %}
+
+<section class="card-grid columns-3" style="margin-top: 32px;">
+    <div class="card summary-card">
+        <div class="card-heading">
+            <h2>Recent Activity</h2>
+            <a class="button secondary button--compact" href="/schedules/all-table">View All Runs</a>
+        </div>
+        <div class="summary-stats">
+            <div class="summary-stat">
+                <div class="summary-stat-label">Last 5 Runs</div>
+                <div class="summary-stat-value">{{ recent_runs|length }}</div>
+            </div>
+            <div class="summary-stat">
+                <div class="summary-stat-label">Total Paid (Last 5)</div>
+                <div class="summary-stat-value">${{ (recent_runs|sum(attribute='summary_total_payout'))|money }}</div>
+            </div>
+        </div>
+        {% if recent_runs %}
+        <div class="summary-list">
+            {% for run in recent_runs[:3] %}
+            <div class="summary-list-item">
+                <div class="summary-list-main">
+                    <span class="summary-list-title">{{ run.cycle_display }}</span>
+                    <span class="summary-list-meta">{{ run.created_at|display_date }}</span>
+                </div>
+                <div class="summary-list-amount">${{ run.summary_total_payout|money }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-state" style="padding: 16px;">No runs yet. Create your first payroll run to get started.</p>
+        {% endif %}
+    </div>
+
+    <div class="card summary-card">
+        <div class="card-heading">
+            <h2>Top Contributors</h2>
+            <a class="button secondary button--compact" href="/models">View All Models</a>
+        </div>
+        <div class="summary-stats">
+            <div class="summary-stat">
+                <div class="summary-stat-label">Top 5 Models</div>
+                <div class="summary-stat-value">{{ top_models|length }}</div>
+            </div>
+            <div class="summary-stat">
+                <div class="summary-stat-label">Combined Lifetime</div>
+                <div class="summary-stat-value">${{ (top_models|sum(attribute='total_paid'))|money }}</div>
+            </div>
+        </div>
+        {% if top_models %}
+        <div class="summary-list">
+            {% for item in top_models %}
+            <div class="summary-list-item">
+                <div class="summary-list-main">
+                    <span class="summary-list-title">{{ item.working_name }}</span>
+                    <span class="summary-list-meta">
+                        {% if item.status == 'Active' %}
+                            <span class="tag active" style="font-size: 0.7rem;">Active</span>
+                        {% else %}
+                            <span class="tag inactive" style="font-size: 0.7rem;">Inactive</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="summary-list-amount">${{ item.total_paid|money }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-state" style="padding: 16px;">No payout data available yet.</p>
+        {% endif %}
+    </div>
+
+    <div class="card summary-card">
+        <div class="card-heading">
+            <h2>Special Payments</h2>
+            <a class="button secondary button--compact" href="/schedules">Manage</a>
+        </div>
+        <div class="summary-stats">
+            <div class="summary-stat">
+                <div class="summary-stat-label">Pending Ad Hoc</div>
+                <div class="summary-stat-value">{{ pending_adhoc_payments|length }}</div>
+            </div>
+            <div class="summary-stat">
+                <div class="summary-stat-label">Total Amount</div>
+                <div class="summary-stat-value">${{ (pending_adhoc_payments|sum(attribute='amount'))|money }}</div>
+            </div>
+        </div>
+        {% if pending_adhoc_payments %}
+        <div class="summary-list">
+            {% for payment in pending_adhoc_payments[:5] %}
+            <div class="summary-list-item">
+                <div class="summary-list-main">
+                    <span class="summary-list-title">{{ payment.model_name or payment.model_code or 'Unknown' }}</span>
+                    <span class="summary-list-meta">{{ payment.pay_date|display_date or 'No date' }}</span>
+                </div>
+                <div class="summary-list-amount">${{ payment.amount|money }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-state" style="padding: 16px;">No pending ad hoc payments.</p>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

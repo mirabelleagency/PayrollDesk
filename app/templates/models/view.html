@@ -1,0 +1,671 @@
+{% extends "base.html" %}
+{% block title %}{{ model.working_name }} · Model Details · Payroll Desk{% endblock %}
+{% block content %}
+
+<style>
+.model-view-container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.model-view-header {
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.9) 100%);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 12px;
+    padding: 32px;
+    margin-bottom: 32px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+}
+
+.model-view-header__top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+}
+
+.model-view-header__title-group {
+    flex: 1;
+}
+
+.model-view-header__title {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.model-view-header__name {
+    font-size: 32px;
+    font-weight: 700;
+    color: #f8fafc;
+    margin: 0;
+}
+
+.model-view-header__code {
+    display: inline-block;
+    padding: 6px 12px;
+    background: rgba(59, 130, 246, 0.15);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 14px;
+    color: #60a5fa;
+    font-weight: 600;
+}
+
+.model-view-header__meta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    color: #94a3b8;
+    font-size: 14px;
+}
+
+.model-view-header__meta-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.model-view-header__actions {
+    display: flex;
+    gap: 12px;
+}
+
+.model-view-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.model-view-stat {
+    text-align: center;
+}
+
+.model-view-stat__value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #f8fafc;
+    margin-bottom: 6px;
+}
+
+.model-view-stat__value--primary {
+    color: #3b82f6;
+}
+
+.model-view-stat__value--success {
+    color: #22c55e;
+}
+
+.model-view-stat__value--warning {
+    color: #eab308;
+}
+
+.model-view-stat__label {
+    font-size: 13px;
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+.model-view-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+.model-view-card {
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: 12px;
+    padding: 24px;
+}
+
+.model-view-card__header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.model-view-card__icon {
+    font-size: 24px;
+}
+
+.model-view-card__title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #f8fafc;
+    margin: 0;
+}
+
+.model-view-info-grid {
+    display: grid;
+    gap: 16px;
+}
+
+.model-view-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: rgba(30, 41, 59, 0.4);
+    border-radius: 6px;
+}
+
+.model-view-info-label {
+    font-size: 13px;
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+.model-view-info-value {
+    font-size: 14px;
+    color: #f8fafc;
+    font-weight: 600;
+    text-align: right;
+}
+
+.model-view-info-value--mono {
+    font-family: monospace;
+    color: #60a5fa;
+}
+
+.model-view-info-value--success {
+    color: #22c55e;
+}
+
+.model-view-table-card {
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 24px;
+}
+
+.model-view-table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    background: rgba(15, 23, 42, 0.8);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.model-view-table-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.model-view-table-title h2 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #f8fafc;
+    margin: 0;
+}
+
+.model-view-table-count {
+    padding: 4px 10px;
+    background: rgba(59, 130, 246, 0.15);
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #60a5fa;
+}
+
+.model-view-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.model-view-table thead tr {
+    background: rgba(15, 23, 42, 0.6);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.model-view-table th {
+    text-align: left;
+    padding: 14px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #cbd5e1;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.model-view-table td {
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+    font-size: 14px;
+    color: #e2e8f0;
+}
+
+.model-view-table tbody tr:hover {
+    background: rgba(59, 130, 246, 0.05);
+}
+
+.model-view-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.model-view-empty {
+    padding: 60px 24px;
+    text-align: center;
+}
+
+.model-view-empty__icon {
+    font-size: 56px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.model-view-empty__text {
+    font-size: 16px;
+    color: #64748b;
+    margin: 0 0 8px 0;
+}
+
+.model-view-empty__subtext {
+    font-size: 14px;
+    color: #475569;
+}
+
+@media (max-width: 1024px) {
+    .model-view-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .model-view-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .model-view-header {
+        padding: 20px;
+    }
+    
+    .model-view-header__top {
+        flex-direction: column;
+        gap: 16px;
+    }
+    
+    .model-view-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .model-view-header__name {
+        font-size: 24px;
+    }
+}
+</style>
+
+<div class="model-view-container">
+    <!-- Header Card -->
+    <div class="model-view-header">
+        <div class="model-view-header__top">
+            <div class="model-view-header__title-group">
+                <div class="model-view-header__title">
+                    <h1 class="model-view-header__name">{{ model.working_name or model.code }}</h1>
+                    {% if model.status == 'Active' %}
+                        <span class="status-chip status-chip--success">● Active</span>
+                    {% else %}
+                        <span class="status-chip status-chip--neutral">● Inactive</span>
+                    {% endif %}
+                </div>
+                <div class="model-view-header__meta">
+                    <div class="model-view-header__meta-item">
+                        <span>Code:</span>
+                        <span class="model-view-header__code">{{ model.code }}</span>
+                    </div>
+                    {% if model.real_name %}
+                    <div class="model-view-header__meta-item">
+                        <span>Real Name:</span>
+                        <strong style="color: #cbd5e1;">{{ model.real_name }}</strong>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="model-view-header__actions">
+                {% if user.role == 'admin' %}
+                <a class="button secondary" href="/models/{{ model.id }}/edit">
+                    <span>✏️</span>
+                    <span>Edit</span>
+                </a>
+                {% endif %}
+                <a class="button secondary" href="/models">
+                    <span>←</span>
+                    <span>Back</span>
+                </a>
+            </div>
+        </div>
+        
+        <!-- Stats Row -->
+        <div class="model-view-stats">
+            <div class="model-view-stat">
+                <div class="model-view-stat__value model-view-stat__value--success">${{ total_paid|money }}</div>
+                <div class="model-view-stat__label">Total Paid</div>
+            </div>
+            <div class="model-view-stat">
+                <div class="model-view-stat__value model-view-stat__value--primary">${{ model.amount_monthly|money }}</div>
+                <div class="model-view-stat__label">Monthly Rate</div>
+            </div>
+            <div class="model-view-stat">
+                <div class="model-view-stat__value">{{ model.payment_frequency|title }}</div>
+                <div class="model-view-stat__label">Frequency</div>
+            </div>
+            <div class="model-view-stat">
+                <div class="model-view-stat__value">{{ model.payment_method }}</div>
+                <div class="model-view-stat__label">Payment Method</div>
+            </div>
+        </div>
+    </div>
+
+    {% if error_message %}
+    <div class="alert error">
+        <strong>Could not complete request.</strong> {{ error_message }}
+    </div>
+    {% endif %}
+    {% if success_message %}
+    <div class="alert success">
+        <strong>Done.</strong> {{ success_message }}
+    </div>
+    {% endif %}
+
+    <!-- Two Column Layout -->
+    <div class="model-view-grid">
+        <!-- Contract Details -->
+        <div class="model-view-card">
+            <div class="model-view-card__header">
+                <span class="model-view-card__icon">📋</span>
+                <h2 class="model-view-card__title">Contract Details</h2>
+            </div>
+            <div class="model-view-info-grid">
+                <div class="model-view-info-row">
+                    <span class="model-view-info-label">Start Date</span>
+                    <span class="model-view-info-value">{{ model.start_date|display_date or '—' }}</span>
+                </div>
+                <div class="model-view-info-row">
+                    <span class="model-view-info-label">Status</span>
+                    <span class="model-view-info-value">
+                        {% if model.status == 'Active' %}
+                            <span class="status-chip status-chip--success">Active</span>
+                        {% else %}
+                            <span class="status-chip status-chip--neutral">Inactive</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="model-view-info-row">
+                    <span class="model-view-info-label">Payment Frequency</span>
+                    <span class="model-view-info-value">
+                        <span class="frequency-badge frequency-badge--{{ model.payment_frequency }}">
+                            {{ model.payment_frequency|title }}
+                        </span>
+                    </span>
+                </div>
+                <div class="model-view-info-row">
+                    <span class="model-view-info-label">Monthly Rate</span>
+                    <span class="model-view-info-value model-view-info-value--success">${{ model.amount_monthly|money }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payment Information -->
+        <div class="model-view-card">
+            <div class="model-view-card__header">
+                <span class="model-view-card__icon">💳</span>
+                <h2 class="model-view-card__title">Payment Information</h2>
+            </div>
+            <div class="model-view-info-grid">
+                <div class="model-view-info-row">
+                    <span class="model-view-info-label">Payment Method</span>
+                    <span class="model-view-info-value">{{ model.payment_method }}</span>
+                </div>
+                {% if model.crypto_wallet %}
+                <div class="model-view-info-row" style="grid-column: 1 / -1;">
+                    <span class="model-view-info-label">Wallet Address</span>
+                    <span class="model-view-info-value model-view-info-value--mono" style="font-size: 12px; word-break: break-all;">
+                        {{ model.crypto_wallet }}
+                    </span>
+                </div>
+                {% endif %}
+                <div class="model-view-info-row">
+                    <span class="model-view-info-label">Total Paid</span>
+                    <span class="model-view-info-value model-view-info-value--success">${{ total_paid|money }}</span>
+                </div>
+                <div class="model-view-info-row">
+                    <span class="model-view-info-label">Profile Created</span>
+                    <span class="model-view-info-value">{{ model.created_at.strftime('%b %d, %Y') if model.created_at else '—' }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% set adjustments = model.compensation_adjustments or [] %}
+    {% set adjustments_count = adjustments|length %}
+    {% set latest_adjustment = adjustments[-1] if adjustments_count else None %}
+
+    <!-- Compensation Timeline -->
+    {% if adjustments_count %}
+    <div class="model-view-table-card">
+        <div class="model-view-table-header">
+            <div class="model-view-table-title">
+                <span style="font-size: 24px;">💵</span>
+                <h2>Compensation Timeline</h2>
+                <span class="model-view-table-count">{{ adjustments_count }} adjustment{{ 's' if adjustments_count != 1 else '' }}</span>
+            </div>
+            {% if latest_adjustment %}
+            <span style="font-size: 13px; color: #94a3b8;">
+                Latest: <strong style="color: #22c55e;">${{ latest_adjustment.amount_monthly|money }}</strong> on {{ latest_adjustment.effective_date|display_date }}
+            </span>
+            {% endif %}
+        </div>
+        <table class="model-view-table">
+            <thead>
+                <tr>
+                    <th>Effective Date</th>
+                    <th>Monthly Amount</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for adjustment in adjustments %}
+                <tr>
+                    <td style="white-space: nowrap;">{{ adjustment.effective_date|display_date }}</td>
+                    <td><strong style="color: #22c55e;">${{ adjustment.amount_monthly|money }}</strong></td>
+                    <td style="color: #94a3b8;">{{ adjustment.notes or '—' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% set adhoc_count = adhoc_payments|length %}
+    {% set pending_count = adhoc_payments | selectattr('status', 'equalto', 'pending') | list | length %}
+    {% set latest_payment = adhoc_payments[0] if adhoc_count else None %}
+
+    <!-- Ad Hoc Payments -->
+    <div class="model-view-table-card">
+        <div class="model-view-table-header">
+            <div class="model-view-table-title">
+                <span style="font-size: 24px;">💸</span>
+                <h2>Ad Hoc Payments</h2>
+                <span class="model-view-table-count">{{ adhoc_count }} recorded</span>
+                {% if pending_count %}
+                <span class="model-view-table-count" style="background: rgba(234, 179, 8, 0.15); color: #fbbf24;">{{ pending_count }} pending</span>
+                {% endif %}
+            </div>
+            {% if latest_payment %}
+            <span style="font-size: 13px; color: #94a3b8;">
+                Latest: <strong style="color: #22c55e;">${{ latest_payment.amount|money }}</strong> on {{ latest_payment.pay_date|display_date }}
+            </span>
+            {% endif %}
+        </div>
+        
+        <div style="padding: 24px; background: rgba(15, 23, 42, 0.3); border-bottom: 1px solid rgba(148, 163, 184, 0.08);">
+            <p style="margin: 0; font-size: 14px; color: #94a3b8;">Log one-off payments that fall outside scheduled payroll runs.</p>
+        </div>
+
+        {% if user.role == 'admin' %}
+        <div style="padding: 24px; background: rgba(30, 41, 59, 0.3); border-bottom: 1px solid rgba(148, 163, 184, 0.08);">
+            <form action="/models/{{ model.id }}/adhoc-payments" method="post">
+                <div style="margin-bottom: 20px;">
+                    <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #f8fafc;">➕ Record New Payment</h3>
+                    <p style="margin: 0; font-size: 13px; color: #94a3b8;">Capture payment details that should appear on the ledger.</p>
+                </div>
+                <div class="form-grid two-column">
+                    <div class="form-row">
+                        <label for="adhoc-pay-date">Pay Date <span class="required-badge">Required</span></label>
+                        <input id="adhoc-pay-date" name="pay_date" type="date" required />
+                    </div>
+                    <div class="form-row">
+                        <label for="adhoc-amount">Amount (USD) <span class="required-badge">Required</span></label>
+                        <input id="adhoc-amount" name="amount" type="number" step="0.01" min="0.01" required />
+                    </div>
+                    <div class="form-row">
+                        <label for="adhoc-description">Description</label>
+                        <input id="adhoc-description" name="description" type="text" maxlength="255" placeholder="Reason or memo" />
+                    </div>
+                    <div class="form-row span-all">
+                        <label for="adhoc-notes">Notes (internal)</label>
+                        <textarea id="adhoc-notes" name="notes" rows="3" placeholder="Optional notes for this payment"></textarea>
+                    </div>
+                </div>
+                <div style="margin-top: 16px; display: flex; align-items: center; gap: 12px;">
+                    <button class="button" type="submit">Add Ad Hoc Payment</button>
+                    <span style="font-size: 13px; color: #64748b;">Saved instantly and will appear in the table below.</span>
+                </div>
+            </form>
+        </div>
+        {% endif %}
+
+        {% if adhoc_payments %}
+        <table class="model-view-table">
+            <thead>
+                <tr>
+                    <th>Pay Date</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Description</th>
+                    <th>Notes</th>
+                    {% if user.role == 'admin' %}
+                    <th>Actions</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for payment in adhoc_payments %}
+                <tr>
+                    <td style="white-space: nowrap;">{{ payment.pay_date|display_date }}</td>
+                    <td><strong style="color: #22c55e;">${{ payment.amount|money }}</strong></td>
+                    <td>
+                        {% if payment.status == 'paid' %}
+                            <span class="status-chip status-chip--success">Paid</span>
+                        {% elif payment.status == 'cancelled' %}
+                            <span class="status-chip status-chip--neutral">Cancelled</span>
+                        {% else %}
+                            <span class="status-chip status-chip--warning">Pending</span>
+                        {% endif %}
+                    </td>
+                    <td style="color: #94a3b8;">{{ payment.description or '—' }}</td>
+                    <td style="color: #94a3b8;">{{ payment.notes or '—' }}</td>
+                    {% if user.role == 'admin' %}
+                    <td>
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                            <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/status" method="post" style="display: inline;">
+                                <input name="action" type="hidden" value="mark_paid" />
+                                <button class="button secondary button--compact" type="submit" {% if payment.status == 'paid' %}disabled{% endif %} style="font-size: 12px; padding: 4px 8px;">Paid</button>
+                            </form>
+                            <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/status" method="post" style="display: inline;">
+                                <input name="action" type="hidden" value="mark_pending" />
+                                <button class="button secondary button--compact" type="submit" {% if payment.status == 'pending' %}disabled{% endif %} style="font-size: 12px; padding: 4px 8px;">Pending</button>
+                            </form>
+                            <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/status" method="post" style="display: inline;">
+                                <input name="action" type="hidden" value="cancel" />
+                                <button class="button secondary button--compact" type="submit" {% if payment.status == 'cancelled' %}disabled{% endif %} style="font-size: 12px; padding: 4px 8px;">Cancel</button>
+                            </form>
+                            <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/delete" method="post" onsubmit="return confirm('Delete this ad hoc payment?');" style="display: inline;">
+                                <button class="button secondary button--compact" type="submit" style="font-size: 12px; padding: 4px 8px; background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3);">Delete</button>
+                            </form>
+                        </div>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="model-view-empty">
+            <div class="model-view-empty__icon">💸</div>
+            <p class="model-view-empty__text">No ad hoc payments recorded yet.</p>
+            <p class="model-view-empty__subtext">Use the form above to log one-off payments.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Payment History -->
+    <div class="model-view-table-card">
+        <div class="model-view-table-header">
+            <div class="model-view-table-title">
+                <span style="font-size: 24px;">📜</span>
+                <h2>Payment History</h2>
+                <span class="model-view-table-count">{{ paid_payouts|length }} payment{{ 's' if paid_payouts|length != 1 else '' }}</span>
+            </div>
+            <a class="button secondary button--compact" href="/schedules">View All Schedules</a>
+        </div>
+        
+        {% if paid_payouts %}
+        <table class="model-view-table">
+            <thead>
+                <tr>
+                    <th>Pay Date</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Method</th>
+                    <th>Frequency</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for payout in paid_payouts %}
+                <tr>
+                    <td style="white-space: nowrap;">{{ payout.pay_date|display_date }}</td>
+                    <td><strong style="color: #22c55e;">${{ payout.amount|money }}</strong></td>
+                    <td>
+                        {% if payout.status == 'paid' %}
+                            <span class="status-chip status-chip--success">Paid</span>
+                        {% elif payout.status == 'on_hold' %}
+                            <span class="status-chip status-chip--warning">On Hold</span>
+                        {% else %}
+                            <span class="status-chip status-chip--neutral">Not Paid</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ payout.payment_method }}</td>
+                    <td>
+                        <span class="frequency-badge frequency-badge--{{ payout.payment_frequency }}">
+                            {{ payout.payment_frequency|title }}
+                        </span>
+                    </td>
+                    <td style="color: #94a3b8;">{{ payout.notes or '—' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="model-view-empty">
+            <div class="model-view-empty__icon">📭</div>
+            <p class="model-view-empty__text">No payments recorded yet for this model.</p>
+            <p class="model-view-empty__subtext">Payments will appear here once they're scheduled in <a href="/schedules" style="color: #60a5fa;">Schedule Runs</a>.</p>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

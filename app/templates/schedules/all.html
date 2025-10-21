@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}All Payroll Runs · Payroll Desk{% endblock %}
+
+{% macro render_run_card(run, allow_delete=False) %}
+<article class="run-card-compact">
+    <div class="run-card-compact__left">
+        <div class="run-card-compact__title-row">
+            <span class="run-card-compact__cycle">{{ run.cycle }}</span>
+            <span class="status-chip status-chip--{{ run.status_variant|default('neutral') }}">{{ run.status }}</span>
+        </div>
+        <div class="run-card-compact__meta-row">
+            <span class="run-card-compact__date">Created {{ run.created }}</span>
+            {% if run.frequency_counts %}
+                <span class="run-card-compact__separator">·</span>
+                {% for name, count in run.frequency_counts|dictsort %}
+                <span class="frequency-chip-mini">{{ name|replace('_', ' ')|title }} ({{ count }})</span>
+                {% if not loop.last %}<span class="run-card-compact__separator">·</span>{% endif %}
+                {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="run-card-compact__metrics-row">
+        <div class="run-card-compact__metric">
+            <span class="run-card-compact__metric-label">Total</span>
+            <span class="run-card-compact__metric-value run-card-compact__metric-value--primary">{{ run.currency or 'USD' }} {{ run.total|money }}</span>
+        </div>
+        <div class="run-card-compact__metric-divider"></div>
+        <div class="run-card-compact__metric">
+            <span class="run-card-compact__metric-label">Paid</span>
+            <span class="run-card-compact__metric-value run-card-compact__metric-value--success">{{ run.currency or 'USD' }} {{ run.paid|money }}</span>
+        </div>
+        <div class="run-card-compact__metric-divider"></div>
+        {% set outstanding_value = run.outstanding or 0 %}
+        <div class="run-card-compact__metric">
+            <span class="run-card-compact__metric-label">Outstanding</span>
+            <span class="run-card-compact__metric-value{% if outstanding_value > 0 %} run-card-compact__metric-value--warning{% endif %}">{{ run.currency or 'USD' }} {{ outstanding_value|money }}</span>
+        </div>
+        <div class="run-card-compact__metric-divider"></div>
+        <div class="run-card-compact__metric">
+            <span class="run-card-compact__metric-label">Models Paid</span>
+            <span class="run-card-compact__metric-value">{{ run.models_paid or 0 }}</span>
+        </div>
+    </div>
+    
+    <div class="run-card-compact__action">
+        <a class="run-card-compact__action-button" href="/schedules/{{ run.id }}">
+            <span>Open</span>
+            <span class="run-card-compact__action-arrow">→</span>
+        </a>
+        {% if allow_delete %}
+        <form method="post" action="/schedules/{{ run.id }}/delete" onsubmit="return confirm('Delete this payroll run?');" style="margin-left:8px;">
+            <button class="run-card-compact__action-button run-card-compact__action-button--danger" type="submit" aria-label="Delete run">Delete</button>
+        </form>
+        {% endif %}
+    </div>
+</article>
+{% endmacro %}
+
+{% block content %}
+<section class="page-header">
+    <div>
+        <h1 class="page-title">All Payroll Runs</h1>
+        <p>Browse every payroll cycle for {{ year }}.</p>
+    </div>
+    <div class="header-actions">
+        <a class="button secondary" href="/schedules">Back to Dashboard</a>
+        <a class="button secondary" href="{{ table_view_url }}">Table View</a>
+        {% if user.role == 'admin' %}
+        <a class="button" href="/schedules/new">Run Payroll</a>
+        {% endif %}
+    </div>
+</section>
+
+<section class="card">
+    <div class="section-heading">
+        <div>
+            <h2>Select Year</h2>
+            <p>Jump to a different archive of runs.</p>
+        </div>
+    </div>
+    <form class="year-filter" method="get">
+        <div class="year-filter__group">
+            <label for="year-select">Year</label>
+            <select id="year-select" name="year">
+                {% for option in available_years %}
+                <option value="{{ option }}" {% if option == year %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="year-filter__actions">
+            <button class="button" type="submit">Update</button>
+        </div>
+    </form>
+    {# Month chips removed - simplified year selector per design request #}
+</section>
+
+<section class="card">
+    <div class="section-heading">
+        <div>
+            <h2>Payroll Runs</h2>
+            <p>{{ runs|length }} run{% if runs|length != 1 %}s{% endif %} recorded for {{ year }}.</p>
+        </div>
+    </div>
+    {% if runs %}
+    <div class="run-cards-compact">
+        {% for run in runs %}
+        {{ render_run_card(run, user.role == 'admin') }}
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-state">No payroll runs were recorded for {{ year }}.</p>
+    {% endif %}
+</section>
+{% endblock %}
