@@ -141,15 +141,7 @@
                 </select>
             </div>
 
-            <div class="filter-group-inline">
-                <label for="filter-code">Code</label>
-                <select id="filter-code" name="code" onchange="this.form.submit()" class="filter-select">
-                    <option value="">All</option>
-                    {% for option in code_options %}
-                        <option value="{{ option }}" {% if filters.code == option %}selected{% endif %}>{{ option }}</option>
-                    {% endfor %}
-                </select>
-            </div>
+            {# Code filter removed for single-run schedule view to simplify toolbar #}
 
             <div class="filter-group-inline">
                 <label for="filter-frequency">Frequency</label>
