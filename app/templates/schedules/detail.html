@@ -446,14 +446,27 @@ function toggleSelectAll(checkbox) {
 function updateBulkSection() {
     const checkboxes = document.querySelectorAll('.payout-checkbox:checked');
     const bulkBar = document.getElementById('bulk-actions-bar');
+    if (!bulkBar) {
+        return;
+    }
     const count = checkboxes.length;
     
     if (count > 0) {
         bulkBar.style.display = 'block';
-        document.getElementById('selected-count').textContent = count;
-        document.getElementById('selected-plural').textContent = count === 1 ? '' : 's';
-        const ids = Array.from(checkboxes).map(cb => cb.value).join(',');
-        document.getElementById('bulk-payout-ids').value = ids;
+        const selectedCount = document.getElementById('selected-count');
+        const selectedPlural = document.getElementById('selected-plural');
+        const bulkIdsInput = document.getElementById('bulk-payout-ids');
+
+        if (selectedCount) {
+            selectedCount.textContent = count;
+        }
+        if (selectedPlural) {
+            selectedPlural.textContent = count === 1 ? '' : 's';
+        }
+        if (bulkIdsInput) {
+            const ids = Array.from(checkboxes).map(cb => cb.value).join(',');
+            bulkIdsInput.value = ids;
+        }
     } else {
         bulkBar.style.display = 'none';
     }
@@ -462,7 +475,10 @@ function updateBulkSection() {
 // Cancel bulk update
 function cancelBulkUpdate() {
     document.querySelectorAll('.payout-checkbox').forEach(cb => cb.checked = false);
-    document.getElementById('select-all').checked = false;
+    const selectAll = document.getElementById('select-all');
+    if (selectAll) {
+        selectAll.checked = false;
+    }
     updateBulkSection();
 }
 
@@ -491,6 +507,9 @@ function quickUpdateStatus(payoutId, status) {
 // Toggle notes row for editing
 function toggleNotesRow(payoutId) {
     const notesRow = document.getElementById(`notes-row-${payoutId}`);
+    if (!notesRow) {
+        return;
+    }
     if (notesRow.style.display === 'none') {
         // Hide all other notes rows
         document.querySelectorAll('.notes-row').forEach(row => {
@@ -506,6 +525,9 @@ function toggleNotesRow(payoutId) {
 function toggleValidation() {
     const section = document.getElementById('validation-section');
     const toggleText = document.getElementById('validation-toggle-text');
+    if (!section || !toggleText) {
+        return;
+    }
     if (section.style.display === 'none') {
         section.style.display = 'block';
         toggleText.textContent = 'Hide Details';
@@ -517,7 +539,7 @@ function toggleValidation() {
 
 // Filter by status (chip buttons)
 function filterByStatus(status) {
-    const url = new URL(window.location);
+    const url = new URL(window.location.href);
     if (status) {
         url.searchParams.set('status', status);
     } else {
@@ -529,10 +551,15 @@ function filterByStatus(status) {
 // Filter by overdue (client-side)
 function filterByOverdue() {
     const searchInput = document.getElementById('quick-search');
-    searchInput.value = '';  // Clear search
+    if (searchInput) {
+        searchInput.value = '';
+    }
     
-    const table = document.querySelector('#payouts-table tbody');
-    const rows = Array.from(table.querySelectorAll('tr.payout-row'));
+    const tableBody = document.querySelector('#payouts-table tbody');
+    if (!tableBody) {
+        return;
+    }
+    const rows = Array.from(tableBody.querySelectorAll('tr.payout-row'));
     
     let visibleCount = 0;
     
@@ -557,14 +584,21 @@ function filterByOverdue() {
         }
     });
     
-    document.getElementById('visible-count').textContent = visibleCount;
+    const visibleCountEl = document.getElementById('visible-count');
+    if (visibleCountEl) {
+        visibleCountEl.textContent = visibleCount;
+    }
 }
 
 // Client-side quick search filter
 function filterPayoutTable() {
-    const searchTerm = document.getElementById('quick-search').value.toLowerCase();
-    const table = document.querySelector('#payouts-table tbody');
-    const rows = Array.from(table.querySelectorAll('tr.payout-row'));
+    const searchInput = document.getElementById('quick-search');
+    const tableBody = document.querySelector('#payouts-table tbody');
+    if (!searchInput || !tableBody) {
+        return;
+    }
+    const searchTerm = searchInput.value.toLowerCase();
+    const rows = Array.from(tableBody.querySelectorAll('tr.payout-row'));
     
     let visibleCount = 0;
     
@@ -597,7 +631,10 @@ function filterPayoutTable() {
     });
     
     // Update count
-    document.getElementById('visible-count').textContent = visibleCount;
+    const visibleCountEl = document.getElementById('visible-count');
+    if (visibleCountEl) {
+        visibleCountEl.textContent = visibleCount;
+    }
 }
 
 // Table sorting
@@ -605,10 +642,18 @@ let sortDirection = {};
 
 function sortTable(columnIndex) {
     const table = document.querySelector('#payouts-table');
+    if (!table) {
+        return;
+    }
     const tbody = table.querySelector('tbody');
+    if (!tbody) {
+        return;
+    }
     let rows = Array.from(tbody.querySelectorAll('tr.payout-row'));
 
-    if (rows.length === 0) return;
+    if (rows.length === 0) {
+        return;
+    }
 
     // Toggle sort direction
     const prev = sortDirection[columnIndex] === true;
@@ -655,7 +700,7 @@ function sortTable(columnIndex) {
     });
 
     // Update header indicators
-    document.querySelectorAll('#payouts-table th').forEach((th, idx) => {
+    document.querySelectorAll('#payouts-table thead th').forEach((th, idx) => {
         const base = th.textContent.replace(/\s*[▲▼]\s*$/, '').trim();
         if (idx === columnIndex && idx > 0 && idx < 8) {
             th.textContent = base + (isAscending ? ' ▲' : ' ▼');
