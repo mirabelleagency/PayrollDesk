@@ -229,7 +229,7 @@
                     <th onclick="sortTable(4)" style="cursor: pointer; user-select: none;">Method ▼</th>
                     <th onclick="sortTable(5)" style="cursor: pointer; user-select: none;">Frequency ▼</th>
                     <th onclick="sortTable(6)" style="cursor: pointer; user-select: none;">Amount ▼</th>
-                    <th onclick="sortTable(7)" style="cursor: pointer; user-select: none;">Status ▼</th>
+                    <th onclick="sortTable(7)" style="cursor: pointer; user-select: none; text-align: center;">Status ▼</th>
                     <th style="min-width: 120px;">Quick Actions</th>
                 </tr>
             </thead>
@@ -265,7 +265,7 @@
                     <td>
                         <strong style="font-size: 15px;">{{ run.currency }} {{ payout.amount|money }}</strong>
                     </td>
-                    <td>
+                    <td style="text-align: center;">
                         <span class="status-chip status-chip--{{ 'success' if payout.status == 'paid' else ('warning' if payout.status == 'not_paid' else 'danger') }}">
                             {{ payout.status.replace('_', ' ')|title }}
                         </span>
@@ -1187,6 +1187,104 @@ document.addEventListener('DOMContentLoaded', function() {
 .bulk-actions-bar__text strong {
     color: #60a5fa;
     font-size: 18px;
+}
+
+/* Responsive Styles */
+@media (max-width: 1024px) {
+    .schedule-filter-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .schedule-filter-toolbar__search {
+        min-width: 0;
+    }
+    
+    .schedule-filter-toolbar__filters {
+        flex-direction: column;
+        align-items: stretch;
+        flex: 1;
+    }
+    
+    .filter-group-inline {
+        min-width: 0;
+        width: 100%;
+    }
+}
+
+@media (max-width: 640px) {
+    /* Hero metrics on mobile */
+    .schedule-metrics-dashboard {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    /* Page header on mobile */
+    .page-header .header-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+    }
+    
+    .page-header .header-actions .button {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    /* Section heading adjustments */
+    .section-heading {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    
+    /* Filter toolbar on mobile */
+    .schedule-filter-toolbar {
+        padding: 12px;
+    }
+    
+    /* Status filter chips wrap properly */
+    .status-filter-chips {
+        gap: 6px !important;
+    }
+    
+    .status-chip-filter {
+        font-size: 12px;
+        padding: 6px 10px;
+    }
+    
+    /* Make table scrollable on mobile */
+    .data-table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin-left: -16px;
+        margin-right: -16px;
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+    
+    .data-table {
+        min-width: 900px;
+        font-size: 13px;
+    }
+    
+    .data-table th,
+    .data-table td {
+        padding: 8px 6px;
+    }
+    
+    /* Compact action buttons */
+    .action-button {
+        padding: 4px 8px;
+        font-size: 11px;
+    }
+    
+    /* Filter clear button */
+    .filter-clear-button {
+        width: 100%;
+        justify-content: center;
+    }
 }
 </style>
 
