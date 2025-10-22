@@ -314,4 +314,146 @@ document.addEventListener('DOMContentLoaded', function () {
         {% endif %}
     </div>
 </section>
+
+<style>
+/* Responsive styles for dashboard cards */
+@media (max-width: 1024px) {
+    .card-grid.columns-3 {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+}
+
+@media (max-width: 640px) {
+    .card-grid.columns-3 {
+        grid-template-columns: 1fr;
+        gap: 16px;
+        margin-top: 20px !important;
+    }
+    
+    /* Metric cards - Model Roster, Financial Overview, Current Month Cycle */
+    .metric-card {
+        text-align: center;
+    }
+    
+    .metric-card-title {
+        text-align: center;
+    }
+    
+    .metric-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        align-items: center;
+    }
+    
+    .metric-item {
+        text-align: center;
+        width: 100%;
+        grid-column: span 1 !important;
+    }
+    
+    .metric-label {
+        text-align: center;
+    }
+    
+    .metric-number {
+        text-align: center;
+    }
+    
+    /* Card heading adjustments */
+    .card-heading {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 8px;
+    }
+    
+    .card-heading h2 {
+        text-align: center;
+        width: 100%;
+        margin-bottom: 0;
+    }
+    
+    .card-heading .button {
+        width: 100%;
+        justify-content: center;
+        margin-top: 4px;
+        margin-bottom: 0;
+    }
+    
+    /* Summary stats adjustments */
+    .summary-stats {
+        flex-direction: column;
+        gap: 12px;
+        align-items: center;
+        margin-top: 8px;
+        margin-bottom: 12px;
+        padding-top: 0;
+    }
+    
+    .summary-card .card-heading + .summary-stats {
+        margin-top: 8px;
+    }
+    
+    .summary-stat {
+        text-align: center;
+        width: 100%;
+    }
+    
+    .summary-stat-label,
+    .summary-stat-value {
+        text-align: center;
+    }
+    
+    /* Summary list items */
+    .summary-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .summary-list-item {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 8px;
+    }
+    
+    .summary-list-main {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .summary-list-title,
+    .summary-list-meta {
+        text-align: center;
+    }
+    
+    .summary-list-amount {
+        font-size: 18px;
+        align-self: center;
+    }
+    
+    /* Empty state center */
+    .empty-state {
+        text-align: center !important;
+    }
+    
+    /* Page header on mobile */
+    .page-header .header-actions {
+        width: 100%;
+    }
+    
+    .page-header .header-actions .button {
+        width: 100%;
+        justify-content: center;
+    }
+}
+</style>
+
 {% endblock %}
+
