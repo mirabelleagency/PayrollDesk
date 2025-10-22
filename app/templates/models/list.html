@@ -224,7 +224,6 @@
                     <th>Monthly Rate</th>
                     <th>Method</th>
                     <th>Lifetime Paid</th>
-                    <th>Last Payment</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -257,9 +256,6 @@
                     <td>
                         <strong style="color: #059669;">USD {{ lifetime|money }}</strong>
                     </td>
-                    <td id="last-payment-{{ model.id }}">
-                        <span class="loading-text">—</span>
-                    </td>
                     <td onclick="event.stopPropagation();">
                         <div class="actions">
                             <a class="button secondary button--compact" href="/models/{{ model.id }}">View</a>
@@ -273,7 +269,7 @@
                     </td>
                 </tr>
                 <tr class="payment-history-row" id="payments-{{ model.id }}" style="display: none;">
-                    <td colspan="11" style="padding: 0; background: #f9fafb;">
+                    <td colspan="10" style="padding: 0; background: #f9fafb;">
                         <div class="payment-history-container">
                             <div class="payment-history-header">
                                 <h3>💳 Payment History — {{ model.code }}</h3>
@@ -444,7 +440,6 @@ async function toggleModelPayments(modelId) {
 async function loadModelPayments(modelId) {
     const contentDiv = document.getElementById(`payment-content-${modelId}`);
     const summaryDiv = document.getElementById(`payment-summary-${modelId}`);
-    const lastPaymentCell = document.getElementById(`last-payment-${modelId}`);
 
     try {
         const response = await fetch(`/models/${modelId}/payments.json`, {
@@ -462,7 +457,6 @@ async function loadModelPayments(modelId) {
         if (payouts.length === 0) {
             contentDiv.innerHTML = '<p class="empty-state" style="padding: 24px;">No payment history recorded for this model.</p>';
             summaryDiv.innerHTML = '<span>0 payments</span>';
-            lastPaymentCell.innerHTML = '<span style="color: #9ca3af;">Never</span>';
             paymentCache[modelId] = true;
             return;
         }
@@ -523,13 +517,7 @@ async function loadModelPayments(modelId) {
             <span>Total paid: <strong>${formatCurrency(totalPaidValue)}</strong></span>
         `;
 
-        if (summary.latest_pay_date_display) {
-            lastPaymentCell.innerHTML = `<span style="white-space: nowrap;">${summary.latest_pay_date_display}</span>`;
-        } else if (payouts[0] && payouts[0].pay_date_display) {
-            lastPaymentCell.innerHTML = `<span style="white-space: nowrap;">${payouts[0].pay_date_display}</span>`;
-        } else {
-            lastPaymentCell.innerHTML = '<span style="color: #9ca3af;">Never</span>';
-        }
+        // Last payment column removed from table; no UI update needed here
 
         paymentCache[modelId] = true;
     } catch (error) {
