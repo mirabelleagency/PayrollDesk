@@ -735,13 +735,16 @@ document.addEventListener('DOMContentLoaded', function () {
     display: flex;
     gap: 12px;
     flex-wrap: wrap;
-    align-items: flex-end;
+    align-items: flex-start;
 }
 
 /* Make the search input sit inline and grow */
 .filter-group--search {
     flex: 1 1 320px;
     min-width: 260px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
 .filter-group--compact {
@@ -1019,10 +1022,18 @@ document.addEventListener('DOMContentLoaded', function () {
     .model-metrics-dashboard {
         grid-template-columns: repeat(2, 1fr);
     }
-    
+}
+
+@media (max-width: 768px) {
     .filter-toolbar__filters {
         flex-direction: column;
         align-items: stretch;
+        gap: 12px;
+    }
+    
+    .filter-group--search {
+        flex: 1;
+        min-width: 0;
     }
 }
 
