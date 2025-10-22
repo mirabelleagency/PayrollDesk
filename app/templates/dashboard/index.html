@@ -16,8 +16,11 @@
 document.addEventListener('DOMContentLoaded', function () {
     const btn = document.getElementById('exportAllBtn');
     if (!btn) return;
+    // Preserve the original button content (emoji + text) so we can restore it after export
+    const originalBtnHtml = btn.innerHTML;
     btn.addEventListener('click', async () => {
         btn.disabled = true;
+        // Use textContent briefly to indicate progress while preserving original HTML
         btn.textContent = 'Preparing export...';
         try {
             const resp = await fetch('/dashboard/export-xlsx', { credentials: 'same-origin' });
@@ -42,7 +45,8 @@ document.addEventListener('DOMContentLoaded', function () {
             alert('Export failed. Check console for details.');
         } finally {
             btn.disabled = false;
-            btn.textContent = 'Export All Data (XLSX)';
+            // Restore the original HTML (includes the icon and wording)
+            btn.innerHTML = originalBtnHtml;
         }
     });
 });
