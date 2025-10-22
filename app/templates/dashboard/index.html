@@ -322,9 +322,44 @@ document.addEventListener('DOMContentLoaded', function () {
         grid-template-columns: 1fr;
         gap: 20px;
     }
+    
+    /* Hero KPI cards stack on tablet */
+    .hero-kpis {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
 
 @media (max-width: 640px) {
+    /* Hero KPI cards - center align */
+    .hero-kpis {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .hero-kpi-card {
+        text-align: center;
+    }
+    
+    .hero-kpi-label {
+        text-align: center;
+    }
+    
+    .hero-kpi-value {
+        text-align: center;
+    }
+    
+    .hero-kpi-subtitle,
+    .hero-kpi-trend {
+        text-align: center !important;
+        display: block;
+        width: 100%;
+    }
+    
+    .hero-kpi-trend--up,
+    .hero-kpi-trend--down {
+        text-align: center !important;
+    }
+    
     .card-grid.columns-3 {
         grid-template-columns: 1fr;
         gap: 16px;
