@@ -202,7 +202,7 @@ document.addEventListener('DOMContentLoaded', function () {
         {% endif %}
         
         {% if pending_adhoc_payments %}
-        <div class="alert-item alert-item--info">
+        <div class="alert-item alert-item--warning">
             <div class="alert-item-icon">📋</div>
             <div class="alert-item-content">
                 <div class="alert-item-title">{{ pending_adhoc_payments|length }} Pending Ad Hoc Payment{{ 's' if pending_adhoc_payments|length != 1 else '' }}</div>
