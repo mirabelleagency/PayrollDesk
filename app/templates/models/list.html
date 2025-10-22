@@ -405,7 +405,7 @@ function renderStatusChip(status) {
     const map = {
         paid: { label: 'Paid', cls: 'status-chip status-chip--success' },
         on_hold: { label: 'On Hold', cls: 'status-chip status-chip--warning' },
-        not_paid: { label: 'Not Paid', cls: 'status-chip status-chip--neutral' },
+        not_paid: { label: 'Not Paid', cls: 'status-chip status-chip--warning' },
     };
     const fallback = status ? status.replace(/_/g, ' ') : 'Unknown';
     const formattedFallback = fallback.replace(/\b\w/g, char => char.toUpperCase());
