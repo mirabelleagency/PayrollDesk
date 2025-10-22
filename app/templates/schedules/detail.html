@@ -211,17 +211,13 @@
         <table class="data-table schedule-payouts-table" id="payouts-table">
             <thead>
                 <tr>
-                    <th style="width: 40px;">
-                        <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" 
-                               style="cursor: pointer;">
-                    </th>
-                    <th onclick="sortTable(1)" style="cursor: pointer; user-select: none;">Pay Date ▼</th>
-                    <th onclick="sortTable(2)" style="cursor: pointer; user-select: none;">Code ▼</th>
-                    <th onclick="sortTable(3)" style="cursor: pointer; user-select: none;">Working Name ▼</th>
-                    <th onclick="sortTable(4)" style="cursor: pointer; user-select: none;">Method ▼</th>
-                    <th onclick="sortTable(5)" style="cursor: pointer; user-select: none;">Frequency ▼</th>
-                    <th onclick="sortTable(6)" style="cursor: pointer; user-select: none;">Amount ▼</th>
-                    <th onclick="sortTable(7)" style="cursor: pointer; user-select: none; text-align: center;">Status ▼</th>
+                    <th onclick="sortTable(0)" style="cursor: pointer; user-select: none;">Pay Date ▼</th>
+                    <th onclick="sortTable(1)" style="cursor: pointer; user-select: none;">Code ▼</th>
+                    <th onclick="sortTable(2)" style="cursor: pointer; user-select: none;">Working Name ▼</th>
+                    <th onclick="sortTable(3)" style="cursor: pointer; user-select: none;">Method ▼</th>
+                    <th onclick="sortTable(4)" style="cursor: pointer; user-select: none;">Frequency ▼</th>
+                    <th onclick="sortTable(5)" style="cursor: pointer; user-select: none;">Amount ▼</th>
+                    <th onclick="sortTable(6)" style="cursor: pointer; user-select: none; text-align: center;">Status ▼</th>
                     <th style="min-width: 120px;">Quick Actions</th>
                 </tr>
             </thead>
@@ -234,10 +230,7 @@
                     data-name="{{ (payout.working_name or '')|lower }}"
                     data-status="{{ payout.status }}"
                     data-is-overdue="{{ 'true' if is_overdue else 'false' }}">
-                    <td style="text-align: center;">
-                        <input type="checkbox" class="payout-checkbox" value="{{ payout.id }}" 
-                               onchange="updateBulkSection()" style="cursor: pointer;">
-                    </td>
+                    {# Checkbox removed for single-run view #}
                     <td style="white-space: nowrap;">
                         <strong>{{ payout.pay_date|display_date }}</strong>
                         {% if is_overdue %}
@@ -303,7 +296,7 @@
                 </tr>
                 <!-- Expandable Notes Row -->
                 <tr class="notes-row" id="notes-row-{{ payout.id }}" style="display: none;">
-                    <td colspan="9" style="padding: 0; background: rgba(15, 23, 42, 0.95);">
+                    <td colspan="8" style="padding: 0; background: rgba(15, 23, 42, 0.95);">
                         <div style="padding: 16px; border-top: 1px solid rgba(148, 163, 184, 0.1);">
                             <form method="post" action="/schedules/{{ run.id }}/payouts/{{ payout.id }}/note" 
                                   style="display: flex; gap: 12px; align-items: flex-start;">
@@ -340,13 +333,13 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td class="empty-state" colspan="9">No payouts match the current filters.</td>
+                    <td class="empty-state" colspan="8">No payouts match the current filters.</td>
                 </tr>
                 {% endfor %}
             </tbody>
             <tfoot>
                 <tr style="background: rgba(59, 130, 246, 0.05); font-weight: 600;">
-                    <th colspan="6" style="text-align: right; padding: 16px;">Cycle Total</th>
+                    <th colspan="5" style="text-align: right; padding: 16px;">Cycle Total</th>
                     <th style="font-size: 16px; color: #3b82f6;">{{ run.currency }} {{ payout_total|money }}</th>
                     <th colspan="2"></th>
                 </tr>
