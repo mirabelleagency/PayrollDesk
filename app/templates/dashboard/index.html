@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', function () {
 <!-- Hero KPI Section -->
 <section class="hero-kpis" style="margin-top: 24px;">
     <div class="hero-kpi-card hero-kpi-card--primary">
-        <div class="hero-kpi-label">{{ current_month_name }} Total Paid</div>
+        <div class="hero-kpi-label">{{ current_month_name }} Total to pay</div>
         <div class="hero-kpi-value">${{ summary.monthly_burn|money }}</div>
         {% if summary.burn_change_pct is not none %}
         <div class="hero-kpi-trend {% if summary.burn_change_pct > 0 %}hero-kpi-trend--up{% else %}hero-kpi-trend--down{% endif %}">
