@@ -82,23 +82,9 @@
         </div>
     </div>
 
-    <div class="model-metric model-metric--financial">
-        <div class="model-metric__header">
-            <span class="model-metric__icon">💰</span>
-            <span class="model-metric__label">Lifetime Paid</span>
-        </div>
-        <div class="model-metric__value">USD {{ total_paid_sum|money }}</div>
-        <div class="model-metric__breakdown">
-            {% set active_models = models|selectattr('status', 'equalto', 'Active')|list %}
-            <span class="model-metric__item">
-                {{ '%.2f'|format(total_paid_sum / active_models|length if active_models|length > 0 else 0) }} avg/active
-            </span>
-        </div>
-    </div>
-
     <div class="model-metric model-metric--neutral">
         <div class="model-metric__header">
-            <span class="model-metric__icon">📊</span>
+            <span class="model-metric__icon">�</span>
             <span class="model-metric__label">Payment Methods</span>
         </div>
         <div class="model-metric__value model-metric__value--compact">
@@ -118,7 +104,7 @@
 
     <div class="model-metric model-metric--info">
         <div class="model-metric__header">
-            <span class="model-metric__icon">📅</span>
+            <span class="model-metric__icon">�</span>
             <span class="model-metric__label">Payment Frequency</span>
         </div>
         <div class="model-metric__value model-metric__value--compact">
@@ -134,6 +120,20 @@
                 <span class="model-metric__item">{{ freq|title }} ({{ count }})</span>
                 {% if not loop.last %}<span class="model-metric__divider">·</span>{% endif %}
             {% endfor %}
+        </div>
+    </div>
+
+    <div class="model-metric model-metric--financial">
+        <div class="model-metric__header">
+            <span class="model-metric__icon">�</span>
+            <span class="model-metric__label">Lifetime Paid</span>
+        </div>
+        <div class="model-metric__value">USD {{ total_paid_sum|money }}</div>
+        <div class="model-metric__breakdown">
+            {% set active_models = models|selectattr('status', 'equalto', 'Active')|list %}
+            <span class="model-metric__item">
+                {{ '%.2f'|format(total_paid_sum / active_models|length if active_models|length > 0 else 0) }} avg/active
+            </span>
         </div>
     </div>
 </section>
