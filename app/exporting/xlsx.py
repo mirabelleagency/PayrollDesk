@@ -119,8 +119,8 @@ def _payouts_df(payouts: Iterable[Payout]) -> pd.DataFrame:
                 "amount": float(item.amount) if item.amount is not None else None,
                 "notes": item.notes,
                 "status": item.status,
+                # Keep method for operational visibility; frequency is redundant with Models sheet
                 "payment_method": item.payment_method,
-                "payment_frequency": item.payment_frequency,
             }
         )
     return pd.DataFrame(rows)
