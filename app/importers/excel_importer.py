@@ -441,10 +441,17 @@ def import_payouts(
 ) -> tuple[int, list[str]]:
     created = 0
     errors: list[str] = []
-    # Always reset existing payouts and validation issues before re-importing
-    session.query(Payout).filter(Payout.schedule_run_id == run.id).delete()
-    session.query(ValidationIssue).filter(ValidationIssue.schedule_run_id == run.id).delete()
-    session.flush()
+    # Prefetch existing payouts keyed by model/pay date so we can update instead of wiping the run
+    existing_payouts = (
+        session.query(Payout)
+        .filter(Payout.schedule_run_id == run.id)
+        .all()
+    )
+    existing_by_key: dict[tuple[int, date], Payout] = {}
+    for payout in existing_payouts:
+        if payout.model_id is None or payout.pay_date is None:
+            continue
+        existing_by_key[(payout.model_id, payout.pay_date)] = payout
     normalized = normalize_columns(df, PAYOUT_COLUMNS, "payout")
     records = normalized.dropna(how="all")
     models_by_code = {m.code.lower(): m for m in session.query(Model).all()}
@@ -475,21 +482,33 @@ def import_payouts(
             errors.append(f"Row {idx + 2}: {exc}")
             continue
 
-        payout = Payout(
-            schedule_run_id=run.id,
-            model_id=model.id,
-            pay_date=pay_date,
-            code=code,
-            real_name=model.real_name,
-            working_name=model.working_name,
-            payment_method=method_value,
-            payment_frequency=frequency_value,
-            amount=amount,
-            status=status_value,
-            notes=notes_value,
-        )
-        payouts_to_add.append(payout)
-        created += 1
+        existing_key = (model.id, pay_date)
+        existing = existing_by_key.get(existing_key)
+        if existing:
+            existing.code = code
+            existing.real_name = model.real_name
+            existing.working_name = model.working_name
+            existing.payment_method = method_value
+            existing.payment_frequency = frequency_value
+            existing.amount = amount
+            existing.status = status_value
+            existing.notes = notes_value
+        else:
+            payout = Payout(
+                schedule_run_id=run.id,
+                model_id=model.id,
+                pay_date=pay_date,
+                code=code,
+                real_name=model.real_name,
+                working_name=model.working_name,
+                payment_method=method_value,
+                payment_frequency=frequency_value,
+                amount=amount,
+                status=status_value,
+                notes=notes_value,
+            )
+            payouts_to_add.append(payout)
+            created += 1
 
     session.add_all(payouts_to_add)
     session.flush()
