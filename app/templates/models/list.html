@@ -141,13 +141,13 @@
 <!-- Advanced Filters & Search -->
 <section class="card" style="margin-top: 24px;">
     <div class="filter-toolbar">
-        <div class="filter-toolbar__search">
-            <input type="text" id="quick-search" placeholder="🔍 Quick search by code, name, or wallet..." 
-                   onkeyup="quickFilterTable()" 
-                   style="width: 100%; padding: 10px 16px; border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 8px; font-size: 14px; background: rgba(15, 23, 42, 0.6); color: #f8fafc; transition: all 0.2s ease;">
-        </div>
-        
         <form class="filter-toolbar__filters" method="get">
+            <div class="filter-group filter-group--compact filter-group--search">
+                <label for="quick-search">Search</label>
+                <input type="text" id="quick-search" placeholder="🔍 Quick search by code, name, or wallet..." 
+                       onkeyup="quickFilterTable()" 
+                       style="width: 100%; padding: 10px 16px; border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 8px; font-size: 14px; background: rgba(15, 23, 42, 0.6); color: #f8fafc; transition: all 0.2s ease;">
+            </div>
             <div class="filter-group filter-group--compact">
                 <label for="status">Status</label>
                 <select id="status" name="status" onchange="this.form.submit()">
@@ -748,6 +748,12 @@ document.addEventListener('DOMContentLoaded', function () {
     gap: 12px;
     flex-wrap: wrap;
     align-items: flex-end;
+}
+
+/* Make the search input sit inline and grow */
+.filter-group--search {
+    flex: 1 1 320px;
+    min-width: 260px;
 }
 
 .filter-group--compact {
