@@ -115,10 +115,17 @@
             <span class="model-metric__icon">📅</span>
             <span class="model-metric__label">Payment Frequency</span>
         </div>
-        <div class="model-metric__value model-metric__value--compact">{{ frequency_options|length }}</div>
+        <div class="model-metric__value model-metric__value--compact">
+            {% if filters.frequency %}
+                {{ frequency_counts.get(filters.frequency, 0) }}
+            {% else %}
+                {{ models|length }}
+            {% endif %}
+        </div>
         <div class="model-metric__breakdown">
-            {% for freq in frequency_options[:3] %}
-                <span class="model-metric__item">{{ freq|title }}</span>
+            {% for freq in frequency_options %}
+                {% set count = frequency_counts.get(freq, 0) %}
+                <span class="model-metric__item">{{ freq|title }} ({{ count }})</span>
                 {% if not loop.last %}<span class="model-metric__divider">·</span>{% endif %}
             {% endfor %}
         </div>
