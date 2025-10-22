@@ -735,6 +735,10 @@ function exportPaymentsCSV() {
         grid-template-columns: repeat(2, 1fr);
     }
     
+    .payment-filter-toolbar {
+        padding: 16px;
+    }
+    
     .payment-filter-toolbar__filters {
         flex-direction: column;
         align-items: stretch;
@@ -742,6 +746,10 @@ function exportPaymentsCSV() {
     
     .filter-group-inline {
         min-width: 100%;
+    }
+    
+    .filter-date-chips {
+        justify-content: flex-start;
     }
     
     .filter-clear-button {
@@ -754,6 +762,69 @@ function exportPaymentsCSV() {
 @media (max-width: 640px) {
     .payment-metrics-dashboard {
         grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    /* Page header on mobile */
+    .page-header .header-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+    }
+    
+    .page-header .header-actions .button {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    /* Filter toolbar on mobile */
+    .payment-filter-toolbar {
+        padding: 12px;
+    }
+    
+    .filter-divider {
+        display: none;
+    }
+    
+    /* Make date chips wrap properly */
+    .filter-date-chips {
+        gap: 6px;
+    }
+    
+    .date-chip {
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+    
+    /* Make table scrollable on mobile */
+    .data-table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin-left: -16px;
+        margin-right: -16px;
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+    
+    .data-table {
+        min-width: 900px;
+        font-size: 13px;
+    }
+    
+    .data-table th,
+    .data-table td {
+        padding: 8px 6px;
+    }
+    
+    /* Status filters wrap properly */
+    .status-filter-chips {
+        gap: 6px !important;
+    }
+    
+    .status-chip-filter {
+        font-size: 12px;
+        padding: 6px 10px;
     }
 }
 </style>
