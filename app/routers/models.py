@@ -68,6 +68,13 @@ def _build_model_list_context(
     total_paid_sum = sum(totals_map.values(), Decimal("0")) if totals_map else Decimal("0")
     payment_methods = crud.list_payment_methods(db)
 
+    # Count models per payment method for the current (filtered) list
+    method_counts: dict[str, int] = {}
+    for model in models:
+        method = (model.payment_method or "").strip()
+        if method:
+            method_counts[method] = method_counts.get(method, 0) + 1
+
     # Count models per payment frequency for the current (filtered) list
     frequency_counts: dict[str, int] = {}
     for model in models:
@@ -99,7 +106,8 @@ def _build_model_list_context(
             "frequency": frequency_filter or "",
             "payment_method": method_filter or "",
         },
-        "payment_methods": payment_methods,
+    "payment_methods": payment_methods,
+    "method_counts": method_counts,
         "status_options": STATUS_ENUM,
         "frequency_options": FREQUENCY_ENUM,
         "frequency_counts": frequency_counts,

@@ -101,10 +101,16 @@
             <span class="model-metric__icon">📊</span>
             <span class="model-metric__label">Payment Methods</span>
         </div>
-        <div class="model-metric__value model-metric__value--compact">{{ payment_methods|length }}</div>
+        <div class="model-metric__value model-metric__value--compact">
+            {% if filters.payment_method %}
+                {{ method_counts.get(filters.payment_method, 0) }}
+            {% else %}
+                {{ models|length }}
+            {% endif %}
+        </div>
         <div class="model-metric__breakdown">
-            {% for method in payment_methods[:3] %}
-                <span class="model-metric__item">{{ method }}</span>
+            {% for method in payment_methods %}
+                <span class="model-metric__item">{{ method }} ({{ method_counts.get(method, 0) }})</span>
                 {% if not loop.last %}<span class="model-metric__divider">·</span>{% endif %}
             {% endfor %}
         </div>
