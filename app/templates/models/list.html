@@ -978,6 +978,37 @@ document.addEventListener('DOMContentLoaded', function () {
     background: rgba(239, 68, 68, 0.08);
 }
 
+/* Center-align Status column in payment history (5th col) */
+.payment-history-table th:nth-child(5),
+.payment-history-table td:nth-child(5) {
+    text-align: center;
+}
+
+/* Status chips styling */
+.status-chip {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.6;
+}
+.status-chip--success {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.25);
+}
+.status-chip--warning {
+    background: rgba(234, 179, 8, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(234, 179, 8, 0.25);
+}
+.status-chip--neutral {
+    background: rgba(148, 163, 184, 0.15);
+    color: #cbd5e1;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
 .loading-text {
     color: #64748b;
     font-style: italic;
