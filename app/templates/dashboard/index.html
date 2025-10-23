@@ -76,7 +76,7 @@ document.addEventListener('DOMContentLoaded', function () {
     
     <div class="hero-kpi-card">
         <div class="hero-kpi-label">{{ current_month_name }} Total Unpaid</div>
-        <div class="hero-kpi-value hero-kpi-value--secondary">${{ summary.latest_run_unpaid|money }}</div>
+        <div class="hero-kpi-value hero-kpi-value--warning">${{ summary.latest_run_unpaid|money }}</div>
         <div class="hero-kpi-subtitle">Current month outstanding</div>
     </div>
     
@@ -168,7 +168,7 @@ document.addEventListener('DOMContentLoaded', function () {
 <section class="card alert-card" style="margin-top: 24px;">
     <div class="alert-card-header">
         <h2 class="alert-card-title">⚠️ Requires Attention</h2>
-        <span class="alert-card-badge">{{ summary.overdue_count + summary.on_hold_count }}</span>
+        <span class="alert-card-badge">{{ summary.overdue_count + summary.on_hold_count + (pending_adhoc_payments|length if pending_adhoc_payments else 0) }}</span>
     </div>
     <div class="alert-items">
         {% if summary.overdue_count > 0 %}
@@ -320,6 +320,11 @@ document.addEventListener('DOMContentLoaded', function () {
 </section>
 
 <style>
+/* Highlight styles */
+.hero-kpi-value--warning {
+    color: #eab308; /* matches warning/yellow used elsewhere */
+}
+
 /* Responsive styles for dashboard cards */
 @media (max-width: 1024px) {
     .card-grid.columns-3 {

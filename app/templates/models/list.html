@@ -84,7 +84,13 @@
 
     <div class="model-metric model-metric--neutral">
         <div class="model-metric__header">
-            <span class="model-metric__icon">�</span>
+            <span class="model-metric__icon" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                    <rect x="2" y="5" width="20" height="14" rx="2" ry="2"></rect>
+                    <rect x="2" y="9" width="20" height="3"></rect>
+                    <rect x="6" y="14" width="6" height="2"></rect>
+                </svg>
+            </span>
             <span class="model-metric__label">Payment Methods</span>
         </div>
         <div class="model-metric__value model-metric__value--compact">
@@ -104,7 +110,14 @@
 
     <div class="model-metric model-metric--info">
         <div class="model-metric__header">
-            <span class="model-metric__icon">�</span>
+            <span class="model-metric__icon" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+            </span>
             <span class="model-metric__label">Payment Frequency</span>
         </div>
         <div class="model-metric__value model-metric__value--compact">
@@ -125,7 +138,13 @@
 
     <div class="model-metric model-metric--financial">
         <div class="model-metric__header">
-            <span class="model-metric__icon">�</span>
+            <span class="model-metric__icon" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M12 6v12"></path>
+                    <path d="M8.5 9.5C8.5 8 10 7 12 7s3.5 1 3.5 2.5S14 12 12 12s-3.5 1-3.5 2.5S10 17 12 17s3.5-1 3.5-2.5"></path>
+                </svg>
+            </span>
             <span class="model-metric__label">Lifetime Paid</span>
         </div>
         <div class="model-metric__value">USD {{ total_paid_sum|money }}</div>
