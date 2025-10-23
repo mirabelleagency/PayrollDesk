@@ -2124,6 +2124,7 @@ def update_payout_record(
     payout_id: int,
     notes: str = Form(""),
     status: str = Form("not_paid"),
+    redirect_to: str | None = Form(None),
     db: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
@@ -2137,7 +2138,11 @@ def update_payout_record(
 
     trimmed = notes.strip()
     crud.update_payout(db, payout, trimmed if trimmed else None, status_value)
-    return RedirectResponse(url=f"/schedules/{run_id}", status_code=303)
+
+    target_url = redirect_to or f"/schedules/{run_id}"
+    if not target_url.startswith("/schedules/"):
+        target_url = f"/schedules/{run_id}"
+    return RedirectResponse(url=target_url, status_code=303)
 
 
 @router.post("/{run_id}/payouts/bulk-update")
@@ -2145,6 +2150,7 @@ def bulk_update_payouts(
     run_id: int,
     payout_ids: str = Form(""),
     status: str = Form("not_paid"),
+    redirect_to: str | None = Form(None),
     db: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
@@ -2159,7 +2165,10 @@ def bulk_update_payouts(
 
     # Parse comma-separated payout IDs
     if not payout_ids.strip():
-        return RedirectResponse(url=f"/schedules/{run_id}", status_code=303)
+        target_url = redirect_to or f"/schedules/{run_id}"
+        if not target_url.startswith("/schedules/"):
+            target_url = f"/schedules/{run_id}"
+        return RedirectResponse(url=target_url, status_code=303)
     
     try:
         ids = [int(id.strip()) for id in payout_ids.split(",") if id.strip()]
@@ -2173,5 +2182,8 @@ def bulk_update_payouts(
             # Preserve existing notes, only update status
             crud.update_payout(db, payout, payout.notes, status_value)
     
-    return RedirectResponse(url=f"/schedules/{run_id}", status_code=303)
+    target_url = redirect_to or f"/schedules/{run_id}"
+    if not target_url.startswith("/schedules/"):
+        target_url = f"/schedules/{run_id}"
+    return RedirectResponse(url=target_url, status_code=303)
 

@@ -211,13 +211,14 @@
         <table class="data-table schedule-payouts-table" id="payouts-table">
             <thead>
                 <tr>
-                    <th onclick="sortTable(0)" style="cursor: pointer; user-select: none;">Pay Date ▼</th>
-                    <th onclick="sortTable(1)" style="cursor: pointer; user-select: none;">Code ▼</th>
-                    <th onclick="sortTable(2)" style="cursor: pointer; user-select: none;">Working Name ▼</th>
-                    <th onclick="sortTable(3)" style="cursor: pointer; user-select: none;">Method ▼</th>
-                    <th onclick="sortTable(4)" style="cursor: pointer; user-select: none;">Frequency ▼</th>
-                    <th onclick="sortTable(5)" style="cursor: pointer; user-select: none;">Amount ▼</th>
-                    <th onclick="sortTable(6)" style="cursor: pointer; user-select: none; text-align: center;">Status ▼</th>
+                    <th onclick="sortTable(0)" data-sortable="true" style="cursor: pointer; user-select: none;">Pay Date ▼</th>
+                    <th onclick="sortTable(1)" data-sortable="true" style="cursor: pointer; user-select: none;">Code ▼</th>
+                    <th onclick="sortTable(2)" data-sortable="true" style="cursor: pointer; user-select: none;">Working Name ▼</th>
+                    <th onclick="sortTable(3)" data-sortable="true" style="cursor: pointer; user-select: none;">Method ▼</th>
+                    <th onclick="sortTable(4)" data-sortable="true" style="cursor: pointer; user-select: none;">Frequency ▼</th>
+                    <th onclick="sortTable(5)" data-sortable="true" style="cursor: pointer; user-select: none;">Amount ▼</th>
+                    <th onclick="sortTable(6)" data-sortable="true" style="cursor: pointer; user-select: none; text-align: center;">Status ▼</th>
+                    <th onclick="sortTable(7)" data-sortable="true" style="cursor: pointer; user-select: none; min-width: 200px;">Notes ▼</th>
                     <th style="min-width: 120px;">Quick Actions</th>
                 </tr>
             </thead>
@@ -258,6 +259,13 @@
                         <span class="overdue-label">OVERDUE</span>
                         {% endif %}
                     </td>
+                    <td class="payout-note-cell">
+                        {% if payout.notes %}
+                        <span class="payout-note-text" title="{{ payout.notes }}">{{ payout.notes|replace('\n', ' ') }}</span>
+                        {% else %}
+                        <span class="payout-note-text payout-note-text--empty">—</span>
+                        {% endif %}
+                    </td>
                     <td>
                         <div style="display: flex; gap: 6px; align-items: center;">
                             {% if payout.status != 'paid' %}
@@ -296,10 +304,11 @@
                 </tr>
                 <!-- Expandable Notes Row -->
                 <tr class="notes-row" id="notes-row-{{ payout.id }}" style="display: none;">
-                    <td colspan="8" style="padding: 0; background: rgba(15, 23, 42, 0.95);">
+                    <td colspan="9" style="padding: 0; background: rgba(15, 23, 42, 0.95);">
                         <div style="padding: 16px; border-top: 1px solid rgba(148, 163, 184, 0.1);">
                             <form method="post" action="/schedules/{{ run.id }}/payouts/{{ payout.id }}/note" 
-                                  style="display: flex; gap: 12px; align-items: flex-start;">
+                                                                    style="display: flex; gap: 12px; align-items: flex-start;">
+                                                                <input type="hidden" name="redirect_to" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
                                 <div style="flex: 0 0 180px;">
                                     <label style="display: block; margin-bottom: 6px; color: #cbd5e1; font-weight: 600; font-size: 13px;">Payment Status</label>
                                     <select name="status" 
@@ -359,6 +368,7 @@
             <form method="post" action="/schedules/{{ run.id }}/payouts/bulk-update" id="bulk-form" 
                   style="display: flex; gap: 12px; align-items: center;">
                 <input type="hidden" id="bulk-payout-ids" name="payout_ids" value="">
+                <input type="hidden" name="redirect_to" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
                 <div style="display: flex; gap: 8px; align-items: center;">
                     <label for="bulk-status" style="color: #e2e8f0; font-weight: 600; font-size: 14px;">Update Status:</label>
                     <select id="bulk-status" name="status" 
@@ -483,8 +493,14 @@ function quickUpdateStatus(payoutId, status) {
     notesInput.name = 'notes';
     notesInput.value = '';
     
+    const redirectInput = document.createElement('input');
+    redirectInput.type = 'hidden';
+    redirectInput.name = 'redirect_to';
+    redirectInput.value = window.location.pathname + window.location.search;
+
     form.appendChild(statusInput);
     form.appendChild(notesInput);
+    form.appendChild(redirectInput);
     document.body.appendChild(form);
     form.submit();
 }
@@ -652,7 +668,7 @@ function sortTable(columnIndex) {
         const cellB = (rowB.cells[columnIndex] && rowB.cells[columnIndex].textContent || '').trim();
 
         // Date sort (handles display format)
-        if (columnIndex === 1) {
+        if (columnIndex === 0) {
             const parse = s => {
                 const parts = s.split('/');
                 if (parts.length === 3) return new Date(`${parts[2]}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`);
@@ -686,10 +702,13 @@ function sortTable(columnIndex) {
 
     // Update header indicators
     document.querySelectorAll('#payouts-table thead th').forEach((th, idx) => {
+        if (th.dataset.sortable !== 'true') {
+            return;
+        }
         const base = th.textContent.replace(/\s*[▲▼]\s*$/, '').trim();
-        if (idx === columnIndex && idx > 0 && idx < 8) {
+        if (idx === columnIndex) {
             th.textContent = base + (isAscending ? ' ▲' : ' ▼');
-        } else if (idx > 0 && idx < 8) {
+        } else {
             th.textContent = base + ' ▼';
         }
     });
@@ -1108,6 +1127,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .notes-row {
     background: rgba(15, 23, 42, 0.95) !important;
+}
+
+.payout-note-cell {
+    color: #cbd5e1;
+    max-width: 240px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.payout-note-text--empty {
+    color: #475569;
+    font-style: italic;
 }
 
 /* Action Buttons */
