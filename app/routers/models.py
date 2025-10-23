@@ -597,6 +597,10 @@ def view_model(model_id: int, request: Request, db: Session = Depends(get_sessio
     error_message = request.query_params.get("error")
     success_message = request.query_params.get("success")
     
+    # Cash advances context
+    advances = crud.list_advances_for_model(db, model.id)
+    advances_outstanding = crud.outstanding_advance_total(db, model.id)
+
     return templates.TemplateResponse(
         "models/view.html",
         {
@@ -606,6 +610,8 @@ def view_model(model_id: int, request: Request, db: Session = Depends(get_sessio
             "total_paid": total_paid,
             "paid_payouts": paid_payouts,
             "adhoc_payments": adhoc_payments,
+            "advances": advances,
+            "advances_outstanding": advances_outstanding,
             "error_message": error_message,
             "success_message": success_message,
         },
@@ -842,6 +848,102 @@ def update_model(
         db.commit()
 
     return RedirectResponse(url="/models", status_code=303)
+
+
+# --- Cash Advances routes ---------------------------------------------------
+
+@router.post("/{model_id}/advances")
+def create_model_advance(
+    model_id: int,
+    amount_total: str = Form(...),
+    strategy: str = Form("fixed"),
+    fixed_amount: str = Form(""),
+    percent_rate: str = Form(""),
+    min_net_floor: str = Form(""),
+    max_per_run: str = Form(""),
+    cap_multiplier: str = Form(""),
+    notes: str = Form(""),
+    auto_approve: str | None = Form(None),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    model = crud.get_model(db, model_id)
+    if not model:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    def _to_decimal(value: str | None) -> Decimal | None:
+        if not value:
+            return None
+        try:
+            return Decimal(str(value))
+        except Exception:
+            return None
+
+    amount = _to_decimal(amount_total)
+    if not amount or amount <= 0:
+        return _redirect_to_model(model_id, error="Advance amount must be greater than zero.")
+
+    fx_amt = _to_decimal(fixed_amount)
+    pct = _to_decimal(percent_rate)
+    floor = _to_decimal(min_net_floor)
+    max_run = _to_decimal(max_per_run)
+    cap_mul = _to_decimal(cap_multiplier)
+
+    try:
+        adv = crud.create_advance(
+            db,
+            model,
+            amount_total=amount.quantize(Decimal("0.01")),
+            strategy=strategy,
+            fixed_amount=(fx_amt.quantize(Decimal("0.01")) if fx_amt is not None else None),
+            percent_rate=(pct.quantize(Decimal("0.01")) if pct is not None else None),
+            min_net_floor=(floor.quantize(Decimal("0.01")) if floor is not None else None),
+            max_per_run=(max_run.quantize(Decimal("0.01")) if max_run is not None else None),
+            cap_multiplier=(cap_mul.quantize(Decimal("0.01")) if cap_mul is not None else None),
+            notes=(notes.strip() if notes else None),
+        )
+        if auto_approve is not None:
+            crud.approve_advance(db, adv, activate=True)
+        return _redirect_to_model(model_id, success="Advance request submitted" + (" and activated" if auto_approve else "."))
+    except Exception as exc:
+        return _redirect_to_model(model_id, error=str(exc))
+
+
+@router.post("/{model_id}/advances/{advance_id}/approve")
+def approve_model_advance(
+    model_id: int,
+    advance_id: int,
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    adv = crud.get_advance(db, advance_id)
+    if not adv or adv.model_id != model_id:
+        raise HTTPException(status_code=404, detail="Advance not found")
+    try:
+        crud.approve_advance(db, adv, activate=True)
+        return _redirect_to_model(model_id, success="Advance approved and activated.")
+    except Exception as exc:
+        return _redirect_to_model(model_id, error=str(exc))
+
+
+@router.post("/{model_id}/advances/{advance_id}/repay")
+def repay_model_advance(
+    model_id: int,
+    advance_id: int,
+    amount: str = Form(...),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    adv = crud.get_advance(db, advance_id)
+    if not adv or adv.model_id != model_id:
+        raise HTTPException(status_code=404, detail="Advance not found")
+    try:
+        amt = Decimal(str(amount))
+        crud.record_advance_repayment(db, adv, amount=amt, source="manual")
+        db.refresh(adv)
+        return _redirect_to_model(model_id, success="Repayment recorded.")
+    except Exception as exc:
+        return _redirect_to_model(model_id, error=str(exc))
 
 
 

@@ -11,9 +11,26 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.payroll import ModelRecord, ValidationMessage
-from app.models import AdhocPayment, Model, ModelCompensationAdjustment, Payout, ScheduleRun, ValidationIssue, AuditLog
+from app.models import (
+    AdhocPayment,
+    Model,
+    ModelCompensationAdjustment,
+    Payout,
+    ScheduleRun,
+    ValidationIssue,
+    AuditLog,
+    ModelAdvance,
+    AdvanceRepayment,
+    PayoutAdvanceAllocation,
+)
 from app.schemas import AdhocPaymentCreate, AdhocPaymentUpdate, ModelCreate, ModelUpdate
 from sqlalchemy import distinct
+from decimal import Decimal
+
+# --- Defaults for advances policy knobs ---
+ADVANCE_DEFAULT_MIN_FLOOR = Decimal("500")
+ADVANCE_DEFAULT_MAX_PER_RUN = Decimal("600")
+ADVANCE_DEFAULT_CAP_MULTIPLIER = Decimal("1.0")
 
 
 def list_models(
@@ -145,6 +162,8 @@ def create_compensation_adjustment(
 
 
 def clear_schedule_data(db: Session, schedule_run: ScheduleRun) -> None:
+    # Delete allocations linked to this run first to avoid stale planned deductions
+    db.query(PayoutAdvanceAllocation).filter(PayoutAdvanceAllocation.schedule_run_id == schedule_run.id).delete(synchronize_session=False)
     db.query(Payout).filter(Payout.schedule_run_id == schedule_run.id).delete()
     db.query(ValidationIssue).filter(ValidationIssue.schedule_run_id == schedule_run.id).delete()
     db.commit()
@@ -193,7 +212,7 @@ def store_payouts(db: Session, run: ScheduleRun, payouts: Iterable[dict], amount
     if old_payout_data is None:
         old_payout_data = {}
     
-    objects = []
+    objects: list[Payout] = []
     for payout in payouts:
         pay_date = payout["Pay Date"]
         code = payout["Code"]
@@ -219,6 +238,12 @@ def store_payouts(db: Session, run: ScheduleRun, payouts: Iterable[dict], amount
         objects.append(payout_obj)
     
     db.add_all(objects)
+    # Assign IDs so we can link allocations to payouts
+    db.flush()
+
+    # Apply cash advance allocations and adjust payout amounts (net), without posting repayments yet
+    _apply_advance_allocations_for_run(db, run, objects)
+
     db.commit()
 
 
@@ -346,6 +371,11 @@ def update_payout(db: Session, payout: Payout, note: str | None, status: str) ->
     payout.status = status
     db.add(payout)
     db.commit()
+
+    # If payout marked as paid, realize any planned allocations as repayments (idempotent)
+    if status == "paid":
+        _realize_allocations_for_paid_payout(db, payout)
+        db.commit()
 
 
 def delete_schedule_run(db: Session, run: ScheduleRun) -> None:
@@ -1025,3 +1055,223 @@ def cleanup_orphans(db: Session) -> dict[str, int]:
     if deleted_payouts or deleted_validations:
         db.commit()
     return {"payouts": int(deleted_payouts or 0), "validations": int(deleted_validations or 0)}
+
+
+# --- Cash Advances CRUD ----------------------------------------------------
+
+def list_advances_for_model(db: Session, model_id: int, status: str | None = None) -> Sequence[ModelAdvance]:
+    stmt = select(ModelAdvance).where(ModelAdvance.model_id == model_id)
+    if status:
+        stmt = stmt.where(ModelAdvance.status == status)
+    stmt = stmt.order_by(ModelAdvance.created_at.desc())
+    return db.execute(stmt).scalars().all()
+
+
+def get_advance(db: Session, advance_id: int) -> ModelAdvance | None:
+    return db.get(ModelAdvance, advance_id)
+
+
+def outstanding_advance_total(db: Session, model_id: int) -> Decimal:
+    stmt = (
+        select(func.coalesce(func.sum(ModelAdvance.amount_remaining), 0))
+        .where(ModelAdvance.model_id == model_id)
+        .where(ModelAdvance.status.in_(["approved", "active"]))
+    )
+    value = db.execute(stmt).scalar_one() or 0
+    return Decimal(value)
+
+
+def create_advance(
+    db: Session,
+    model: Model,
+    *,
+    amount_total: Decimal,
+    strategy: str = "fixed",
+    fixed_amount: Decimal | None = None,
+    percent_rate: Decimal | None = None,
+    min_net_floor: Decimal | None = None,
+    max_per_run: Decimal | None = None,
+    cap_multiplier: Decimal | None = None,
+    notes: str | None = None,
+) -> ModelAdvance:
+    strategy_value = (strategy or "fixed").lower()
+    if strategy_value not in {"fixed", "percent"}:
+        raise ValueError("strategy must be 'fixed' or 'percent'")
+
+    if strategy_value == "fixed":
+        if not fixed_amount or fixed_amount <= 0:
+            raise ValueError("fixed_amount must be > 0 for fixed strategy")
+    else:
+        if percent_rate is None or percent_rate <= 0 or percent_rate > 100:
+            raise ValueError("percent_rate must be in (0, 100] for percent strategy")
+
+    advance = ModelAdvance(
+        model_id=model.id,
+        amount_total=amount_total,
+        amount_remaining=amount_total,
+        status="requested",
+        strategy=strategy_value,
+        fixed_amount=fixed_amount if strategy_value == "fixed" else None,
+        percent_rate=percent_rate if strategy_value == "percent" else None,
+        min_net_floor=(min_net_floor if min_net_floor is not None else ADVANCE_DEFAULT_MIN_FLOOR),
+        max_per_run=(max_per_run if max_per_run is not None else ADVANCE_DEFAULT_MAX_PER_RUN),
+        cap_multiplier=(cap_multiplier if cap_multiplier is not None else ADVANCE_DEFAULT_CAP_MULTIPLIER),
+        notes=(notes.strip() if notes else None),
+    )
+    db.add(advance)
+    db.commit()
+    db.refresh(advance)
+    return advance
+
+
+def approve_advance(db: Session, advance: ModelAdvance, *, activate: bool = True) -> ModelAdvance:
+    model = get_model(db, advance.model_id)
+    if not model:
+        raise ValueError("Model not found")
+    # Enforce cap at approval time
+    cap = Decimal(model.amount_monthly or 0) * Decimal(advance.cap_multiplier or ADVANCE_DEFAULT_CAP_MULTIPLIER)
+    current_outstanding = outstanding_advance_total(db, model.id)
+    if (current_outstanding + Decimal(advance.amount_remaining or 0)) > cap:
+        raise ValueError("Advance exceeds max outstanding cap for this model")
+
+    advance.status = "active" if activate else "approved"
+    if activate:
+        advance.activated_at = datetime.now()
+    db.add(advance)
+    db.commit()
+    db.refresh(advance)
+    return advance
+
+
+def close_advance_if_settled(db: Session, advance: ModelAdvance) -> None:
+    if Decimal(advance.amount_remaining or 0) <= 0 and advance.status != "closed":
+        advance.amount_remaining = Decimal("0")
+        advance.status = "closed"
+        db.add(advance)
+
+
+def record_advance_repayment(
+    db: Session,
+    advance: ModelAdvance,
+    *,
+    amount: Decimal,
+    source: str = "manual",
+    payout: Payout | None = None,
+) -> AdvanceRepayment:
+    if amount <= 0:
+        raise ValueError("Repayment amount must be > 0")
+    applied = min(amount, Decimal(advance.amount_remaining or 0))
+    repayment = AdvanceRepayment(
+        advance_id=advance.id,
+        payout_id=(payout.id if payout else None),
+        amount=applied,
+        source=("auto" if source == "auto" else "manual"),
+    )
+    advance.amount_remaining = Decimal(advance.amount_remaining or 0) - applied
+    close_advance_if_settled(db, advance)
+    db.add(advance)
+    db.add(repayment)
+    db.commit()
+    db.refresh(repayment)
+    return repayment
+
+
+def _apply_advance_allocations_for_run(db: Session, run: ScheduleRun, payouts: list[Payout]) -> None:
+    """Plan allocations for active advances and reduce payout amounts (net) accordingly.
+
+    Creates PayoutAdvanceAllocation rows for this run and adjusts payout.amount.
+    Does not modify advance balances. Idempotent per clear_schedule_data (we purge allocations on refresh).
+    """
+    # Group payouts by model, sort by pay_date to apply sequentially
+    by_model: dict[int, list[Payout]] = {}
+    for p in payouts:
+        if not p.model_id:
+            continue
+        by_model.setdefault(p.model_id, []).append(p)
+    for model_id, rows in by_model.items():
+        rows.sort(key=lambda x: (x.pay_date, x.id))
+        # Fetch active advances
+        advances: list[ModelAdvance] = (
+            db.execute(
+                select(ModelAdvance).where(
+                    ModelAdvance.model_id == model_id,
+                    ModelAdvance.status == "active",
+                ).order_by(ModelAdvance.created_at.asc())
+            ).scalars().all()
+        )
+        if not advances:
+            continue
+        # Track a local temp remaining per advance for this run's planning
+        temp_remaining: dict[int, Decimal] = {adv.id: Decimal(adv.amount_remaining or 0) for adv in advances}
+
+        # Use the strictest (highest) floor across advances for safety
+        floor_value = max([Decimal(adv.min_net_floor or ADVANCE_DEFAULT_MIN_FLOOR) for adv in advances] or [ADVANCE_DEFAULT_MIN_FLOOR])
+        for payout in rows:
+            # Available to deduct based on min net floor
+            available = Decimal(payout.amount or 0) - max(floor_value, Decimal(0))
+            if available <= 0:
+                continue
+            total_deducted = Decimal("0")
+
+            for adv in advances:
+                if temp_remaining[adv.id] <= 0:
+                    continue
+                # Strategy amount
+                if (adv.strategy or "fixed") == "fixed":
+                    candidate = Decimal(adv.fixed_amount or 0)
+                else:
+                    # percent of gross payout amount
+                    pct = Decimal(adv.percent_rate or 0) / Decimal("100")
+                    candidate = (Decimal(payout.amount or 0) * pct)
+                # Respect per-run max and available remainder on this payout
+                max_per = Decimal(adv.max_per_run or ADVANCE_DEFAULT_MAX_PER_RUN)
+                remaining_room = (available - total_deducted)
+                planned = min(candidate, max_per, temp_remaining[adv.id], remaining_room)
+                # Ensure non-negative and meaningful
+                if planned <= 0:
+                    continue
+
+                # Reduce payout amount and temp remaining
+                payout.amount = (Decimal(payout.amount or 0) - planned)
+                total_deducted += planned
+                temp_remaining[adv.id] = temp_remaining[adv.id] - planned
+
+                # Create allocation row
+                alloc = PayoutAdvanceAllocation(
+                    schedule_run_id=run.id,
+                    payout_id=payout.id,
+                    model_id=model_id,
+                    advance_id=adv.id,
+                    planned_amount=planned,
+                )
+                db.add(alloc)
+
+                # Stop if no more room on this payout
+                if (available - total_deducted) <= 0:
+                    break
+
+        # Persist adjustments for this model's payouts before next model
+        db.flush()
+
+
+def _realize_allocations_for_paid_payout(db: Session, payout: Payout) -> None:
+    allocations = db.execute(
+        select(PayoutAdvanceAllocation).where(PayoutAdvanceAllocation.payout_id == payout.id)
+    ).scalars().all()
+    if not allocations:
+        return
+    # If repayments already exist for this payout, skip (idempotent)
+    existing = db.execute(
+        select(AdvanceRepayment).where(AdvanceRepayment.payout_id == payout.id)
+    ).scalars().first()
+    if existing:
+        return
+
+    for alloc in allocations:
+        adv = get_advance(db, alloc.advance_id)
+        if not adv:
+            continue
+        record_advance_repayment(db, adv, amount=Decimal(alloc.planned_amount or 0), source="auto", payout=payout)
+        # Allocation will be deleted by cascade when clearing runs is not guaranteed, so delete explicitly on realize
+        db.delete(alloc)
+    db.flush()
