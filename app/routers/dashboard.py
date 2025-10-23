@@ -34,8 +34,11 @@ def dashboard(request: Request, db: Session = Depends(get_session), user: User =
             "created_at": latest.created_at,
             "cycle_display": format_display_date(date(latest.target_year, latest.target_month, 1)),
         }
+    # Recent activity: recompute totals from payouts linked to models to avoid stale residuals
     recent_runs_data = []
     for run in crud.recent_schedule_runs(db):
+        run_summary = crud.run_payment_summary(db, run.id)
+        paid_total = run_summary.get("paid_total", 0)
         recent_runs_data.append(
             {
                 "id": run.id,
@@ -44,7 +47,8 @@ def dashboard(request: Request, db: Session = Depends(get_session), user: User =
                 "cycle_display": format_display_date(date(run.target_year, run.target_month, 1)),
                 "created_at": run.created_at,
                 "currency": run.currency,
-                "summary_total_payout": run.summary_total_payout,
+                # Keep the same key used by the template, but populate with actual paid total
+                "summary_total_payout": paid_total,
             }
         )
 
