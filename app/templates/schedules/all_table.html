@@ -26,7 +26,7 @@
     <div class="inline-year-selector">
         <form method="get" action="/schedules/all-table" class="inline-year-form">
             <label class="inline-year-label" for="year-select-inline">Year</label>
-            <select id="year-select-inline" name="year">
+            <select id="year-select-inline" name="year" onchange="this.form.submit()">
                 {% for option in available_years %}
                 <option value="{{ option }}" {% if option == year %}selected{% endif %}>{{ option }}</option>
                 {% endfor %}

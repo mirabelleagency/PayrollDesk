@@ -1720,6 +1720,7 @@ def list_runs_all_table(
             "user": user,
             "year": target_year,
             "runs": display_runs,
+            "available_years": available_years,
             "year_summary": year_summary,
             "year_buttons": year_buttons,
             "has_previous_years": len(available_years) > 1,
