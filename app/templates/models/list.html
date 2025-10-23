@@ -28,6 +28,14 @@
     </div>
 </section>
 
+{% if request.query_params.get('purged') %}
+<div class="alert success">
+    <strong>Model purged.</strong> Code {{ request.query_params.get('purged') }} and all related data were deleted.
+    <a href="/models" style="margin-left:12px;">Dismiss</a>
+    
+</div>
+{% endif %}
+
 {% if import_error %}
 <div class="alert error">
     <strong>Import failed.</strong> {{ import_error }}

@@ -69,9 +69,21 @@
     <p style="margin:0; color:#ef4444; font-weight:600;">This will also affect {{ impact.runs_affected }} schedule run{{ '' if impact.runs_affected == 1 else 's' }} that contain payouts for this model.</p>
   </div>
 
-  <form method="post" action="/admin/models/{{ impact.model_id }}/purge" style="margin-top: 16px; display:flex; gap: 12px;">
+  <form method="post" action="/admin/models/{{ impact.model_id }}/purge" style="margin-top: 16px; display:flex; gap: 12px; align-items: center;">
     <a class="button secondary" href="/models">Cancel</a>
-    <button class="button button--primary" style="background:#ef4444; border-color: rgba(239,68,68,0.4);" type="submit">🧹 Permanently Delete</button>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <label for="confirm-code" style="color:#94a3b8; font-size:13px;">Type <strong>{{ impact.model_code }}</strong> to confirm</label>
+      <input id="confirm-code" type="text" placeholder="Model code" style="padding:8px 10px; background: rgba(15,23,42,0.7); color:#f8fafc; border:1px solid rgba(148,163,184,0.3); border-radius:6px;" oninput="toggleDeleteButton()" autocomplete="off" />
+    </div>
+    <button id="confirm-delete" class="button button--primary" style="background:#ef4444; border-color: rgba(239,68,68,0.4);" type="submit" disabled>🧹 Permanently Delete</button>
   </form>
 </section>
+<script>
+function toggleDeleteButton(){
+  const input = document.getElementById('confirm-code');
+  const btn = document.getElementById('confirm-delete');
+  if(!input || !btn){ return; }
+  btn.disabled = (input.value.trim() !== '{{ impact.model_code }}');
+}
+</script>
 {% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Admin Settings · Payroll Desk{% endblock %}
+{% block content %}
+<section class="page-header" style="margin-bottom: 16px;">
+  <div>
+    <h1 class="page-title">⚙️ Admin Settings</h1>
+    <p style="color:#94a3b8; margin:8px 0 0 0;">Maintenance tools and data housekeeping</p>
+  </div>
+</section>
+
+{% if message %}
+<div class="alert success">{{ message }}</div>
+{% endif %}
+
+<section class="card" style="margin-top: 8px;">
+  <div class="section-heading">
+    <div>
+      <h2><span class="section-icon">🧼</span> Maintenance</h2>
+      <p style="color:#94a3b8; margin:4px 0 0 0;">Use with care – actions apply immediately</p>
+    </div>
+  </div>
+  <div style="display:flex; gap:12px; flex-wrap: wrap;">
+    <form method="post" action="/admin/maintenance/cleanup-empty-runs">
+      <button class="button button--primary" type="submit">🗑️ Delete Empty Schedule Runs</button>
+    </form>
+  </div>
+</section>
+
+<section class="card" style="margin-top: 16px;">
+  <div class="section-heading">
+    <div>
+      <h2><span class="section-icon">🧰</span> Tools</h2>
+      <p style="color:#94a3b8; margin:4px 0 0 0;">Model purge is available from each model view or via the purge link with ID</p>
+    </div>
+  </div>
+  <div>
+    <p>JSON API endpoints:</p>
+    <ul>
+      <li>GET /admin/api/models/{model_id}/purge?dry_run=true</li>
+      <li>POST /admin/api/models/{model_id}/purge</li>
+    </ul>
+  </div>
+</section>
+
+{% endblock %}

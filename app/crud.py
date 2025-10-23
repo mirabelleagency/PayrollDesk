@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.payroll import ModelRecord, ValidationMessage
-from app.models import AdhocPayment, Model, ModelCompensationAdjustment, Payout, ScheduleRun, ValidationIssue
+from app.models import AdhocPayment, Model, ModelCompensationAdjustment, Payout, ScheduleRun, ValidationIssue, AuditLog
 from app.schemas import AdhocPaymentCreate, AdhocPaymentUpdate, ModelCreate, ModelUpdate
 from sqlalchemy import distinct
 
@@ -894,9 +894,24 @@ def get_model_purge_impact(db: Session, model_id: int) -> dict[str, Decimal | in
     )
 
     # Distinct runs affected by payouts
-    runs_affected = db.execute(
-        select(func.count(distinct(Payout.schedule_run_id))).where(Payout.model_id == model_id)
-    ).scalar_one() or 0
+    run_ids_impacted = db.execute(
+        select(distinct(Payout.schedule_run_id)).where(Payout.model_id == model_id)
+    ).scalars().all()
+    runs_affected = len(run_ids_impacted)
+
+    # Determine which runs would become empty (no payouts left) after purging this model
+    runs_empty_ids: list[int] = []
+    for rid in run_ids_impacted:
+        # Total payouts currently in the run (all models)
+        total_in_run = db.execute(
+            select(func.count()).where(Payout.schedule_run_id == rid)
+        ).scalar_one() or 0
+        # Payouts in the run belonging to this model
+        model_in_run = db.execute(
+            select(func.count()).where(Payout.schedule_run_id == rid, Payout.model_id == model_id)
+        ).scalar_one() or 0
+        if total_in_run == model_in_run and total_in_run > 0:
+            runs_empty_ids.append(int(rid))
 
     # Validation issues
     validations_count = db.execute(
@@ -928,6 +943,8 @@ def get_model_purge_impact(db: Session, model_id: int) -> dict[str, Decimal | in
         "payouts_paid_amount": payouts_paid_amount,
         "payouts_unpaid_amount": payouts_unpaid_amount,
         "runs_affected": int(runs_affected),
+        "runs_empty_after": int(len(runs_empty_ids)),
+        "runs_empty_ids": runs_empty_ids,
         "validations": int(validations_count),
         "adhoc_payments": int(adhoc_count),
         "adhoc_amount": adhoc_amount,
@@ -964,3 +981,47 @@ def purge_model_hard(db: Session, model_id: int) -> dict[str, Decimal | int | st
         raise
 
     return impact
+
+
+# --- Maintenance and audit helpers ----------------------------------------
+
+def log_admin_action(db: Session, user_id: int | None, action: str, details: dict | None = None) -> None:
+    payload = AuditLog(
+        user_id=user_id,
+        action=action,
+        details=json.dumps(details or {}),
+    )
+    db.add(payload)
+    db.commit()
+
+
+def cleanup_empty_runs(db: Session) -> dict[str, int | list[int]]:
+    """Delete schedule runs that have zero payouts. Returns count and ids."""
+    runs = db.execute(select(ScheduleRun.id)).scalars().all()
+    deleted_ids: list[int] = []
+    for run_id in runs:
+        count = db.execute(
+            select(func.count()).where(Payout.schedule_run_id == run_id)
+        ).scalar_one() or 0
+        if count == 0:
+            run = get_schedule_run(db, run_id)
+            if run:
+                db.delete(run)
+                deleted_ids.append(run_id)
+    if deleted_ids:
+        db.commit()
+    return {"deleted_runs": len(deleted_ids), "run_ids": deleted_ids}
+
+
+def cleanup_orphans(db: Session) -> dict[str, int]:
+    """Remove legacy orphan records where model_id is NULL.
+
+    Payouts with model_id NULL are deleted. ValidationIssues with model_id NULL are deleted.
+    """
+    deleted_payouts = db.query(Payout).filter(Payout.model_id.is_(None)).delete(synchronize_session=False)
+    deleted_validations = (
+        db.query(ValidationIssue).filter(ValidationIssue.model_id.is_(None)).delete(synchronize_session=False)
+    )
+    if deleted_payouts or deleted_validations:
+        db.commit()
+    return {"payouts": int(deleted_payouts or 0), "validations": int(deleted_validations or 0)}
