@@ -510,16 +510,24 @@ def dashboard_summary(db: Session) -> dict[str, Decimal | int | date | None]:
 
     run_for_metrics = current_month_run or latest_run
 
-    lifetime_paid_stmt = select(func.coalesce(func.sum(Payout.amount), 0)).where(Payout.status == "paid")
+    lifetime_paid_stmt = (
+        select(func.coalesce(func.sum(Payout.amount), 0))
+        .where(Payout.status == "paid")
+        .where(Payout.model_id.isnot(None))
+    )
     lifetime_paid = Decimal(db.execute(lifetime_paid_stmt).scalar_one() or 0)
 
-    outstanding_stmt = select(func.coalesce(func.sum(Payout.amount), 0)).where(Payout.status != "paid")
+    outstanding_stmt = (
+        select(func.coalesce(func.sum(Payout.amount), 0))
+        .where(Payout.status != "paid")
+        .where(Payout.model_id.isnot(None))
+    )
     outstanding_total = Decimal(db.execute(outstanding_stmt).scalar_one() or 0)
 
-    pending_count_stmt = select(func.count()).where(Payout.status == "not_paid")
+    pending_count_stmt = select(func.count()).where(Payout.status == "not_paid").where(Payout.model_id.isnot(None))
     pending_count = db.execute(pending_count_stmt).scalar_one() or 0
 
-    on_hold_count_stmt = select(func.count()).where(Payout.status == "on_hold")
+    on_hold_count_stmt = select(func.count()).where(Payout.status == "on_hold").where(Payout.model_id.isnot(None))
     on_hold_count = db.execute(on_hold_count_stmt).scalar_one() or 0
 
     latest_run_paid = Decimal("0")
@@ -528,12 +536,14 @@ def dashboard_summary(db: Session) -> dict[str, Decimal | int | date | None]:
         latest_paid_stmt = (
             select(func.coalesce(func.sum(Payout.amount), 0))
             .where(Payout.schedule_run_id == run_for_metrics.id, Payout.status == "paid")
+            .where(Payout.model_id.isnot(None))
         )
         latest_run_paid = Decimal(db.execute(latest_paid_stmt).scalar_one() or 0)
 
         latest_unpaid_stmt = (
             select(func.coalesce(func.sum(Payout.amount), 0))
             .where(Payout.schedule_run_id == run_for_metrics.id, Payout.status != "paid")
+            .where(Payout.model_id.isnot(None))
         )
         latest_run_unpaid = Decimal(db.execute(latest_unpaid_stmt).scalar_one() or 0)
 
@@ -541,11 +551,18 @@ def dashboard_summary(db: Session) -> dict[str, Decimal | int | date | None]:
     monthly_burn = Decimal("0")
     monthly_unpaid = Decimal("0")
     if current_month_run:
-        monthly_burn = current_month_run.summary_total_payout or Decimal("0")
-        # Calculate current month unpaid
+        # Recompute monthly burn from actual payouts with linked models to avoid stale summary totals
+        monthly_burn_stmt = (
+            select(func.coalesce(func.sum(Payout.amount), 0))
+            .where(Payout.schedule_run_id == current_month_run.id)
+            .where(Payout.model_id.isnot(None))
+        )
+        monthly_burn = Decimal(db.execute(monthly_burn_stmt).scalar_one() or 0)
+        # Calculate current month unpaid (linked models only)
         monthly_unpaid_stmt = (
             select(func.coalesce(func.sum(Payout.amount), 0))
             .where(Payout.schedule_run_id == current_month_run.id, Payout.status != "paid")
+            .where(Payout.model_id.isnot(None))
         )
         monthly_unpaid = Decimal(db.execute(monthly_unpaid_stmt).scalar_one() or 0)
 
@@ -559,7 +576,8 @@ def dashboard_summary(db: Session) -> dict[str, Decimal | int | date | None]:
         .join(ScheduleRun, Payout.schedule_run_id == ScheduleRun.id)
         .where(
             Payout.status == "paid",
-            ScheduleRun.target_year == today.year
+            Payout.model_id.isnot(None),
+            ScheduleRun.target_year == today.year,
         )
     )
     year_total_paid = Decimal(db.execute(year_paid_stmt).scalar_one() or 0)
@@ -595,7 +613,8 @@ def dashboard_summary(db: Session) -> dict[str, Decimal | int | date | None]:
         select(func.count())
         .where(
             Payout.status.in_(["not_paid", "on_hold"]),
-            Payout.pay_date < today
+            Payout.pay_date < today,
+            Payout.model_id.isnot(None),
         )
     ).scalar_one() or 0
 
@@ -658,6 +677,7 @@ def dashboard_summary(db: Session) -> dict[str, Decimal | int | date | None]:
         "latest_run_unpaid": latest_run_unpaid,
         "monthly_burn": monthly_burn,
         "run_rate": run_rate,
+        "year_total_paid": year_total_paid,
         "burn_change_pct": burn_change_pct,
         "overdue_count": int(overdue_count),
         "avg_per_model": avg_per_model,
