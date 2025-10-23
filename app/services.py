@@ -121,9 +121,37 @@ class PayrollService:
         )
         crud.store_validation_messages(self.db, run, records, include_inactive)
 
+        # Build export schedule from DB payouts to reflect cash advance deductions (net vs gross)
+        payouts_with_allocs = crud.list_payouts_with_allocations_for_run(self.db, run.id)
+        # Assemble DataFrame with Gross, Advances Deducted, Net columns
+        export_rows: list[dict] = []
+        for payout, allocated in payouts_with_allocs:
+            amount_net = Decimal(str(payout.amount or 0))
+            amount_gross = amount_net + Decimal(str(allocated or 0))
+            export_rows.append(
+                {
+                    "Pay Date": payout.pay_date,
+                    "Code": payout.code,
+                    "Real Name": payout.real_name,
+                    "Working Name": payout.working_name,
+                    "Payment Method": payout.payment_method,
+                    "Payment Frequency": payout.payment_frequency.title() if payout.payment_frequency else "",
+                    f"Amount Gross ({currency})": float(amount_gross),
+                    f"Advances Deducted ({currency})": float(Decimal(str(allocated or 0))),
+                    f"Amount Net ({currency})": float(amount_net),
+                    "Status": payout.status.replace("_", " ").title() if payout.status else "",
+                    "Notes": payout.notes or "",
+                }
+            )
+
+        export_schedule_df = pd.DataFrame(export_rows)
+        if not export_schedule_df.empty:
+            export_schedule_df = export_schedule_df.sort_values(["Pay Date", "Code"]).reset_index(drop=True)
+            export_schedule_df["Pay Date"] = pd.to_datetime(export_schedule_df["Pay Date"])  # type: ignore[index]
+
         export_outputs(
             base_filename=f"pay_schedule_{target_year:04d}_{target_month:02d}_run{run.id}",
-            schedule_df=schedule_df,
+            schedule_df=export_schedule_df,
             models_df=models_df,
             validation_df=validation_df,
             output_dir=output_dir,

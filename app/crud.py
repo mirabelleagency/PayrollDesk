@@ -1275,3 +1275,28 @@ def _realize_allocations_for_paid_payout(db: Session, payout: Payout) -> None:
         # Allocation will be deleted by cascade when clearing runs is not guaranteed, so delete explicitly on realize
         db.delete(alloc)
     db.flush()
+
+
+# --- Export helpers for advances ------------------------------------------
+
+def get_allocation_totals_for_run(db: Session, run_id: int) -> dict[int, Decimal]:
+    """Return a mapping of payout_id -> total planned allocation for the run."""
+    stmt = (
+        select(PayoutAdvanceAllocation.payout_id, func.coalesce(func.sum(PayoutAdvanceAllocation.planned_amount), 0))
+        .where(PayoutAdvanceAllocation.schedule_run_id == run_id)
+        .group_by(PayoutAdvanceAllocation.payout_id)
+    )
+    out: dict[int, Decimal] = {}
+    for payout_id, total in db.execute(stmt).all():
+        out[int(payout_id)] = Decimal(total or 0)
+    return out
+
+
+def list_payouts_with_allocations_for_run(db: Session, run_id: int) -> Sequence[tuple[Payout, Decimal]]:
+    """List payouts for a run and include the allocated amount for each payout (if any)."""
+    allocations = get_allocation_totals_for_run(db, run_id)
+    payouts = list_payouts_for_run(db, run_id)
+    results: list[tuple[Payout, Decimal]] = []
+    for p in payouts:
+        results.append((p, allocations.get(p.id, Decimal("0"))))
+    return results
