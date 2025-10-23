@@ -15,7 +15,6 @@ from app.models import (
     ScheduleRun,
     ModelAdvance,
     AdvanceRepayment,
-    PayoutAdvanceAllocation,
 )
 
 
@@ -24,7 +23,6 @@ def _models_df(models: Iterable[Model], currency: str = "USD") -> pd.DataFrame:
     for item in models:
         rows.append(
             {
-                "model_id": item.id,
                 "code": item.code,
                 "status": item.status,
                 "real_name": item.real_name,
@@ -49,7 +47,6 @@ def _adjustments_df(adjustments: Iterable[ModelCompensationAdjustment]) -> pd.Da
         rows.append(
             {
                 "adjustment_id": item.id,
-                "model_id": item.model_id,
                 "model_code": item.model.code if getattr(item, "model", None) else None,
                 "effective_date": item.effective_date,
                 "amount_monthly": float(item.amount_monthly)
@@ -69,7 +66,6 @@ def _adhoc_df(adhocs: Iterable[AdhocPayment]) -> pd.DataFrame:
         rows.append(
             {
                 "adhoc_id": item.id,
-                "model_id": item.model_id,
                 "model_code": item.model.code if getattr(item, "model", None) else None,
                 "pay_date": item.pay_date,
                 "amount": float(item.amount) if item.amount is not None else None,
@@ -88,7 +84,6 @@ def _runs_df(runs: Iterable[ScheduleRun]) -> pd.DataFrame:
     for item in runs:
         rows.append(
             {
-                "schedule_run_id": item.id,
                 "target_year": item.target_year,
                 "target_month": item.target_month,
                 "currency": item.currency,
@@ -109,14 +104,11 @@ def _payouts_df(payouts: Iterable[Payout]) -> pd.DataFrame:
     for item in payouts:
         rows.append(
             {
-                "payout_id": item.id,
-                "schedule_run_id": item.schedule_run_id,
                 "schedule_run_label": (
                     f"{item.schedule_run.target_year}-{item.schedule_run.target_month:02d}"
                     if getattr(item, "schedule_run", None)
                     else None
                 ),
-                "model_id": item.model_id,
                 "model_code": item.code,
                 "pay_date": item.pay_date,
                 "amount": float(item.amount) if item.amount is not None else None,
@@ -134,8 +126,6 @@ def _advances_df(advances: Iterable[ModelAdvance], currency: str = "USD") -> pd.
     for item in advances:
         rows.append(
             {
-                "advance_id": item.id,
-                "model_id": item.model_id,
                 "model_code": item.model.code if getattr(item, "model", None) else None,
                 f"amount_total ({currency})": float(item.amount_total)
                 if item.amount_total is not None
@@ -164,30 +154,10 @@ def _advance_repayments_df(repayments: Iterable[AdvanceRepayment]) -> pd.DataFra
     for item in repayments:
         rows.append(
             {
-                "repayment_id": item.id,
-                "advance_id": item.advance_id,
-                "model_id": item.advance.model_id if getattr(item, "advance", None) else None,
                 "model_code": item.advance.model.code if getattr(item, "advance", None) and getattr(item.advance, "model", None) else None,
                 "payout_id": item.payout_id,
                 "amount": float(item.amount) if item.amount is not None else None,
                 "source": item.source,
-                "created_at": item.created_at,
-            }
-        )
-    return pd.DataFrame(rows)
-
-
-def _advance_allocations_df(allocs: Iterable[PayoutAdvanceAllocation]) -> pd.DataFrame:
-    rows = []
-    for item in allocs:
-        rows.append(
-            {
-                "allocation_id": item.id,
-                "schedule_run_id": item.schedule_run_id,
-                "payout_id": item.payout_id,
-                "model_id": item.model_id,
-                "advance_id": item.advance_id,
-                "planned_amount": float(item.planned_amount) if item.planned_amount is not None else None,
                 "created_at": item.created_at,
             }
         )
@@ -227,14 +197,8 @@ def export_full_workbook(db: Session, currency: str = "USD") -> bytes:
         .order_by(AdvanceRepayment.advance_id, AdvanceRepayment.created_at)
         .all()
     )
-    allocations = (
-        db.query(PayoutAdvanceAllocation)
-        .order_by(PayoutAdvanceAllocation.schedule_run_id, PayoutAdvanceAllocation.payout_id)
-        .all()
-    )
     df_advances = _advances_df(advances, currency)
     df_repayments = _advance_repayments_df(repayments)
-    df_allocations = _advance_allocations_df(allocations)
 
     # ensure_non_empty_frames returns placeholders—retain call for parity with legacy exports
     ensure_non_empty_frames(pd.DataFrame(), df_models, pd.DataFrame(), currency)
@@ -249,7 +213,7 @@ def export_full_workbook(db: Session, currency: str = "USD") -> bytes:
         # New: cash advance data
         df_advances.to_excel(writer, sheet_name="Advances", index=False)
         df_repayments.to_excel(writer, sheet_name="AdvanceRepayments", index=False)
-        df_allocations.to_excel(writer, sheet_name="AdvanceAllocations", index=False)
+        # AdvanceAllocations sheet removed per request
 
     buffer.seek(0)
     return buffer.getvalue()
