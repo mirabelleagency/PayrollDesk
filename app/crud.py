@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.payroll import ModelRecord, ValidationMessage
 from app.models import AdhocPayment, Model, ModelCompensationAdjustment, Payout, ScheduleRun, ValidationIssue
 from app.schemas import AdhocPaymentCreate, AdhocPaymentUpdate, ModelCreate, ModelUpdate
+from sqlalchemy import distinct
 
 
 def list_models(
@@ -851,3 +852,115 @@ def set_adhoc_payment_status(db: Session, payment: AdhocPayment, status: str, no
     db.commit()
     db.refresh(payment)
     return payment
+
+
+# --- Hard purge helpers ----------------------------------------------------
+
+def get_model_purge_impact(db: Session, model_id: int) -> dict[str, Decimal | int | str]:
+    """Compute the rows and amounts that would be removed when purging a model.
+
+    Returns a summary dictionary with counts and amount breakdowns.
+    """
+    model = get_model(db, model_id)
+    if not model:
+        raise ValueError("Model not found")
+
+    zero = Decimal("0")
+
+    # Payouts breakdown
+    payouts_total = db.execute(
+        select(func.count()).where(Payout.model_id == model_id)
+    ).scalar_one() or 0
+    payouts_paid = db.execute(
+        select(func.count()).where(Payout.model_id == model_id, Payout.status == "paid")
+    ).scalar_one() or 0
+    payouts_unpaid = payouts_total - int(payouts_paid)
+
+    payouts_paid_amount = Decimal(
+        db.execute(
+            select(func.coalesce(func.sum(Payout.amount), 0)).where(
+                Payout.model_id == model_id, Payout.status == "paid"
+            )
+        ).scalar_one()
+        or zero
+    )
+    payouts_unpaid_amount = Decimal(
+        db.execute(
+            select(func.coalesce(func.sum(Payout.amount), 0)).where(
+                Payout.model_id == model_id, Payout.status != "paid"
+            )
+        ).scalar_one()
+        or zero
+    )
+
+    # Distinct runs affected by payouts
+    runs_affected = db.execute(
+        select(func.count(distinct(Payout.schedule_run_id))).where(Payout.model_id == model_id)
+    ).scalar_one() or 0
+
+    # Validation issues
+    validations_count = db.execute(
+        select(func.count()).where(ValidationIssue.model_id == model_id)
+    ).scalar_one() or 0
+
+    # Adhoc payments
+    adhoc_count = db.execute(
+        select(func.count()).where(AdhocPayment.model_id == model_id)
+    ).scalar_one() or 0
+    adhoc_amount = Decimal(
+        db.execute(
+            select(func.coalesce(func.sum(AdhocPayment.amount), 0)).where(AdhocPayment.model_id == model_id)
+        ).scalar_one()
+        or zero
+    )
+
+    # Compensation adjustments
+    adjustments_count = db.execute(
+        select(func.count()).where(ModelCompensationAdjustment.model_id == model_id)
+    ).scalar_one() or 0
+
+    return {
+        "model_id": model.id,
+        "model_code": model.code,
+        "payouts_total": int(payouts_total),
+        "payouts_paid": int(payouts_paid),
+        "payouts_unpaid": int(payouts_unpaid),
+        "payouts_paid_amount": payouts_paid_amount,
+        "payouts_unpaid_amount": payouts_unpaid_amount,
+        "runs_affected": int(runs_affected),
+        "validations": int(validations_count),
+        "adhoc_payments": int(adhoc_count),
+        "adhoc_amount": adhoc_amount,
+        "adjustments": int(adjustments_count),
+        "total_rows": int(payouts_total + validations_count + adhoc_count + adjustments_count + 1),  # +1 for model
+    }
+
+
+def purge_model_hard(db: Session, model_id: int) -> dict[str, Decimal | int | str]:
+    """Transactionally remove a model and all related rows, avoiding orphans.
+
+    Returns the same summary as get_model_purge_impact.
+    """
+    impact = get_model_purge_impact(db, model_id)
+
+    # Perform deletes in a transaction
+    try:
+        # Delete payouts and validations that reference this model (FK is SET NULL otherwise)
+        db.query(Payout).filter(Payout.model_id == model_id).delete(synchronize_session=False)
+        db.query(ValidationIssue).filter(ValidationIssue.model_id == model_id).delete(synchronize_session=False)
+
+        # Delete associated adhoc payments and adjustments (FKs are CASCADE, but do explicitly for SQLite)
+        db.query(AdhocPayment).filter(AdhocPayment.model_id == model_id).delete(synchronize_session=False)
+        db.query(ModelCompensationAdjustment).filter(ModelCompensationAdjustment.model_id == model_id).delete(synchronize_session=False)
+
+        # Finally delete the model
+        model = get_model(db, model_id)
+        if model:
+            db.delete(model)
+
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    return impact

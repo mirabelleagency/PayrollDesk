@@ -1,11 +1,12 @@
-"""Admin routes for user management."""
+"""Admin routes for user and data administration."""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
+from app import crud
 from app.auth import User
 from app.database import get_session
 from app.dependencies import templates
@@ -232,3 +233,42 @@ def delete_user(
     db.delete(user)
     db.commit()
     return RedirectResponse(url="/admin/users", status_code=303)
+
+
+# --- Data purge endpoints ---------------------------------------------------
+
+@router.get("/models/{model_id}/purge")
+def purge_model_preview(
+    model_id: int,
+    request: Request,
+    db: Session = Depends(get_session),
+    admin: User = Depends(get_admin_user),
+):
+    """Show a confirmation page with a dry-run summary before purging a model."""
+    impact = crud.get_model_purge_impact(db, model_id)
+    return templates.TemplateResponse(
+        "admin/purge_confirm.html",
+        {
+            "request": request,
+            "user": admin,
+            "impact": impact,
+        },
+    )
+
+
+@router.post("/models/{model_id}/purge")
+def purge_model_execute(
+    model_id: int,
+    request: Request,
+    db: Session = Depends(get_session),
+    admin: User = Depends(get_admin_user),
+):
+    """Execute the hard purge of a model and related records (admin only)."""
+    try:
+        impact = crud.purge_model_hard(db, model_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    # Redirect to models list with a lightweight success note in query
+    code = impact.get("model_code", "")
+    return RedirectResponse(url=f"/models?purged={code}", status_code=303)
