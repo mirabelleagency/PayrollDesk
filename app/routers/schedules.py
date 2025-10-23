@@ -1984,6 +1984,8 @@ def view_schedule(
         status=status_filter,
         pay_date=pay_date_filter,
     )
+    # Map of payout_id -> total amount deducted from cash advances (planned allocations)
+    advance_allocations = crud.get_allocation_totals_for_run(db, run_id)
     payout_total = sum((payout.amount or Decimal("0")) for payout in payouts)
     validations = crud.list_validation_for_run(db, run_id)
     try:
@@ -2015,6 +2017,7 @@ def view_schedule(
             "user": user,
             "run": run,
             "payouts": payouts,
+            "advance_allocations": advance_allocations,
             "payout_total": payout_total,
             "validations": validations,
             "frequency_counts": frequency_counts,

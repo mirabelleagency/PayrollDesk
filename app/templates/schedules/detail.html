@@ -218,8 +218,9 @@
                     <th onclick="sortTable(3)" data-sortable="true" style="cursor: pointer; user-select: none;">Method ▼</th>
                     <th onclick="sortTable(4)" data-sortable="true" style="cursor: pointer; user-select: none;">Frequency ▼</th>
                     <th onclick="sortTable(5)" data-sortable="true" style="cursor: pointer; user-select: none;">Amount ▼</th>
-                    <th onclick="sortTable(6)" data-sortable="true" style="cursor: pointer; user-select: none; text-align: center;">Status ▼</th>
-                    <th onclick="sortTable(7)" data-sortable="true" style="cursor: pointer; user-select: none; min-width: 200px;">Notes ▼</th>
+                    <th onclick="sortTable(6)" data-sortable="true" style="cursor: pointer; user-select: none; text-align: center;">Deductions ▼</th>
+                    <th onclick="sortTable(7)" data-sortable="true" style="cursor: pointer; user-select: none; text-align: center;">Status ▼</th>
+                    <th onclick="sortTable(8)" data-sortable="true" style="cursor: pointer; user-select: none; min-width: 200px;">Notes ▼</th>
                     <th style="min-width: 120px;">Quick Actions</th>
                 </tr>
             </thead>
@@ -252,6 +253,16 @@
                     </td>
                     <td>
                         <strong style="font-size: 15px;">{{ run.currency }} {{ payout.amount|money }}</strong>
+                    </td>
+                    <td style="text-align: center;">
+                        {% set deduction = advance_allocations.get(payout.id, 0) %}
+                        {% if deduction > 0 %}
+                        <span title="Cash advance deduction for this payout" style="color: #ef4444; font-weight: 600;">
+                            -{{ run.currency }} {{ deduction|money }}
+                        </span>
+                        {% else %}
+                        <span style="color: #475569;">—</span>
+                        {% endif %}
                     </td>
                     <td style="text-align: center;">
                         <span class="status-chip status-chip--{{ 'success' if payout.status == 'paid' else ('warning' if payout.status == 'not_paid' else 'danger') }}">
@@ -352,7 +363,7 @@
                 <tr style="background: rgba(59, 130, 246, 0.05); font-weight: 600;">
                     <th colspan="5" style="text-align: right; padding: 16px;">Cycle Total</th>
                     <th style="font-size: 16px; color: #3b82f6;">{{ run.currency }} <span id="visible-total">{{ payout_total|money }}</span></th>
-                    <th colspan="2"></th>
+                    <th colspan="4"></th>
                 </tr>
             </tfoot>
         </table>
