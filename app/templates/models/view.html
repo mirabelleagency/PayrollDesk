@@ -276,6 +276,26 @@
     color: #475569;
 }
 
+/* Collapsible cards */
+.collapsible-card summary {
+    list-style: none;
+    cursor: pointer;
+    outline: none;
+}
+.collapsible-summary::-webkit-details-marker { display: none; }
+.collapsible-summary {
+    user-select: none;
+}
+/* Caret indicator */
+.collapsible-summary::after {
+    content: '▸';
+    color: #94a3b8;
+    margin-left: 12px;
+}
+details[open] > .collapsible-summary::after {
+    content: '▾';
+}
+
 @media (max-width: 1024px) {
     .model-view-grid {
         grid-template-columns: 1fr;
@@ -367,175 +387,7 @@
         </div>
     </div>
 
-    <!-- Cash Advances -->
-    <div class="model-view-table-card">
-        <div class="model-view-table-header">
-            <div class="model-view-table-title">
-                <span style="font-size: 24px;">🏦</span>
-                <h2>Cash Advances</h2>
-                <span class="model-view-table-count">Outstanding: ${{ (advances_outstanding or 0)|money }}</span>
-            </div>
-        </div>
-
-        <div style="padding: 24px; background: rgba(15, 23, 42, 0.3); border-bottom: 1px solid rgba(148, 163, 184, 0.08);">
-            <p style="margin: 0; font-size: 14px; color: #94a3b8;">
-                Advances let you pay a model early and automatically recover the balance from future payouts without pushing net pay below a safe floor.
-            </p>
-        </div>
-
-        {% if user.role == 'admin' %}
-        <div style="padding: 24px; background: rgba(30, 41, 59, 0.3); border-bottom: 1px solid rgba(148, 163, 184, 0.08);">
-            <form action="/models/{{ model.id }}/advances" method="post">
-                <div style="margin-bottom: 16px;">
-                    <h3 style="margin: 0 0 6px 0; font-size: 16px; font-weight: 600; color: #f8fafc;">➕ Request Advance</h3>
-                    <p style="margin: 0; font-size: 13px; color: #94a3b8;">Default policy: floor $500, max $600/run, cap 1× monthly. You can override per advance.</p>
-                </div>
-                <div class="form-grid two-column">
-                    <div class="form-row">
-                        <label for="adv-total">Amount (USD) <span class="required-badge">Required</span></label>
-                        <input id="adv-total" name="amount_total" type="number" step="0.01" min="0.01" required />
-                    </div>
-                    <div class="form-row">
-                        <label for="adv-strategy">Strategy</label>
-                        <select id="adv-strategy" name="strategy" onchange="toggleAdvanceStrategyFields()">
-                            <option value="fixed" selected>Fixed amount per run</option>
-                            <option value="percent">Percent of payout</option>
-                        </select>
-                    </div>
-                    <div class="form-row" id="adv-fixed-row">
-                        <label for="adv-fixed">Fixed amount per run</label>
-                        <input id="adv-fixed" name="fixed_amount" type="number" step="0.01" min="0.01" placeholder="e.g., 300" />
-                    </div>
-                    <div class="form-row" id="adv-percent-row" style="display:none;">
-                        <label for="adv-percent">Percent of payout (%)</label>
-                        <input id="adv-percent" name="percent_rate" type="number" step="0.01" min="0.01" max="100" placeholder="e.g., 25" />
-                    </div>
-                    <div class="form-row">
-                        <label for="adv-floor">Min net floor (optional)</label>
-                        <input id="adv-floor" name="min_net_floor" type="number" step="0.01" min="0" placeholder="Default 500" />
-                    </div>
-                    <div class="form-row">
-                        <label for="adv-maxrun">Max per-run deduction (optional)</label>
-                        <input id="adv-maxrun" name="max_per_run" type="number" step="0.01" min="0" placeholder="Default 600" />
-                    </div>
-                    <div class="form-row">
-                        <label for="adv-capmul">Cap multiplier (optional)</label>
-                        <input id="adv-capmul" name="cap_multiplier" type="number" step="0.01" min="0" placeholder="Default 1.0 (× monthly)" />
-                    </div>
-                    <div class="form-row span-all">
-                        <label for="adv-notes">Notes</label>
-                        <textarea id="adv-notes" name="notes" rows="2" placeholder="Optional internal notes"></textarea>
-                    </div>
-                </div>
-                <div style="margin-top: 12px; display: flex; align-items: center; gap: 12px;">
-                    <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #cbd5e1;">
-                        <input type="checkbox" name="auto_approve" /> Approve now (starts deductions)
-                    </label>
-                    <button class="button" type="submit">Create Advance</button>
-                    <span style="font-size: 12px; color: #64748b;">Cap is evaluated against current outstanding at approval.</span>
-                </div>
-            </form>
-        </div>
-        {% endif %}
-
-        <table class="model-view-table">
-            <thead>
-                <tr>
-                    <th>Created</th>
-                    <th>Status</th>
-                    <th>Principal</th>
-                    <th>Remaining</th>
-                    <th>Strategy</th>
-                    <th>Floor / Max</th>
-                    <th>Notes</th>
-                    {% if user.role == 'admin' %}<th>Actions</th>{% endif %}
-                </tr>
-            </thead>
-            <tbody>
-                {% if advances %}
-                {% for adv in advances %}
-                <tr>
-                    <td style="white-space: nowrap;">{{ adv.created_at.strftime('%b %d, %Y') if adv.created_at else '—' }}</td>
-                    <td>
-                        {% if adv.status == 'active' %}
-                            <span class="status-chip status-chip--success">Active</span>
-                        {% elif adv.status == 'approved' %}
-                            <span class="status-chip status-chip--blue">Approved</span>
-                        {% elif adv.status == 'requested' %}
-                            <span class="status-chip status-chip--warning">Requested</span>
-                        {% else %}
-                            <span class="status-chip status-chip--neutral">Closed</span>
-                        {% endif %}
-                    </td>
-                    <td><strong style="color:#22c55e;">${{ adv.amount_total|money }}</strong></td>
-                    <td><strong style="color:#fbbf24;">${{ adv.amount_remaining|money }}</strong></td>
-                    <td>
-                        {% if adv.strategy == 'fixed' %}
-                            Fixed ${{ adv.fixed_amount|money }} / run
-                        {% else %}
-                            {{ adv.percent_rate }}% of payout
-                        {% endif %}
-                    </td>
-                    <td>${{ adv.min_net_floor|money }} floor<br/>${{ adv.max_per_run|money }} max/run</td>
-                    <td style="color:#94a3b8;">{{ adv.notes or '—' }}</td>
-                    {% if user.role == 'admin' %}
-                    <td>
-                        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                            {% if adv.status == 'requested' %}
-                            <form action="/models/{{ model.id }}/advances/{{ adv.id }}/approve" method="post">
-                                <button class="button secondary button--compact" type="submit">Approve & Activate</button>
-                            </form>
-                            {% endif %}
-                            {% if adv.status in ['approved','active'] and adv.amount_remaining and adv.amount_remaining > 0 %}
-                            <form action="/models/{{ model.id }}/advances/{{ adv.id }}/repay" method="post" style="display:flex; gap:6px; align-items:center;">
-                                <input name="amount" type="number" step="0.01" min="0.01" placeholder="Repay amount" style="width:120px;" />
-                                <button class="button secondary button--compact" type="submit">Record Repayment</button>
-                            </form>
-                            {% endif %}
-                        </div>
-                    </td>
-                    {% endif %}
-                </tr>
-                {% endfor %}
-                {% else %}
-                <tr>
-                    <td class="model-view-empty" colspan="8">
-                        <div class="model-view-empty__icon">🏦</div>
-                        <p class="model-view-empty__text">No advances recorded.</p>
-                        <p class="model-view-empty__subtext">Create an advance to allow automatic deductions from future payouts.</p>
-                    </td>
-                </tr>
-                {% endif %}
-            </tbody>
-        </table>
-    </div>
-
-    <script>
-    function toggleAdvanceStrategyFields() {
-        const strategy = document.getElementById('adv-strategy')?.value || 'fixed';
-        const fixedRow = document.getElementById('adv-fixed-row');
-        const percentRow = document.getElementById('adv-percent-row');
-        if (!fixedRow || !percentRow) return;
-        if (strategy === 'percent') {
-            fixedRow.style.display = 'none';
-            percentRow.style.display = '';
-        } else {
-            fixedRow.style.display = '';
-            percentRow.style.display = 'none';
-        }
-    }
-    </script>
-
-    {% if error_message %}
-    <div class="alert error">
-        <strong>Could not complete request.</strong> {{ error_message }}
-    </div>
-    {% endif %}
-    {% if success_message %}
-    <div class="alert success">
-        <strong>Done.</strong> {{ success_message }}
-    </div>
-    {% endif %}
+    <!-- Cash Advances moved below Ad Hoc Payments and made collapsible -->
 
     <!-- Two Column Layout -->
     <div class="model-view-grid">
@@ -650,9 +502,9 @@
     {% set pending_count = adhoc_payments | selectattr('status', 'equalto', 'pending') | list | length %}
     {% set latest_payment = adhoc_payments[0] if adhoc_count else None %}
 
-    <!-- Ad Hoc Payments -->
-    <div class="model-view-table-card">
-        <div class="model-view-table-header">
+    <!-- Ad Hoc Payments (collapsible header + form; table moved outside to stay always visible) -->
+    <details id="adhoc-card" class="model-view-table-card collapsible-card">
+        <summary class="model-view-table-header collapsible-summary">
             <div class="model-view-table-title">
                 <span style="font-size: 24px;">💸</span>
                 <h2>Ad Hoc Payments</h2>
@@ -666,7 +518,7 @@
                 Latest: <strong style="color: #22c55e;">${{ latest_payment.amount|money }}</strong> on {{ latest_payment.pay_date|display_date }}
             </span>
             {% endif %}
-        </div>
+        </summary>
         
         <div style="padding: 24px; background: rgba(15, 23, 42, 0.3); border-bottom: 1px solid rgba(148, 163, 184, 0.08);">
             <p style="margin: 0; font-size: 14px; color: #94a3b8;">Log one-off payments that fall outside scheduled payroll cycles.</p>
@@ -705,7 +557,11 @@
         </div>
         {% endif %}
 
-        {% if adhoc_payments %}
+    </details>
+
+    {# Ad Hoc Payments table always visible #}
+    <div class="model-view-table-card" style="margin-top: 12px;">
+    {% if adhoc_payments %}
         <table class="model-view-table">
             <thead>
                 <tr>
@@ -760,14 +616,218 @@
                 {% endfor %}
             </tbody>
         </table>
-        {% else %}
+    {% else %}
         <div class="model-view-empty">
             <div class="model-view-empty__icon">💸</div>
             <p class="model-view-empty__text">No ad hoc payments recorded yet.</p>
             <p class="model-view-empty__subtext">Use the form above to log one-off payments.</p>
         </div>
-        {% endif %}
+    {% endif %}
     </div>
+
+    <!-- Cash Advances (collapsible header + form; table moved outside to stay always visible) -->
+    <details id="advances-card" class="model-view-table-card collapsible-card">
+        <summary class="model-view-table-header collapsible-summary">
+            <div class="model-view-table-title">
+                <span style="font-size: 24px;">🏦</span>
+                <h2>Cash Advances</h2>
+                <span class="model-view-table-count">Outstanding: ${{ (advances_outstanding or 0)|money }}</span>
+            </div>
+        </summary>
+
+        <div style="padding: 24px; background: rgba(15, 23, 42, 0.3); border-bottom: 1px solid rgba(148, 163, 184, 0.08);">
+            <p style="margin: 0; font-size: 14px; color: #94a3b8;">
+                Advances let you pay a model early and automatically recover the balance from future payouts without pushing net pay below a safe floor.
+            </p>
+        </div>
+
+        {% if user.role == 'admin' %}
+        <div style="padding: 24px; background: rgba(30, 41, 59, 0.3); border-bottom: 1px solid rgba(148, 163, 184, 0.08);">
+            <form action="/models/{{ model.id }}/advances" method="post">
+                <div style="margin-bottom: 16px;">
+                    <h3 style="margin: 0 0 6px 0; font-size: 16px; font-weight: 600; color: #f8fafc;">➕ Request Advance</h3>
+                    <p style="margin: 0; font-size: 13px; color: #94a3b8;">Create a cash advance and optionally choose a deduction strategy.</p>
+                </div>
+                <div class="form-grid two-column">
+                    <div class="form-row">
+                        <label for="adv-total">Amount (USD) <span class="required-badge">Required</span></label>
+                        <input id="adv-total" name="amount_total" type="number" step="0.01" min="0.01" required />
+                    </div>
+                    <div class="form-row">
+                        <label for="adv-strategy">Strategy</label>
+                        <select id="adv-strategy" name="strategy" onchange="toggleAdvanceStrategyFields()">
+                            <option value="fixed" selected>Fixed amount per run</option>
+                            <option value="percent">Percent of payout</option>
+                        </select>
+                    </div>
+                    <div class="form-row" id="adv-fixed-row">
+                        <label for="adv-fixed">Fixed amount per run</label>
+                        <input id="adv-fixed" name="fixed_amount" type="number" step="0.01" min="0.01" placeholder="e.g., 300" />
+                    </div>
+                    <div class="form-row" id="adv-percent-row" style="display:none;">
+                        <label for="adv-percent">Percent of payout (%)</label>
+                        <input id="adv-percent" name="percent_rate" type="number" step="0.01" min="0.01" max="100" placeholder="e.g., 25" />
+                    </div>
+                    <div class="form-row">
+                        <label for="adv-notes">Notes</label>
+                        <textarea id="adv-notes" name="notes" rows="2" placeholder="Optional internal notes"></textarea>
+                    </div>
+                </div>
+                <div style="margin-top: 12px; display: flex; align-items: center; gap: 12px;">
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #cbd5e1;">
+                        <input type="checkbox" name="auto_approve" /> Approve now (starts deductions)
+                    </label>
+                    <button class="button" type="submit">Create Advance</button>
+                    <span style="font-size: 12px; color: #64748b;">Cap is evaluated against current outstanding at approval.</span>
+                </div>
+            </form>
+        </div>
+        {% endif %}
+
+    </details>
+
+    {# Cash Advances table always visible #}
+    <div class="model-view-table-card" style="margin-top: 12px;">
+        <table class="model-view-table">
+            <thead>
+                <tr>
+                    <th>Created</th>
+                    <th>Status</th>
+                    <th>Principal</th>
+                    <th>Remaining</th>
+                    <th>Strategy</th>
+                    <th>Notes</th>
+                    {% if user.role == 'admin' %}<th>Actions</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% if advances %}
+                {% for adv in advances %}
+                <tr>
+                    <td style="white-space: nowrap;">{{ adv.created_at.strftime('%b %d, %Y') if adv.created_at else '—' }}</td>
+                    <td>
+                        {% if adv.status == 'active' %}
+                            <span class="status-chip status-chip--success">Active</span>
+                        {% elif adv.status == 'approved' %}
+                            <span class="status-chip status-chip--blue">Approved</span>
+                        {% elif adv.status == 'requested' %}
+                            <span class="status-chip status-chip--warning">Requested</span>
+                        {% else %}
+                            <span class="status-chip status-chip--neutral">Closed</span>
+                        {% endif %}
+                    </td>
+                    <td><strong style="color:#22c55e;">${{ adv.amount_total|money }}</strong></td>
+                    <td><strong style="color:#fbbf24;">${{ adv.amount_remaining|money }}</strong></td>
+                    <td>
+                        {% if adv.strategy == 'fixed' %}
+                            Fixed ${{ adv.fixed_amount|money }} / run
+                        {% else %}
+                            {{ adv.percent_rate }}% of payout
+                        {% endif %}
+                    </td>
+                    <td style="color:#94a3b8;">{{ adv.notes or '—' }}</td>
+                    {% if user.role == 'admin' %}
+                    <td>
+                        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                            {% if adv.status == 'requested' %}
+                            <form action="/models/{{ model.id }}/advances/{{ adv.id }}/approve" method="post">
+                                <button class="button secondary button--compact" type="submit">Approve & Activate</button>
+                            </form>
+                            {% endif %}
+                            {% if adv.status in ['approved','active'] and adv.amount_remaining and adv.amount_remaining > 0 %}
+                            <form action="/models/{{ model.id }}/advances/{{ adv.id }}/repay" method="post" style="display:flex; gap:6px; align-items:center;">
+                                <input name="amount" type="number" step="0.01" min="0.01" placeholder="Repay amount" style="width:120px;" />
+                                <button class="button secondary button--compact" type="submit">Record Repayment</button>
+                            </form>
+                            {% endif %}
+                            <form action="/models/{{ model.id }}/advances/{{ adv.id }}/delete" method="post" onsubmit="return confirm('Delete this advance? This cannot be undone.');">
+                                <button class="button secondary button--compact" type="submit" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3);">Delete</button>
+                            </form>
+                        </div>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td class="model-view-empty" colspan="8">
+                        <div class="model-view-empty__icon">🏦</div>
+                        <p class="model-view-empty__text">No advances recorded.</p>
+                        <p class="model-view-empty__subtext">Create an advance to allow automatic deductions from future payouts.</p>
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+    function toggleAdvanceStrategyFields() {
+        const strategy = document.getElementById('adv-strategy')?.value || 'fixed';
+        const fixedRow = document.getElementById('adv-fixed-row');
+        const percentRow = document.getElementById('adv-percent-row');
+        if (!fixedRow || !percentRow) return;
+        if (strategy === 'percent') {
+            fixedRow.style.display = 'none';
+            percentRow.style.display = '';
+        } else {
+            fixedRow.style.display = '';
+            percentRow.style.display = 'none';
+        }
+    }
+
+    // Persist collapsible open state across refreshes until user leaves the tab
+    document.addEventListener('DOMContentLoaded', function() {
+    const MODEL_ID = '{{ model.id }}';
+        function setupPersistentCard(detailsId) {
+            const el = document.getElementById(detailsId);
+            if (!el) return;
+            const key = `model:${MODEL_ID}:${detailsId}:open`;
+            const saved = sessionStorage.getItem(key);
+            if (saved === '1') {
+                el.setAttribute('open', '');
+            }
+            el.addEventListener('toggle', () => {
+                if (el.open) sessionStorage.setItem(key, '1');
+                else sessionStorage.removeItem(key);
+            });
+            // Ensure submitting any form inside keeps the card open after redirect
+            el.querySelectorAll('form').forEach(form => {
+                form.addEventListener('submit', () => {
+                    sessionStorage.setItem(key, '1');
+                });
+            });
+        }
+
+        setupPersistentCard('adhoc-card');
+        setupPersistentCard('advances-card');
+
+        // If there are feedback alerts, ensure advances card is open so messages are visible
+        const feedback = document.querySelector('.alert.error, .alert.success');
+        if (feedback) {
+            const adv = document.getElementById('advances-card');
+            if (adv) {
+                const advKey = `model:${MODEL_ID}:advances-card:open`;
+                adv.setAttribute('open', '');
+                sessionStorage.setItem(advKey, '1');
+            }
+        }
+
+        // Initialize strategy fields visibility on load
+        toggleAdvanceStrategyFields();
+    });
+    </script>
+
+    {% if error_message %}
+    <div class="alert error">
+        <strong>Could not complete request.</strong> {{ error_message }}
+    </div>
+    {% endif %}
+    {% if success_message %}
+    <div class="alert success">
+        <strong>Done.</strong> {{ success_message }}
+    </div>
+    {% endif %}
 
     <!-- Payment History -->
     <div class="model-view-table-card">

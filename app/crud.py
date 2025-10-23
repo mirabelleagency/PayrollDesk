@@ -1128,11 +1128,7 @@ def approve_advance(db: Session, advance: ModelAdvance, *, activate: bool = True
     model = get_model(db, advance.model_id)
     if not model:
         raise ValueError("Model not found")
-    # Enforce cap at approval time
-    cap = Decimal(model.amount_monthly or 0) * Decimal(advance.cap_multiplier or ADVANCE_DEFAULT_CAP_MULTIPLIER)
-    current_outstanding = outstanding_advance_total(db, model.id)
-    if (current_outstanding + Decimal(advance.amount_remaining or 0)) > cap:
-        raise ValueError("Advance exceeds max outstanding cap for this model")
+    # Cap enforcement removed per simplified policy
 
     advance.status = "active" if activate else "approved"
     if activate:
@@ -1204,11 +1200,9 @@ def _apply_advance_allocations_for_run(db: Session, run: ScheduleRun, payouts: l
         # Track a local temp remaining per advance for this run's planning
         temp_remaining: dict[int, Decimal] = {adv.id: Decimal(adv.amount_remaining or 0) for adv in advances}
 
-        # Use the strictest (highest) floor across advances for safety
-        floor_value = max([Decimal(adv.min_net_floor or ADVANCE_DEFAULT_MIN_FLOOR) for adv in advances] or [ADVANCE_DEFAULT_MIN_FLOOR])
         for payout in rows:
-            # Available to deduct based on min net floor
-            available = Decimal(payout.amount or 0) - max(floor_value, Decimal(0))
+            # Available to deduct is the full payout amount (no floor)
+            available = Decimal(payout.amount or 0)
             if available <= 0:
                 continue
             total_deducted = Decimal("0")
@@ -1223,10 +1217,9 @@ def _apply_advance_allocations_for_run(db: Session, run: ScheduleRun, payouts: l
                     # percent of gross payout amount
                     pct = Decimal(adv.percent_rate or 0) / Decimal("100")
                     candidate = (Decimal(payout.amount or 0) * pct)
-                # Respect per-run max and available remainder on this payout
-                max_per = Decimal(adv.max_per_run or ADVANCE_DEFAULT_MAX_PER_RUN)
-                remaining_room = (available - total_deducted)
-                planned = min(candidate, max_per, temp_remaining[adv.id], remaining_room)
+                # Respect remaining room on this payout and advance balance
+                remaining_room = max(available - total_deducted, Decimal("0"))
+                planned = min(candidate, temp_remaining[adv.id], remaining_room)
                 # Ensure non-negative and meaningful
                 if planned <= 0:
                     continue
@@ -1252,6 +1245,21 @@ def _apply_advance_allocations_for_run(db: Session, run: ScheduleRun, payouts: l
 
         # Persist adjustments for this model's payouts before next model
         db.flush()
+
+
+def delete_advance(db: Session, advance: ModelAdvance) -> None:
+    """Delete an advance if it has no repayments; also remove any planned allocations."""
+    # Prevent deletion if there are repayments recorded
+    has_repayments = db.execute(
+        select(func.count()).select_from(AdvanceRepayment).where(AdvanceRepayment.advance_id == advance.id)
+    ).scalar_one() or 0
+    if int(has_repayments) > 0:
+        raise ValueError("Cannot delete an advance that has repayments.")
+
+    # Delete any planned allocations for this advance
+    db.query(PayoutAdvanceAllocation).filter(PayoutAdvanceAllocation.advance_id == advance.id).delete(synchronize_session=False)
+    db.delete(advance)
+    db.commit()
 
 
 def _realize_allocations_for_paid_payout(db: Session, payout: Payout) -> None:

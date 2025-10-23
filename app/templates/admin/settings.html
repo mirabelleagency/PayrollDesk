@@ -23,6 +23,9 @@
     <form method="post" action="/admin/maintenance/cleanup-empty-runs">
       <button class="button button--primary" type="submit">🗑️ Delete Empty Schedule Runs</button>
     </form>
+    <form method="post" action="/admin/maintenance/cleanup-orphans" onsubmit="return confirm('Remove legacy orphan records (model_id NULL) from payouts and validations? This cannot be undone.');">
+      <button class="button secondary" type="submit" title="Delete payouts/validations that lost their model link">🧹 Remove Legacy Orphan Records</button>
+    </form>
   </div>
 </section>
 

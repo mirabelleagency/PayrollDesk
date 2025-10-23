@@ -131,6 +131,7 @@
         </div>
         
         <form class="schedule-filter-toolbar__filters" method="get" action="/schedules/{{ run.id }}">
+            <input type="hidden" name="q" id="filter-q-hidden" value="{{ request.query_params.get('q','') if request and request.query_params else '' }}">
             <div class="filter-group-inline">
                 <label for="filter-status">Status</label>
                 <select id="filter-status" name="status" onchange="this.form.submit()" class="filter-select">
@@ -230,7 +231,8 @@
                     data-code="{{ payout.code|lower }}"
                     data-name="{{ (payout.working_name or '')|lower }}"
                     data-status="{{ payout.status }}"
-                    data-is-overdue="{{ 'true' if is_overdue else 'false' }}">
+                    data-is-overdue="{{ 'true' if is_overdue else 'false' }}"
+                    data-amount="{{ payout.amount or 0 }}">
                     {# Checkbox removed for single-run view #}
                     <td style="white-space: nowrap;">
                         <strong>{{ payout.pay_date|display_date }}</strong>
@@ -349,7 +351,7 @@
             <tfoot>
                 <tr style="background: rgba(59, 130, 246, 0.05); font-weight: 600;">
                     <th colspan="5" style="text-align: right; padding: 16px;">Cycle Total</th>
-                    <th style="font-size: 16px; color: #3b82f6;">{{ run.currency }} {{ payout_total|money }}</th>
+                    <th style="font-size: 16px; color: #3b82f6;">{{ run.currency }} <span id="visible-total">{{ payout_total|money }}</span></th>
                     <th colspan="2"></th>
                 </tr>
             </tfoot>
@@ -589,6 +591,14 @@ function filterByOverdue() {
     if (visibleCountEl) {
         visibleCountEl.textContent = visibleCount;
     }
+    // Clear quick search and persist removal
+    const hiddenQ = document.getElementById('filter-q-hidden');
+    if (searchInput) searchInput.value = '';
+    if (hiddenQ) hiddenQ.value = '';
+    const url = new URL(window.location.href);
+    url.searchParams.delete('q');
+    history.replaceState(null, '', url.toString());
+    recomputeVisibleTotal();
 }
 
 // Client-side quick search filter
@@ -636,6 +646,17 @@ function filterPayoutTable() {
     if (visibleCountEl) {
         visibleCountEl.textContent = visibleCount;
     }
+    // Persist quick search to URL and hidden form field
+    const hiddenQ = document.getElementById('filter-q-hidden');
+    if (hiddenQ) hiddenQ.value = searchTerm;
+    const url = new URL(window.location.href);
+    if (searchTerm) {
+        url.searchParams.set('q', searchTerm);
+    } else {
+        url.searchParams.delete('q');
+    }
+    history.replaceState(null, '', url.toString());
+    recomputeVisibleTotal();
 }
 
 // Table sorting
@@ -718,6 +739,7 @@ function sortTable(columnIndex) {
 document.addEventListener('DOMContentLoaded', function() {
     const urlParams = new URLSearchParams(window.location.search);
     const showFilter = urlParams.get('show');
+    const persistedQ = urlParams.get('q') || '';
     
     if (showFilter === 'overdue') {
         // Trigger the overdue filter
@@ -731,7 +753,56 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 100);
         }
     }
+    // Reapply persisted quick search
+    if (persistedQ) {
+        const searchInput = document.getElementById('quick-search');
+        const hiddenQ = document.getElementById('filter-q-hidden');
+        if (searchInput) searchInput.value = persistedQ;
+        if (hiddenQ) hiddenQ.value = persistedQ;
+        filterPayoutTable();
+    }
+    // Compute initial visible total on load as well
+    recomputeVisibleTotal();
+    // Ensure notes forms redirect back including current quick search and filters
+    document.querySelectorAll('form[action$="/note"]').forEach(form => {
+        form.addEventListener('submit', function() {
+            const redirectInput = form.querySelector('input[name="redirect_to"]');
+            if (redirectInput) {
+                redirectInput.value = window.location.pathname + window.location.search;
+            }
+        });
+    });
 });
+
+// Money formatting helper (US style, 2 decimals)
+function formatMoney(value) {
+    try {
+        return (Number(value) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    } catch (e) {
+        const n = Math.round((Number(value) || 0) * 100) / 100;
+        return n.toFixed(2);
+    }
+}
+
+// Recompute visible total based on currently visible rows
+function recomputeVisibleTotal() {
+    const rows = Array.from(document.querySelectorAll('#payouts-table tbody tr.payout-row'));
+    if (!rows.length) {
+        const el = document.getElementById('visible-total');
+        if (el) el.textContent = formatMoney(0);
+        return;
+    }
+    let total = 0;
+    rows.forEach(row => {
+        if (row.style.display === 'none') return;
+        const amount = parseFloat(row.getAttribute('data-amount') || '0');
+        if (!isNaN(amount)) total += amount;
+    });
+    const totalEl = document.getElementById('visible-total');
+    if (totalEl) {
+        totalEl.textContent = formatMoney(total);
+    }
+}
 </script>
 
 <style>

@@ -859,9 +859,6 @@ def create_model_advance(
     strategy: str = Form("fixed"),
     fixed_amount: str = Form(""),
     percent_rate: str = Form(""),
-    min_net_floor: str = Form(""),
-    max_per_run: str = Form(""),
-    cap_multiplier: str = Form(""),
     notes: str = Form(""),
     auto_approve: str | None = Form(None),
     db: Session = Depends(get_session),
@@ -885,10 +882,6 @@ def create_model_advance(
 
     fx_amt = _to_decimal(fixed_amount)
     pct = _to_decimal(percent_rate)
-    floor = _to_decimal(min_net_floor)
-    max_run = _to_decimal(max_per_run)
-    cap_mul = _to_decimal(cap_multiplier)
-
     try:
         adv = crud.create_advance(
             db,
@@ -897,14 +890,28 @@ def create_model_advance(
             strategy=strategy,
             fixed_amount=(fx_amt.quantize(Decimal("0.01")) if fx_amt is not None else None),
             percent_rate=(pct.quantize(Decimal("0.01")) if pct is not None else None),
-            min_net_floor=(floor.quantize(Decimal("0.01")) if floor is not None else None),
-            max_per_run=(max_run.quantize(Decimal("0.01")) if max_run is not None else None),
-            cap_multiplier=(cap_mul.quantize(Decimal("0.01")) if cap_mul is not None else None),
             notes=(notes.strip() if notes else None),
         )
         if auto_approve is not None:
             crud.approve_advance(db, adv, activate=True)
         return _redirect_to_model(model_id, success="Advance request submitted" + (" and activated" if auto_approve else "."))
+    except Exception as exc:
+        return _redirect_to_model(model_id, error=str(exc))
+
+
+@router.post("/{model_id}/advances/{advance_id}/delete")
+def delete_model_advance(
+    model_id: int,
+    advance_id: int,
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    adv = crud.get_advance(db, advance_id)
+    if not adv or adv.model_id != model_id:
+        raise HTTPException(status_code=404, detail="Advance not found")
+    try:
+        crud.delete_advance(db, adv)
+        return _redirect_to_model(model_id, success="Advance deleted.")
     except Exception as exc:
         return _redirect_to_model(model_id, error=str(exc))
 
