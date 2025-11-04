@@ -16,9 +16,11 @@ from app import crud
 from app.models import (
     FREQUENCY_ENUM,
     PAYOUT_STATUS_ENUM,
+    ADHOC_PAYMENT_STATUS_ENUM,
     STATUS_ENUM,
     Model,
     ModelCompensationAdjustment,
+    AdhocPayment,
     Payout,
     ScheduleRun,
     ValidationIssue,
@@ -71,7 +73,23 @@ ADJUSTMENT_COLUMNS: dict[str, dict[str, Any]] = {
     "notes": {"aliases": ["notes", "note", "comments"], "required": False},
 }
 
+ADHOC_COLUMNS: dict[str, dict[str, Any]] = {
+    "code": {"aliases": ["code", "model code"], "required": True},
+    "pay_date": {"aliases": ["pay date", "payment date", "pay_date"], "required": True},
+    "amount": {"aliases": ["amount", "payment amount"], "required": True},
+    "status": {"aliases": ["status"], "required": False},
+    "description": {"aliases": ["description", "desc", "memo"], "required": False},
+    "notes": {"aliases": ["notes", "note", "comments"], "required": False},
+}
+
 DATE_FORMATS: tuple[str, ...] = ("%m/%d/%Y", "%Y-%m-%d", "%m-%d-%Y")
+
+
+def _row_number(idx: Any) -> int:
+    try:
+        return int(idx) + 2
+    except Exception:
+        return 0
 
 
 @dataclass
@@ -91,6 +109,7 @@ class ImportOptions:
     payout_sheet: str = "Payouts"
     update_existing: bool = False
     adjustments_sheet: str | None = "CompensationAdjustments"
+    adhoc_sheet: str | None = "Adhoc"
 
 
 @dataclass
@@ -100,11 +119,14 @@ class ImportSummary:
     payouts_created: int = 0
     adjustments_created: int = 0
     adjustments_updated: int = 0
+    adhoc_created: int = 0
+    adhoc_updated: int = 0
     schedule_run_id: int | None = None
     schedule_run_ids: list[int] = field(default_factory=list)
     model_errors: list[str] = field(default_factory=list)
     payout_errors: list[str] = field(default_factory=list)
     adjustment_errors: list[str] = field(default_factory=list)
+    adhoc_errors: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -113,11 +135,14 @@ class ImportSummary:
             "payouts_created": self.payouts_created,
             "adjustments_created": self.adjustments_created,
             "adjustments_updated": self.adjustments_updated,
+            "adhoc_created": self.adhoc_created,
+            "adhoc_updated": self.adhoc_updated,
             "schedule_run_id": self.schedule_run_id,
             "schedule_run_ids": self.schedule_run_ids,
             "model_errors": self.model_errors,
             "payout_errors": self.payout_errors,
             "adjustment_errors": self.adjustment_errors,
+            "adhoc_errors": self.adhoc_errors,
         }
 
 
@@ -228,6 +253,17 @@ def normalize_payout_status(raw: Any) -> str:
     return text
 
 
+def normalize_adhoc_status(raw: Any) -> str:
+    if pd.isna(raw) or not str(raw).strip():
+        return "pending"
+    text = str(raw).strip().lower()
+    if text in ("pending", "paid", "cancelled", "canceled"):
+        return "cancelled" if text in ("cancelled", "canceled") else text
+    if text not in ADHOC_PAYMENT_STATUS_ENUM:
+        raise ValueError(f"Unsupported adhoc status '{raw}'")
+    return text
+
+
 def clean_string(raw: Any) -> str | None:
     if pd.isna(raw):
         return None
@@ -254,10 +290,11 @@ def group_payout_rows_by_month(df: pd.DataFrame) -> tuple[dict[tuple[int, int], 
         try:
             pay_date = parse_date_value(raw, "pay date")
         except ValueError as exc:
-            errors.append(f"Row {index + 2}: {exc}")
+            errors.append(f"Row {_row_number(index)}: {exc}")
             continue
         key = (pay_date.year, pay_date.month)
-        buckets.setdefault(key, []).append(index)
+    idx_as_int = max(_row_number(index) - 2, 0)
+    buckets.setdefault(key, []).append(idx_as_int)
 
     grouped_frames: dict[tuple[int, int], pd.DataFrame] = {}
     for key, indices in buckets.items():
@@ -277,11 +314,11 @@ def import_models(df: pd.DataFrame, session: Session, update_existing: bool) -> 
     for idx, row in records.iterrows():
         code_raw = row.get("code")
         if pd.isna(code_raw):
-            errors.append(f"Row {idx + 2}: model code is missing")
+            errors.append(f"Row {_row_number(idx)}: model code is missing")
             continue
         code = str(code_raw).strip()
         if not code:
-            errors.append(f"Row {idx + 2}: model code is empty")
+            errors.append(f"Row {_row_number(idx)}: model code is empty")
             continue
         try:
             start_date = parse_date_value(row.get("start_date"), "start date")
@@ -293,10 +330,10 @@ def import_models(df: pd.DataFrame, session: Session, update_existing: bool) -> 
             method = clean_string(row.get("payment_method"))
             wallet = clean_string(row.get("crypto_wallet"))
         except ValueError as exc:
-            errors.append(f"Row {idx + 2}: {exc}")
+            errors.append(f"Row {_row_number(idx)}: {exc}")
             continue
         if not real_name or not working_name or not method:
-            errors.append(f"Row {idx + 2}: required text fields are missing")
+            errors.append(f"Row {_row_number(idx)}: required text fields are missing")
             continue
 
         model = existing.get(code.lower())
@@ -312,7 +349,7 @@ def import_models(df: pd.DataFrame, session: Session, update_existing: bool) -> 
                 model.crypto_wallet = wallet
                 updated += 1
             else:
-                errors.append(f"Row {idx + 2}: model '{code}' already exists (enable update to modify)")
+                errors.append(f"Row {_row_number(idx)}: model '{code}' already exists (enable update to modify)")
             continue
 
         model = Model(
@@ -346,22 +383,22 @@ def import_compensation_adjustments(
     for idx, row in records.iterrows():
         code_raw = row.get("code")
         if pd.isna(code_raw):
-            errors.append(f"Row {idx + 2}: model code is missing")
+            errors.append(f"Row {_row_number(idx)}: model code is missing")
             continue
         code = str(code_raw).strip()
         if not code:
-            errors.append(f"Row {idx + 2}: model code is empty")
+            errors.append(f"Row {_row_number(idx)}: model code is empty")
             continue
         model = models_by_code.get(code.lower())
         if not model:
-            errors.append(f"Row {idx + 2}: model '{code}' not found; import models first")
+            errors.append(f"Row {_row_number(idx)}: model '{code}' not found; import models first")
             continue
         try:
             effective_date = parse_date_value(row.get("effective_date"), "effective date")
             amount = parse_decimal_value(row.get("amount_monthly"), "monthly amount")
             notes = clean_string(row.get("notes"))
         except ValueError as exc:
-            errors.append(f"Row {idx + 2}: {exc}")
+            errors.append(f"Row {_row_number(idx)}: {exc}")
             continue
 
         existing = (
@@ -386,6 +423,75 @@ def import_compensation_adjustments(
                 amount_monthly=amount,
                 notes=notes,
             )
+            created += 1
+
+    session.flush()
+    return created, updated, errors
+
+
+def import_adhoc_payments(
+    df: pd.DataFrame,
+    session: Session,
+    allow_update: bool,
+) -> tuple[int, int, list[str]]:
+    created = 0
+    updated = 0
+    errors: list[str] = []
+    normalized = normalize_columns(df, ADHOC_COLUMNS, "adhoc")
+    records = normalized.dropna(how="all")
+
+    models_by_code = {m.code.lower(): m for m in session.query(Model).all()}
+    # Prefetch all existing adhoc payments and index by (model_id, pay_date, normalized_description)
+    existing_index: dict[tuple[int, date, str], AdhocPayment] = {}
+    for ap in session.query(AdhocPayment).all():
+        key = (ap.model_id, ap.pay_date, (ap.description or "").strip().lower())
+        existing_index[key] = ap
+
+    for idx, row in records.iterrows():
+        code_raw = row.get("code")
+        if pd.isna(code_raw):
+            errors.append(f"Row {_row_number(idx)}: adhoc code is missing")
+            continue
+        code = str(code_raw).strip()
+        if not code:
+            errors.append(f"Row {_row_number(idx)}: adhoc code is empty")
+            continue
+        model = models_by_code.get(code.lower())
+        if not model:
+            errors.append(f"Row {_row_number(idx)}: model '{code}' not found; import models first")
+            continue
+        try:
+            pay_date = parse_date_value(row.get("pay_date"), "pay date")
+            amount = parse_decimal_value(row.get("amount"), "amount")
+            status_value = normalize_adhoc_status(row.get("status"))
+            description_value = clean_string(row.get("description"))
+            notes_value = clean_string(row.get("notes"))
+        except ValueError as exc:
+            errors.append(f"Row {_row_number(idx)}: {exc}")
+            continue
+
+        key = (model.id, pay_date, (description_value or "").strip().lower())
+        existing = existing_index.get(key)
+        if existing and allow_update:
+            existing.amount = amount
+            existing.status = status_value
+            existing.notes = notes_value
+            existing.description = description_value
+            updated += 1
+        elif existing:
+            # Skip duplicate without update flag
+            continue
+        else:
+            payment = AdhocPayment(
+                model_id=model.id,
+                pay_date=pay_date,
+                amount=amount,
+                description=description_value,
+                notes=notes_value,
+                status=status_value,
+            )
+            session.add(payment)
+            existing_index[key] = payment
             created += 1
 
     session.flush()
@@ -460,15 +566,15 @@ def import_payouts(
     for idx, row in records.iterrows():
         code_raw = row.get("code")
         if pd.isna(code_raw):
-            errors.append(f"Row {idx + 2}: payout code is missing")
+            errors.append(f"Row {_row_number(idx)}: payout code is missing")
             continue
         code = str(code_raw).strip()
         if not code:
-            errors.append(f"Row {idx + 2}: payout code is empty")
+            errors.append(f"Row {_row_number(idx)}: payout code is empty")
             continue
         model = models_by_code.get(code.lower())
         if not model:
-            errors.append(f"Row {idx + 2}: model '{code}' not found; import models first")
+            errors.append(f"Row {_row_number(idx)}: model '{code}' not found; import models first")
             continue
         try:
             pay_date = parse_date_value(row.get("pay_date"), "pay date")
@@ -479,7 +585,7 @@ def import_payouts(
             method_value = clean_string(row.get("payment_method")) or model.payment_method
             notes_value = clean_string(row.get("notes"))
         except ValueError as exc:
-            errors.append(f"Row {idx + 2}: {exc}")
+            errors.append(f"Row {_row_number(idx)}: {exc}")
             continue
 
         existing_key = (model.id, pay_date)
@@ -539,6 +645,7 @@ def import_from_excel(
 ) -> ImportSummary:
     model_df = load_sheet(workbook_bytes, import_options.model_sheet)
     payout_df = load_sheet(workbook_bytes, import_options.payout_sheet)
+    adhoc_df: pd.DataFrame | None = None
 
     summary = ImportSummary()
 
@@ -565,6 +672,12 @@ def import_from_excel(
         summary.adjustments_created = created_adjustments
         summary.adjustments_updated = updated_adjustments
         summary.adjustment_errors = adjustment_errors
+    # Load optional Adhoc sheet
+    if import_options.adhoc_sheet:
+        try:
+            adhoc_df = load_sheet(workbook_bytes, import_options.adhoc_sheet)
+        except ValueError:
+            adhoc_df = None
 
     if run_options.auto_generate_runs:
         grouped_frames, grouping_errors = group_payout_rows_by_month(payout_df)
@@ -607,5 +720,16 @@ def import_from_excel(
         created_payouts, payout_errors = import_payouts(payout_df, session, run)
         summary.payouts_created = created_payouts
         summary.payout_errors = payout_errors
+
+    # Import Adhoc payments independently of schedule runs
+    if adhoc_df is not None:
+        adhoc_created, adhoc_updated, adhoc_errors = import_adhoc_payments(
+            adhoc_df,
+            session,
+            import_options.update_existing,
+        )
+        summary.adhoc_created = adhoc_created
+        summary.adhoc_updated = adhoc_updated
+        summary.adhoc_errors = adhoc_errors
 
     return summary
