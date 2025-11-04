@@ -25,22 +25,26 @@ def _create_engine(url: str):
 # environments, if the configured database (commonly PostgreSQL) is unreachable
 # we fall back to the SQLite file so developers can run the app without a
 # running Postgres instance. In production we re-raise the exception.
+print(f"[database] ENVIRONMENT={os.getenv('ENVIRONMENT', 'unset')} | PAYROLL_DATABASE_URL={'sqlite:///*' if DATABASE_URL.startswith('sqlite') else DATABASE_URL}")
+
 try:
     engine = _create_engine(DATABASE_URL)
     # quick smoke-check connection (some DBs may reject on connect)
     with engine.connect() as _conn:  # type: ignore[var-annotated]
         pass
 except Exception as e:  # pragma: no cover - environment dependent
-    env = os.getenv("ENVIRONMENT", "development").lower()
+    env = os.getenv("ENVIRONMENT", "production").lower()
+    allow_dev_fallback = os.getenv("LOCAL_DEV_SQLITE_FALLBACK", "false").lower() in ("1", "true", "yes")
     print(f"[database] Could not connect to database at {DATABASE_URL!r}: {e}")
-    if env == "development":
-        # Use local SQLite for development if Postgres is not available
+    if env in ("development", "dev", "local") and allow_dev_fallback:
+        # Use local SQLite for development if Postgres is not available and fallback is explicitly enabled
         fallback = f"sqlite:///{DEFAULT_SQLITE_PATH}"
-        print(f"[database] Falling back to SQLite for local development at {fallback}")
+        print(f"[database] Falling back to SQLite (dev-only) at {fallback}")
         DATABASE_URL = fallback
         engine = _create_engine(DATABASE_URL)
     else:
-        # Re-raise for non-dev environments so startup fails loudly
+        # Re-raise for non-dev environments or when fallback not enabled so startup fails loudly
+        print("[database] Fallback disabled; aborting startup")
         raise
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
