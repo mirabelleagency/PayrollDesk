@@ -8,6 +8,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.database import init_db
+from app import __version__
 from app.routers import admin, analytics, auth, dashboard, models, profile, schedules
 
 @asynccontextmanager
@@ -16,7 +17,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="Payroll Desk", version="2.0.0", lifespan=lifespan)
+app = FastAPI(title="Payroll Desk", version=__version__, lifespan=lifespan)
 
 app.include_router(auth.router)
 app.include_router(profile.router)
