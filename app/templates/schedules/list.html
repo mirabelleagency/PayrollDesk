@@ -188,8 +188,6 @@
         <table class="data-table">
             <thead>
                 <tr>
-                    <th>Cycle ID</th>
-                    <th>Created</th>
                     <th>Period</th>
                     <th>Currency</th>
                     <th>Models Paid</th>
@@ -202,8 +200,6 @@
             <tbody>
                 {% for run in current_year_runs %}
                 <tr>
-                    <td>#{{ run.id }}</td>
-                    <td>{{ run.created_at|display_date }}</td>
                     <td>{{ run.month_year_label }}</td>
                     <td>{{ run.currency or current_year_summary.currency }}</td>
                     <td>{{ run.summary_models_paid or 0 }}</td>
