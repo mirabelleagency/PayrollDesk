@@ -817,6 +817,58 @@ function recomputeVisibleTotal() {
 </script>
 
 <style>
+/* Schedule payouts table header and column sizing */
+.data-table.schedule-payouts-table {
+    table-layout: auto; /* allow natural column resize to fit headers */
+}
+.data-table.schedule-payouts-table thead th {
+    white-space: nowrap;        /* keep header text on one line */
+    overflow: hidden;           /* prevent wrapping overflow */
+    text-overflow: ellipsis;    /* show ellipsis if constrained */
+    vertical-align: bottom;
+}
+/* Column widths tuned to keep headers inline without wrapping */
+.data-table.schedule-payouts-table th:nth-child(1),
+.data-table.schedule-payouts-table td:nth-child(1) { /* Pay Date */
+    width: 120px;
+}
+.data-table.schedule-payouts-table th:nth-child(2),
+.data-table.schedule-payouts-table td:nth-child(2) { /* Code */
+    width: 110px;
+}
+.data-table.schedule-payouts-table th:nth-child(3),
+.data-table.schedule-payouts-table td:nth-child(3) { /* Working Name */
+    width: auto;
+}
+.data-table.schedule-payouts-table th:nth-child(4),
+.data-table.schedule-payouts-table td:nth-child(4) { /* Method */
+    width: 140px;
+}
+.data-table.schedule-payouts-table th:nth-child(5),
+.data-table.schedule-payouts-table td:nth-child(5) { /* Frequency */
+    width: 130px;
+}
+.data-table.schedule-payouts-table th:nth-child(6),
+.data-table.schedule-payouts-table td:nth-child(6) { /* Amount */
+    width: 140px;
+}
+.data-table.schedule-payouts-table th:nth-child(7),
+.data-table.schedule-payouts-table td:nth-child(7) { /* Deductions */
+    width: 130px;
+}
+.data-table.schedule-payouts-table th:nth-child(8),
+.data-table.schedule-payouts-table td:nth-child(8) { /* Status */
+    width: 130px;
+}
+.data-table.schedule-payouts-table th:nth-child(9),
+.data-table.schedule-payouts-table td:nth-child(9) { /* Notes */
+    width: 240px;
+}
+.data-table.schedule-payouts-table th:nth-child(10),
+.data-table.schedule-payouts-table td:nth-child(10) { /* Quick Actions */
+    width: 140px;
+}
+
 /* Schedule Metrics Dashboard */
 .schedule-metrics-dashboard {
     display: grid;
