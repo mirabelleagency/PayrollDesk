@@ -11,6 +11,9 @@
 {% if message %}
 <div class="alert success">{{ message }}</div>
 {% endif %}
+{% if error %}
+<div class="alert" style="background: rgba(239, 68, 68, 0.12); border:1px solid rgba(239,68,68,0.35); color:#fecaca;">{{ error }}</div>
+{% endif %}
 
 <section class="card" style="margin-top: 8px;">
   <div class="section-heading">
@@ -26,8 +29,28 @@
     <form method="post" action="/admin/maintenance/cleanup-orphans" onsubmit="return confirm('Remove legacy orphan records (model_id NULL) from payouts and validations? This cannot be undone.');">
       <button class="button secondary" type="submit" title="Delete payouts/validations that lost their model link">🧹 Remove Legacy Orphan Records</button>
     </form>
+    <form method="post" action="/admin/maintenance/reset-application-data" onsubmit="return confirm('This will delete ALL models, payouts, runs, validations, adjustments, adhoc payments, and advances. Users will be kept. This cannot be undone. Continue?');" style="display:flex; gap:8px; align-items:center;">
+      <input type="text" name="confirm_text" id="confirm-text" placeholder="Type RESET to confirm" required
+             style="padding:8px 10px; background: rgba(15,23,42,0.7); color:#f8fafc; border:1px solid rgba(148,163,184,0.3); border-radius:6px;" />
+      <button id="reset-submit" class="button" type="submit" disabled style="background:#ef4444; border-color: rgba(239,68,68,0.4);">🧨 Reset Database (Models + Payouts)</button>
+    </form>
   </div>
 </section>
+
+<script>
+  (function(){
+    const input = document.getElementById('confirm-text');
+    const btn = document.getElementById('reset-submit');
+    function toggle(){
+      if(!input || !btn) return;
+      btn.disabled = (input.value.trim().toUpperCase() !== 'RESET');
+    }
+    if(input){
+      input.addEventListener('input', toggle);
+      toggle();
+    }
+  })();
+</script>
 
 <section class="card" style="margin-top: 16px;">
   <div class="section-heading">

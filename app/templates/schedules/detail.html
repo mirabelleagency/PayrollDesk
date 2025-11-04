@@ -282,34 +282,34 @@
                     <td>
                         <div style="display: flex; gap: 6px; align-items: center;">
                             {% if payout.status != 'paid' %}
-                            <button class="action-button action-button--success" 
-                                    onclick="quickUpdateStatus({{ payout.id }}, 'paid')" 
-                                    title="Mark as Paid">
+                <button class="action-button action-button--success js-quick-update" 
+                    data-payout-id="{{ payout.id }}" data-action="paid"
+                    title="Mark as Paid">
                                 ✓
                             </button>
                             {% else %}
-                            <button class="action-button action-button--neutral" 
-                                    onclick="quickUpdateStatus({{ payout.id }}, 'not_paid')" 
-                                    title="Unmark Paid">
+                <button class="action-button action-button--neutral js-quick-update" 
+                    data-payout-id="{{ payout.id }}" data-action="not_paid"
+                    title="Unmark Paid">
                                 ↺
                             </button>
                             {% endif %}
                             {% if payout.status != 'on_hold' %}
-                            <button class="action-button action-button--warning" 
-                                    onclick="quickUpdateStatus({{ payout.id }}, 'on_hold')" 
-                                    title="Put On Hold">
+                <button class="action-button action-button--warning js-quick-update" 
+                    data-payout-id="{{ payout.id }}" data-action="on_hold"
+                    title="Put On Hold">
                                 ⏸
                             </button>
                             {% else %}
-                            <button class="action-button action-button--neutral" 
-                                    onclick="quickUpdateStatus({{ payout.id }}, 'not_paid')" 
-                                    title="Remove Hold">
+                <button class="action-button action-button--neutral js-quick-update" 
+                    data-payout-id="{{ payout.id }}" data-action="not_paid"
+                    title="Remove Hold">
                                 ▶
                             </button>
                             {% endif %}
-                            <button class="action-button action-button--secondary" 
-                                    onclick="toggleNotesRow({{ payout.id }})" 
-                                    title="Edit Notes">
+                <button class="action-button action-button--secondary js-toggle-notes" 
+                    data-payout-id="{{ payout.id }}"
+                    title="Edit Notes">
                                 📝
                             </button>
                         </div>
@@ -344,8 +344,8 @@
                                         <span>💾</span>
                                         <span>Save</span>
                                     </button>
-                                    <button class="button secondary button--compact" type="button" 
-                                            onclick="toggleNotesRow({{ payout.id }})">
+                                    <button class="button secondary button--compact js-toggle-notes" type="button" 
+                                            data-payout-id="{{ payout.id }}">
                                         Cancel
                                     </button>
                                 </div>
@@ -814,6 +814,26 @@ function recomputeVisibleTotal() {
         totalEl.textContent = formatMoney(total);
     }
 }
+
+// Delegated click handlers for quick updates and toggling notes
+document.addEventListener('click', function (e) {
+    const quickBtn = e.target.closest('.js-quick-update');
+    if (quickBtn) {
+        const payoutId = quickBtn.getAttribute('data-payout-id');
+        const action = quickBtn.getAttribute('data-action');
+        if (payoutId && action) {
+            quickUpdateStatus(payoutId, action);
+        }
+        return;
+    }
+    const notesBtn = e.target.closest('.js-toggle-notes');
+    if (notesBtn) {
+        const payoutId = notesBtn.getAttribute('data-payout-id');
+        if (payoutId) {
+            toggleNotesRow(payoutId);
+        }
+    }
+});
 </script>
 
 <style>

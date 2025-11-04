@@ -886,7 +886,10 @@ def set_adhoc_payment_status(db: Session, payment: AdhocPayment, status: str, no
 
 # --- Hard purge helpers ----------------------------------------------------
 
-def get_model_purge_impact(db: Session, model_id: int) -> dict[str, Decimal | int | str]:
+from typing import Any
+
+
+def get_model_purge_impact(db: Session, model_id: int) -> dict[str, Any]:
     """Compute the rows and amounts that would be removed when purging a model.
 
     Returns a summary dictionary with counts and amount breakdowns.
@@ -1187,7 +1190,7 @@ def _apply_advance_allocations_for_run(db: Session, run: ScheduleRun, payouts: l
     for model_id, rows in by_model.items():
         rows.sort(key=lambda x: (x.pay_date, x.id))
         # Fetch active advances
-        advances: list[ModelAdvance] = (
+        advances = list(
             db.execute(
                 select(ModelAdvance).where(
                     ModelAdvance.model_id == model_id,
@@ -1308,3 +1311,59 @@ def list_payouts_with_allocations_for_run(db: Session, run_id: int) -> Sequence[
     for p in payouts:
         results.append((p, allocations.get(p.id, Decimal("0"))))
     return results
+
+
+# --- Application reset (keep users) ---------------------------------------
+
+def reset_application_data(db: Session) -> dict[str, int]:
+    """Delete all model and payout related data while retaining user accounts.
+
+    This removes:
+      - PayoutAdvanceAllocation, AdvanceRepayment, ModelAdvance
+      - ValidationIssue, Payout, ScheduleRun
+      - ModelCompensationAdjustment, AdhocPayment, Model
+      - Leaves Users and LoginAttempt intact
+
+    Returns a dict of deleted row counts by entity.
+    """
+    deleted: dict[str, int] = {}
+
+    try:
+        # Delete in dependency order to satisfy FKs across SQLite/Postgres
+        deleted["payout_allocations"] = int(
+            db.query(PayoutAdvanceAllocation).delete(synchronize_session=False) or 0
+        )
+        deleted["advance_repayments"] = int(
+            db.query(AdvanceRepayment).delete(synchronize_session=False) or 0
+        )
+        deleted["model_advances"] = int(
+            db.query(ModelAdvance).delete(synchronize_session=False) or 0
+        )
+
+        deleted["validations"] = int(
+            db.query(ValidationIssue).delete(synchronize_session=False) or 0
+        )
+        deleted["payouts"] = int(
+            db.query(Payout).delete(synchronize_session=False) or 0
+        )
+        deleted["schedule_runs"] = int(
+            db.query(ScheduleRun).delete(synchronize_session=False) or 0
+        )
+
+        deleted["adjustments"] = int(
+            db.query(ModelCompensationAdjustment).delete(synchronize_session=False) or 0
+        )
+        deleted["adhoc_payments"] = int(
+            db.query(AdhocPayment).delete(synchronize_session=False) or 0
+        )
+        deleted["models"] = int(
+            db.query(Model).delete(synchronize_session=False) or 0
+        )
+
+        # Optionally keep audit logs for traceability; do not delete by default
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    return deleted

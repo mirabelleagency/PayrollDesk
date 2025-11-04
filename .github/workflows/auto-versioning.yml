@@ -1,6 +1,6 @@
 name: Auto Version Bump and Changelog
 
-on:
+'on':
   push:
     branches:
       - Dev

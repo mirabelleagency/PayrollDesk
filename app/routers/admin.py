@@ -287,12 +287,13 @@ def purge_model_execute(
 def admin_settings(
     request: Request,
     message: str | None = Query(default=None),
+    error: str | None = Query(default=None),
     db: Session = Depends(get_session),
     admin: User = Depends(get_admin_user),
 ):
     return templates.TemplateResponse(
         "admin/settings.html",
-        {"request": request, "user": admin, "message": message},
+        {"request": request, "user": admin, "message": message, "error": error},
     )
 
 
@@ -323,6 +324,36 @@ def maintenance_cleanup_orphans(
     except Exception:
         pass
     msg = f"Removed {result['payouts']} orphan payout(s), {result['validations']} orphan validation(s)."
+    return RedirectResponse(url=f"/admin/settings?message={msg}", status_code=303)
+
+
+@router.post("/maintenance/reset-application-data")
+def maintenance_reset_application_data(
+    request: Request,
+    confirm_text: str = Form(...),
+    db: Session = Depends(get_session),
+    admin: User = Depends(get_admin_user),
+):
+    """Reset all model and payout related data while retaining user accounts (admin only).
+
+    Requires a secondary confirmation text 'RESET' to proceed.
+    """
+    if (confirm_text or "").strip().upper() != "RESET":
+        return RedirectResponse(url="/admin/settings?error=Please+type+RESET+to+confirm", status_code=303)
+
+    result = crud.reset_application_data(db)
+    try:
+        crud.log_admin_action(db, admin.id, "reset_application_data", result)
+    except Exception:
+        pass
+
+    # Build a compact message
+    msg = (
+        f"Reset complete: models={result.get('models',0)}, runs={result.get('schedule_runs',0)}, "
+        f"payouts={result.get('payouts',0)}, validations={result.get('validations',0)}, "
+        f"adhoc={result.get('adhoc_payments',0)}, adjustments={result.get('adjustments',0)}, "
+        f"advances={result.get('model_advances',0)}, repayments={result.get('advance_repayments',0)}."
+    )
     return RedirectResponse(url=f"/admin/settings?message={msg}", status_code=303)
 
 
