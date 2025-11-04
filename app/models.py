@@ -40,7 +40,7 @@ class Model(Base):
     payment_method: Mapped[str] = mapped_column(String(100), nullable=False)
     payment_frequency: Mapped[str] = mapped_column(String(20), nullable=False)
     amount_monthly: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
-    crypto_wallet: Mapped[str] = mapped_column(String(200), nullable=True)
+    crypto_wallet: Mapped[str | None] = mapped_column(String(200), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now, onupdate=datetime.now, nullable=False
@@ -98,7 +98,7 @@ class Payout(Base):
     payment_method: Mapped[str] = mapped_column(String(100), nullable=False)
     payment_frequency: Mapped[str] = mapped_column(String(20), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
-    notes: Mapped[str] = mapped_column(Text, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="not_paid")
 
     schedule_run: Mapped[ScheduleRun] = relationship(back_populates="payouts")

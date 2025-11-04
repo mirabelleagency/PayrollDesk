@@ -572,8 +572,13 @@ def import_from_excel(
 
         if not grouped_frames:
             if not grouping_errors:
-                raise ValueError("No payout rows available to import.")
-            raise ValueError("No valid pay dates found; unable to auto-create schedule runs.")
+                # Gracefully handle an empty Payouts sheet: don't fail the import.
+                # Return a summary with zero payouts and no schedule runs.
+                summary.payout_errors.append("No payout rows to import (Payouts sheet is empty).")
+                return summary
+            # Make invalid pay dates non-fatal: surface errors in the summary and finish gracefully.
+            summary.payout_errors.append("No valid pay dates found; unable to auto-create schedule runs.")
+            return summary
 
         for (year, month), subset in sorted(grouped_frames.items()):
             per_run_options = RunOptions(
