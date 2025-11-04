@@ -149,6 +149,32 @@ def ensure_adhoc_sample(wb) -> bool:
     return True
 
 
+def ensure_adhoc_paid_sample(wb) -> bool:
+    """Ensure Adhoc sheet has a sample row with paid status. Return True if added."""
+    ws = ensure_adhoc_sheet(wb)
+    headers = _header_map(ws)
+    code_col = _find_column(headers, ["code", "model code"]) or 0
+    pay_date_col = _find_column(headers, ["pay_date", "pay date"]) or 0
+    amount_col = _find_column(headers, ["amount", "payment amount"]) or 0
+    status_col = _find_column(headers, ["status"]) or 0
+    desc_col = _find_column(headers, ["description", "desc", "memo"]) or 0
+    notes_col = _find_column(headers, ["notes", "note"]) or 0
+
+    # Skip if a 'paid' status row already exists
+    for row in ws.iter_rows(min_row=2, min_col=status_col, max_col=status_col):
+        if _normalize(row[0].value) == "paid":
+            return False
+
+    row_idx = ws.max_row + 1
+    _set_cell(ws, row_idx, code_col, "M-004")
+    _set_cell(ws, row_idx, pay_date_col, date.today().isoformat())
+    _set_cell(ws, row_idx, amount_col, 75)
+    _set_cell(ws, row_idx, status_col, "paid")
+    _set_cell(ws, row_idx, desc_col, "Reimbursement")
+    _set_cell(ws, row_idx, notes_col, "Sample paid adhoc payment")
+    return True
+
+
 def main() -> None:
     if not TEMPLATE_PATH.exists():
         raise SystemExit(f"Template not found: {TEMPLATE_PATH}")
@@ -169,10 +195,13 @@ def main() -> None:
     else:
         print("[WARN] Payouts sheet not found in template")
 
-    # Adhoc sample
+    # Adhoc samples
     if ensure_adhoc_sample(wb):
         changed = True
         print("Added pending sample to Adhoc sheet")
+    if ensure_adhoc_paid_sample(wb):
+        changed = True
+        print("Added paid sample to Adhoc sheet")
 
     if changed:
         wb.save(TEMPLATE_PATH)
