@@ -69,6 +69,10 @@
                 </span>
                 <span class="nav-link__text">User Admin</span>
             </a>
+            <a class="nav-link {% if path == '/admin/settings' %}active{% endif %}" href="/admin/settings" aria-label="Admin settings">
+                <span class="nav-link__icon">⚙️</span>
+                <span class="nav-link__text">Admin Settings</span>
+            </a>
             {% endif %}
             {% endif %}
         </nav>
@@ -152,6 +156,50 @@
             toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
         });
     });
+</script>
+<script>
+    // Preserve and restore scroll position across same-page navigations (e.g., form submits)
+    (function() {
+        const key = 'scroll-pos:' + window.location.pathname;
+
+        // Restore scroll on load if we have a saved position for this path
+        document.addEventListener('DOMContentLoaded', function() {
+            const saved = sessionStorage.getItem(key);
+            if (saved !== null) {
+                const y = parseInt(saved, 10) || 0;
+                // Use instant jump to avoid a visible scroll animation
+                window.scrollTo(0, y);
+                sessionStorage.removeItem(key);
+            }
+        });
+
+        // Before any form submission, save current scroll position
+        // Use capture to ensure we catch dynamically-created forms too
+        document.addEventListener('submit', function(ev) {
+            try {
+                sessionStorage.setItem(key, String(window.scrollY || window.pageYOffset || 0));
+            } catch (_) {}
+        }, true);
+
+        // Also capture anchor clicks that navigate (exclude same-page hash-only)
+        document.addEventListener('click', function(ev) {
+            const anchor = ev.target && ev.target.closest ? ev.target.closest('a[href]') : null;
+            if (!anchor) return;
+            const href = anchor.getAttribute('href') || '';
+            // Ignore JS links and hash-only in-page anchors
+            if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+            try {
+                sessionStorage.setItem(key, String(window.scrollY || window.pageYOffset || 0));
+            } catch (_) {}
+        }, true);
+
+        // Fallback: if navigation occurs via JS/location changes without a submit event
+        window.addEventListener('beforeunload', function() {
+            try {
+                sessionStorage.setItem(key, String(window.scrollY || window.pageYOffset || 0));
+            } catch (_) {}
+        });
+    })();
 </script>
 </body>
 </html>

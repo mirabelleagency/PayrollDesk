@@ -23,6 +23,11 @@ from app.models import FREQUENCY_ENUM, STATUS_ENUM, Payout, ScheduleRun
 from app.routers.auth import get_current_user, get_admin_user
 from app.schemas import AdhocPaymentCreate, AdhocPaymentUpdate, ModelCreate, ModelUpdate
 from app.importers.excel_importer import ImportOptions, RunOptions, import_from_excel
+import pandas as pd
+import tempfile
+from fastapi import Form
+from openpyxl import Workbook
+import os
 
 router = APIRouter(prefix="/models", tags=["Models"])
 
@@ -82,6 +87,9 @@ def _build_model_list_context(
         if freq:
             frequency_counts[freq] = frequency_counts.get(freq, 0) + 1
 
+    # Include available schedule runs for export/filter dropdowns
+    schedule_runs = crud.list_schedule_runs(db)
+
     export_params: dict[str, str] = {}
     if code_filter:
         export_params["code"] = code_filter
@@ -100,6 +108,7 @@ def _build_model_list_context(
         "request": request,
         "user": user,
         "models": models,
+        "schedule_runs": schedule_runs,
         "filters": {
             "code": code_filter or "",
             "status": status_filter or "",
@@ -597,6 +606,10 @@ def view_model(model_id: int, request: Request, db: Session = Depends(get_sessio
     error_message = request.query_params.get("error")
     success_message = request.query_params.get("success")
     
+    # Cash advances context
+    advances = crud.list_advances_for_model(db, model.id)
+    advances_outstanding = crud.outstanding_advance_total(db, model.id)
+
     return templates.TemplateResponse(
         "models/view.html",
         {
@@ -606,6 +619,8 @@ def view_model(model_id: int, request: Request, db: Session = Depends(get_sessio
             "total_paid": total_paid,
             "paid_payouts": paid_payouts,
             "adhoc_payments": adhoc_payments,
+            "advances": advances,
+            "advances_outstanding": advances_outstanding,
             "error_message": error_message,
             "success_message": success_message,
         },
@@ -781,6 +796,160 @@ def edit_model_form(model_id: int, request: Request, db: Session = Depends(get_s
     )
 
 
+@router.post("/export")
+def export_models_data(
+    include: list[str] | None = Form(None),
+    run_id: str | None = Form(None),
+    start_date: str | None = Form(None),
+    end_date: str | None = Form(None),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Export selected datasets across models to an Excel workbook.
+
+    Form fields:
+    - include[]: list of dataset keys
+    - run_id, start_date, end_date: optional filters applied where relevant
+    """
+    # Parse run_id from form: browser submits empty string when the "All runs" option is selected.
+    parsed_run_id: int | None = None
+    if run_id:
+        try:
+            parsed_run_id = int(run_id)
+        except ValueError:
+            # If parsing fails, treat as no run filter rather than raising a 422
+            parsed_run_id = None
+
+    selection = set(include or ['models'])
+
+    sheets: dict[str, pd.DataFrame] = {}
+
+    # Models sheet
+    if 'models' in selection:
+        models = crud.list_models(db)
+        rows = []
+        for m in models:
+            rows.append({
+                'id': m.id,
+                'code': m.code,
+                'working_name': m.working_name,
+                'real_name': m.real_name,
+                'status': m.status,
+                'payment_method': m.payment_method,
+                'payment_frequency': m.payment_frequency,
+                'amount_monthly': float(m.amount_monthly or 0),
+                'start_date': m.start_date.isoformat() if m.start_date else None,
+            })
+        sheets['Models'] = pd.DataFrame(rows)
+
+    # Runs sheet
+    if 'runs' in selection:
+        runs = crud.list_schedule_runs(db)
+        rows = []
+        for r in runs:
+            rows.append({
+                'id': r.id,
+                'target_year': r.target_year,
+                'target_month': r.target_month,
+                'created_at': r.created_at.isoformat() if r.created_at else None,
+                'currency': r.currency,
+            })
+        sheets['Schedule Runs'] = pd.DataFrame(rows)
+
+    # Payouts across models (apply run/date filters)
+    if 'payouts' in selection:
+        rows = []
+        # iterate all models' payouts
+        all_models = crud.list_models(db)
+        for m in all_models:
+            payouts = crud.list_payouts_for_model(db, m.id)
+            for p in payouts:
+                if parsed_run_id and p.schedule_run_id != parsed_run_id:
+                    continue
+                if start_date and p.pay_date and p.pay_date < date.fromisoformat(start_date):
+                    continue
+                if end_date and p.pay_date and p.pay_date > date.fromisoformat(end_date):
+                    continue
+                rows.append({
+                    'model_id': m.id,
+                    'model_code': m.code,
+                    'payout_id': p.id,
+                    'pay_date': p.pay_date.isoformat() if p.pay_date else None,
+                    'amount': float(p.amount or 0),
+                    'status': p.status,
+                    'notes': p.notes,
+                    'run_id': p.schedule_run_id,
+                })
+        sheets['Payouts'] = pd.DataFrame(rows)
+
+    # Adhoc payments
+    if 'adhoc' in selection:
+        rows = []
+        all_models = crud.list_models(db)
+        for m in all_models:
+            for a in crud.list_adhoc_payments(db, m.id):
+                rows.append({
+                    'model_id': m.id,
+                    'model_code': m.code,
+                    'id': a.id,
+                    'pay_date': a.pay_date.isoformat() if a.pay_date else None,
+                    'amount': float(a.amount or 0),
+                    'status': a.status,
+                    'description': a.description,
+                    'notes': a.notes,
+                })
+        sheets['Adhoc Payments'] = pd.DataFrame(rows)
+
+    # Adjustments
+    if 'adjustments' in selection:
+        rows = []
+        for m in crud.list_models(db):
+            for adj in sorted(list(m.compensation_adjustments or []), key=lambda a: a.effective_date):
+                rows.append({
+                    'model_id': m.id,
+                    'model_code': m.code,
+                    'id': adj.id,
+                    'effective_date': adj.effective_date.isoformat(),
+                    'amount_monthly': float(adj.amount_monthly),
+                    'notes': adj.notes,
+                })
+        sheets['Adjustments'] = pd.DataFrame(rows)
+
+    # Advances + repayments
+    if 'advances' in selection:
+        rows = []
+        for m in crud.list_models(db):
+            for adv in crud.list_advances_for_model(db, m.id):
+                rows.append({
+                    'model_id': m.id,
+                    'model_code': m.code,
+                    'advance_id': adv.id,
+                    'created_at': adv.created_at.isoformat() if adv.created_at else None,
+                    'status': adv.status,
+                    'amount_total': float(adv.amount_total or 0),
+                    'amount_remaining': float(adv.amount_remaining or 0),
+                    'strategy': adv.strategy,
+                    'notes': adv.notes,
+                })
+        sheets['Advances'] = pd.DataFrame(rows)
+
+    # Build Excel in-memory
+    from io import BytesIO
+
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        for sheet_name, df in sheets.items():
+            if df is None or df.empty:
+                pd.DataFrame([{'note': 'no data'}]).to_excel(writer, sheet_name=sheet_name, index=False)
+            else:
+                df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+    output.seek(0)
+    filename = "models_export.xlsx"
+    headers = {"Content-Disposition": f"attachment; filename={filename}"}
+    return StreamingResponse(output, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', headers=headers)
+
+
 @router.post("/{model_id}/edit")
 def update_model(
     model_id: int,
@@ -842,6 +1011,133 @@ def update_model(
         db.commit()
 
     return RedirectResponse(url="/models", status_code=303)
+
+
+# --- Cash Advances routes ---------------------------------------------------
+
+@router.post("/{model_id}/advances")
+def create_model_advance(
+    model_id: int,
+    amount_total: str = Form(...),
+    strategy: str = Form("fixed"),
+    fixed_amount: str = Form(""),
+    percent_rate: str = Form(""),
+    notes: str = Form(""),
+    auto_approve: str | None = Form(None),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    model = crud.get_model(db, model_id)
+    if not model:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    def _to_decimal(value: str | None) -> Decimal | None:
+        if not value:
+            return None
+        try:
+            return Decimal(str(value))
+        except Exception:
+            return None
+
+    amount = _to_decimal(amount_total)
+    if not amount or amount <= 0:
+        return _redirect_to_model(model_id, error="Advance amount must be greater than zero.")
+
+    fx_amt = _to_decimal(fixed_amount)
+    pct = _to_decimal(percent_rate)
+    try:
+        adv = crud.create_advance(
+            db,
+            model,
+            amount_total=amount.quantize(Decimal("0.01")),
+            strategy=strategy,
+            fixed_amount=(fx_amt.quantize(Decimal("0.01")) if fx_amt is not None else None),
+            percent_rate=(pct.quantize(Decimal("0.01")) if pct is not None else None),
+            notes=(notes.strip() if notes else None),
+        )
+        if auto_approve is not None:
+            crud.approve_advance(db, adv, activate=True)
+        return _redirect_to_model(model_id, success="Advance request submitted" + (" and activated" if auto_approve else "."))
+    except Exception as exc:
+        return _redirect_to_model(model_id, error=str(exc))
+
+
+@router.post("/{model_id}/advances/{advance_id}/delete")
+def delete_model_advance(
+    model_id: int,
+    advance_id: int,
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    adv = crud.get_advance(db, advance_id)
+    if not adv or adv.model_id != model_id:
+        raise HTTPException(status_code=404, detail="Advance not found")
+    try:
+        crud.delete_advance(db, adv)
+        return _redirect_to_model(model_id, success="Advance deleted.")
+    except Exception as exc:
+        return _redirect_to_model(model_id, error=str(exc))
+
+
+@router.post("/{model_id}/advances/{advance_id}/approve")
+def approve_model_advance(
+    model_id: int,
+    advance_id: int,
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    adv = crud.get_advance(db, advance_id)
+    if not adv or adv.model_id != model_id:
+        raise HTTPException(status_code=404, detail="Advance not found")
+    try:
+        crud.approve_advance(db, adv, activate=True)
+        return _redirect_to_model(model_id, success="Advance approved and activated.")
+    except Exception as exc:
+        return _redirect_to_model(model_id, error=str(exc))
+
+
+@router.post("/{model_id}/advances/{advance_id}/repay")
+def repay_model_advance(
+    model_id: int,
+    advance_id: int,
+    amount: str = Form(...),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    adv = crud.get_advance(db, advance_id)
+    if not adv or adv.model_id != model_id:
+        raise HTTPException(status_code=404, detail="Advance not found")
+    try:
+        amt = Decimal(str(amount))
+        crud.record_advance_repayment(db, adv, amount=amt, source="manual")
+        db.refresh(adv)
+        return _redirect_to_model(model_id, success="Repayment recorded.")
+    except Exception as exc:
+        return _redirect_to_model(model_id, error=str(exc))
+
+
+@router.post("/{model_id}/advances/{advance_id}/note")
+def update_advance_note(
+    model_id: int,
+    advance_id: int,
+    notes: str = Form(""),
+    redirect_to: str | None = Form(None),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    adv = crud.get_advance(db, advance_id)
+    if not adv or adv.model_id != model_id:
+        raise HTTPException(status_code=404, detail="Advance not found")
+    try:
+        adv.notes = notes.strip() if notes and notes.strip() else None
+        db.add(adv)
+        db.commit()
+        target = redirect_to or f"/models/{model_id}"
+        if not target.startswith("/models/"):
+            target = f"/models/{model_id}"
+        return RedirectResponse(url=target, status_code=303)
+    except Exception as exc:
+        return _redirect_to_model(model_id, error=str(exc))
 
 
 

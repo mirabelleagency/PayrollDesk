@@ -82,34 +82,34 @@
                     {% if adjustments %}
                         {% for adjustment in adjustments %}
                         <div class="adjustment-row">
-                            <div class="adjustment-field">
-                                <span class="adjustment-label">Effective Date</span>
-                                <input name="adjustment_effective_dates" type="date" required value="{{ adjustment.effective_date.strftime('%Y-%m-%d') }}" />
+                            <div class="form-row">
+                                <label for="adjustment_date_{{ loop.index }}">Effective Date</label>
+                                <input id="adjustment_date_{{ loop.index }}" name="adjustment_effective_dates" type="date" required value="{{ adjustment.effective_date.strftime('%Y-%m-%d') }}" />
                             </div>
-                            <div class="adjustment-field">
-                                <span class="adjustment-label">Monthly Amount</span>
-                                <input name="adjustment_amounts" type="number" step="0.01" min="0.01" required value="{{ '%.2f'|format(adjustment.amount_monthly) }}" />
+                            <div class="form-row">
+                                <label for="adjustment_amount_{{ loop.index }}">Monthly Amount</label>
+                                <input id="adjustment_amount_{{ loop.index }}" name="adjustment_amounts" type="number" step="0.01" min="0.01" required value="{{ '%.2f'|format(adjustment.amount_monthly) }}" />
                             </div>
-                            <div class="adjustment-field">
-                                <span class="adjustment-label">Notes (Optional)</span>
-                                <input name="adjustment_notes" type="text" value="{{ adjustment.notes or '' }}" />
+                            <div class="form-row">
+                                <label for="adjustment_notes_{{ loop.index }}">Notes (Optional)</label>
+                                <input id="adjustment_notes_{{ loop.index }}" name="adjustment_notes" type="text" value="{{ adjustment.notes or '' }}" placeholder="e.g., Performance raise" />
                             </div>
                             <button type="button" class="button tertiary" data-remove-adjustment>Remove</button>
                         </div>
                         {% endfor %}
                     {% else %}
                         <div class="adjustment-row">
-                            <div class="adjustment-field">
-                                <span class="adjustment-label">Effective Date</span>
-                                <input name="adjustment_effective_dates" type="date" />
+                            <div class="form-row">
+                                <label for="adjustment_date_1">Effective Date</label>
+                                <input id="adjustment_date_1" name="adjustment_effective_dates" type="date" />
                             </div>
-                            <div class="adjustment-field">
-                                <span class="adjustment-label">Monthly Amount</span>
-                                <input name="adjustment_amounts" type="number" step="0.01" min="0.01" />
+                            <div class="form-row">
+                                <label for="adjustment_amount_1">Monthly Amount</label>
+                                <input id="adjustment_amount_1" name="adjustment_amounts" type="number" step="0.01" min="0.01" />
                             </div>
-                            <div class="adjustment-field">
-                                <span class="adjustment-label">Notes (Optional)</span>
-                                <input name="adjustment_notes" type="text" />
+                            <div class="form-row">
+                                <label for="adjustment_notes_1">Notes (Optional)</label>
+                                <input id="adjustment_notes_1" name="adjustment_notes" type="text" placeholder="e.g., Performance raise" />
                             </div>
                             <button type="button" class="button tertiary" data-remove-adjustment>Remove</button>
                         </div>
@@ -134,17 +134,17 @@
 </section>
 <template id="adjustment-row-template">
     <div class="adjustment-row">
-        <div class="adjustment-field">
-            <span class="adjustment-label">Effective Date</span>
+        <div class="form-row">
+            <label>Effective Date</label>
             <input name="adjustment_effective_dates" type="date" required />
         </div>
-        <div class="adjustment-field">
-            <span class="adjustment-label">Monthly Amount</span>
+        <div class="form-row">
+            <label>Monthly Amount</label>
             <input name="adjustment_amounts" type="number" step="0.01" min="0.01" required />
         </div>
-        <div class="adjustment-field">
-            <span class="adjustment-label">Notes (Optional)</span>
-            <input name="adjustment_notes" type="text" />
+        <div class="form-row">
+            <label>Notes (Optional)</label>
+            <input name="adjustment_notes" type="text" placeholder="e.g., Performance raise" />
         </div>
         <button type="button" class="button tertiary" data-remove-adjustment>Remove</button>
     </div>

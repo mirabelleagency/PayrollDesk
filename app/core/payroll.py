@@ -468,7 +468,9 @@ def ensure_non_empty_frames(
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Ensure the exported DataFrames contain headers even when empty."""
 
-    amount_column = f"Amount ({currency})"
+    amount_gross_col = f"Amount Gross ({currency})"
+    amount_deducted_col = f"Advances Deducted ({currency})"
+    amount_net_col = f"Amount Net ({currency})"
     if schedule_df.empty:
         schedule_df = pd.DataFrame(
             columns=[
@@ -478,7 +480,10 @@ def ensure_non_empty_frames(
                 "Working Name",
                 "Payment Method",
                 "Payment Frequency",
-                amount_column,
+                amount_gross_col,
+                amount_deducted_col,
+                amount_net_col,
+                "Status",
                 "Notes",
             ]
         )

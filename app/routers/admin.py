@@ -1,11 +1,12 @@
-"""Admin routes for user management."""
+"""Admin routes for user and data administration."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, Query
+from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
+from app import crud
 from app.auth import User
 from app.database import get_session
 from app.dependencies import templates
@@ -232,3 +233,125 @@ def delete_user(
     db.delete(user)
     db.commit()
     return RedirectResponse(url="/admin/users", status_code=303)
+
+
+# --- Data purge endpoints ---------------------------------------------------
+
+@router.get("/models/{model_id}/purge")
+def purge_model_preview(
+    model_id: int,
+    request: Request,
+    db: Session = Depends(get_session),
+    admin: User = Depends(get_admin_user),
+):
+    """Show a confirmation page with a dry-run summary before purging a model."""
+    impact = crud.get_model_purge_impact(db, model_id)
+    return templates.TemplateResponse(
+        "admin/purge_confirm.html",
+        {
+            "request": request,
+            "user": admin,
+            "impact": impact,
+        },
+    )
+
+
+@router.post("/models/{model_id}/purge")
+def purge_model_execute(
+    model_id: int,
+    request: Request,
+    db: Session = Depends(get_session),
+    admin: User = Depends(get_admin_user),
+):
+    """Execute the hard purge of a model and related records (admin only)."""
+    try:
+        impact = crud.purge_model_hard(db, model_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    # Log admin action
+    try:
+        crud.log_admin_action(db, admin.id, "purge_model", {"impact": impact})
+    except Exception:
+        # Logging should not block the action
+        pass
+
+    # Redirect to models list with a lightweight success note in query
+    code = impact.get("model_code", "")
+    return RedirectResponse(url=f"/models?purged={code}", status_code=303)
+
+
+# --- Admin Settings & Maintenance ------------------------------------------
+
+@router.get("/settings")
+def admin_settings(
+    request: Request,
+    message: str | None = Query(default=None),
+    db: Session = Depends(get_session),
+    admin: User = Depends(get_admin_user),
+):
+    return templates.TemplateResponse(
+        "admin/settings.html",
+        {"request": request, "user": admin, "message": message},
+    )
+
+
+@router.post("/maintenance/cleanup-empty-runs")
+def maintenance_cleanup_empty_runs(
+    request: Request,
+    db: Session = Depends(get_session),
+    admin: User = Depends(get_admin_user),
+):
+    result = crud.cleanup_empty_runs(db)
+    try:
+        crud.log_admin_action(db, admin.id, "cleanup_empty_runs", result)
+    except Exception:
+        pass
+    msg = f"Deleted {result['deleted_runs']} empty run(s)."
+    return RedirectResponse(url=f"/admin/settings?message={msg}", status_code=303)
+
+
+@router.post("/maintenance/cleanup-orphans")
+def maintenance_cleanup_orphans(
+    request: Request,
+    db: Session = Depends(get_session),
+    admin: User = Depends(get_admin_user),
+):
+    result = crud.cleanup_orphans(db)
+    try:
+        crud.log_admin_action(db, admin.id, "cleanup_orphans", result)
+    except Exception:
+        pass
+    msg = f"Removed {result['payouts']} orphan payout(s), {result['validations']} orphan validation(s)."
+    return RedirectResponse(url=f"/admin/settings?message={msg}", status_code=303)
+
+
+# --- JSON API variants ------------------------------------------------------
+
+@router.get("/api/models/{model_id}/purge")
+def api_purge_model_preview(
+    model_id: int,
+    dry_run: bool = Query(default=True),
+    db: Session = Depends(get_session),
+    admin: User = Depends(get_admin_user),
+):
+    impact = crud.get_model_purge_impact(db, model_id)
+    return JSONResponse({"dry_run": True, "impact": impact})
+
+
+@router.post("/api/models/{model_id}/purge")
+def api_purge_model_execute(
+    model_id: int,
+    dry_run: bool = Query(default=False),
+    db: Session = Depends(get_session),
+    admin: User = Depends(get_admin_user),
+):
+    if dry_run:
+        impact = crud.get_model_purge_impact(db, model_id)
+        return JSONResponse({"dry_run": True, "impact": impact})
+    impact = crud.purge_model_hard(db, model_id)
+    try:
+        crud.log_admin_action(db, admin.id, "purge_model", {"impact": impact, "api": True})
+    except Exception:
+        pass
+    return JSONResponse({"dry_run": False, "impact": impact})

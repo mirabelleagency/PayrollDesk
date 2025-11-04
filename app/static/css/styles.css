@@ -2591,12 +2591,16 @@ section {
 
 .adjustments-list {
     display: grid;
-    gap: 12px;
+    gap: 16px;
 }
 
 .adjustment-row {
     display: grid;
     gap: 12px;
+    padding: 16px;
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: 10px;
 }
 
 @media (min-width: 768px) {
@@ -2604,6 +2608,15 @@ section {
         grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
         align-items: end;
     }
+}
+
+.adjustment-row .form-row {
+    margin-bottom: 0;
+}
+
+.adjustment-row .button {
+    align-self: end;
+    white-space: nowrap;
 }
 
 .adjustment-field {

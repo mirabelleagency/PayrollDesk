@@ -276,6 +276,26 @@
     color: #475569;
 }
 
+/* Collapsible cards */
+.collapsible-card summary {
+    list-style: none;
+    cursor: pointer;
+    outline: none;
+}
+.collapsible-summary::-webkit-details-marker { display: none; }
+.collapsible-summary {
+    user-select: none;
+}
+/* Caret indicator */
+.collapsible-summary::after {
+    content: '▸';
+    color: #94a3b8;
+    margin-left: 12px;
+}
+details[open] > .collapsible-summary::after {
+    content: '▾';
+}
+
 @media (max-width: 1024px) {
     .model-view-grid {
         grid-template-columns: 1fr;
@@ -367,16 +387,7 @@
         </div>
     </div>
 
-    {% if error_message %}
-    <div class="alert error">
-        <strong>Could not complete request.</strong> {{ error_message }}
-    </div>
-    {% endif %}
-    {% if success_message %}
-    <div class="alert success">
-        <strong>Done.</strong> {{ success_message }}
-    </div>
-    {% endif %}
+    <!-- Cash Advances moved below Ad Hoc Payments and made collapsible -->
 
     <!-- Two Column Layout -->
     <div class="model-view-grid">
@@ -491,9 +502,9 @@
     {% set pending_count = adhoc_payments | selectattr('status', 'equalto', 'pending') | list | length %}
     {% set latest_payment = adhoc_payments[0] if adhoc_count else None %}
 
-    <!-- Ad Hoc Payments -->
-    <div class="model-view-table-card">
-        <div class="model-view-table-header">
+    <!-- Ad Hoc Payments (collapsible header + form; table moved outside to stay always visible) -->
+    <details id="adhoc-card" class="model-view-table-card collapsible-card">
+        <summary class="model-view-table-header collapsible-summary">
             <div class="model-view-table-title">
                 <span style="font-size: 24px;">💸</span>
                 <h2>Ad Hoc Payments</h2>
@@ -507,7 +518,7 @@
                 Latest: <strong style="color: #22c55e;">${{ latest_payment.amount|money }}</strong> on {{ latest_payment.pay_date|display_date }}
             </span>
             {% endif %}
-        </div>
+        </summary>
         
         <div style="padding: 24px; background: rgba(15, 23, 42, 0.3); border-bottom: 1px solid rgba(148, 163, 184, 0.08);">
             <p style="margin: 0; font-size: 14px; color: #94a3b8;">Log one-off payments that fall outside scheduled payroll cycles.</p>
@@ -546,69 +557,394 @@
         </div>
         {% endif %}
 
+        {# Ad Hoc Payments table inside card #}
+        <div style="padding: 0;">
         {% if adhoc_payments %}
-        <table class="model-view-table">
-            <thead>
-                <tr>
-                    <th>Pay Date</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                    <th>Description</th>
-                    <th>Notes</th>
-                    {% if user.role == 'admin' %}
-                    <th>Actions</th>
-                    {% endif %}
-                </tr>
-            </thead>
-            <tbody>
-                {% for payment in adhoc_payments %}
-                <tr>
-                    <td style="white-space: nowrap;">{{ payment.pay_date|display_date }}</td>
-                    <td><strong style="color: #22c55e;">${{ payment.amount|money }}</strong></td>
-                    <td>
-                        {% if payment.status == 'paid' %}
-                            <span class="status-chip status-chip--success">Paid</span>
-                        {% elif payment.status == 'cancelled' %}
-                            <span class="status-chip status-chip--neutral">Cancelled</span>
-                        {% else %}
-                            <span class="status-chip status-chip--warning">Pending</span>
+            <table class="model-view-table">
+                <thead>
+                    <tr>
+                        <th>Pay Date</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Description</th>
+                        <th>Notes</th>
+                        {% if user.role == 'admin' %}
+                        <th>Actions</th>
                         {% endif %}
-                    </td>
-                    <td style="color: #94a3b8;">{{ payment.description or '—' }}</td>
-                    <td style="color: #94a3b8;">{{ payment.notes or '—' }}</td>
-                    {% if user.role == 'admin' %}
-                    <td>
-                        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                            <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/status" method="post" style="display: inline;">
-                                <input name="action" type="hidden" value="mark_paid" />
-                                <button class="button secondary button--compact" type="submit" {% if payment.status == 'paid' %}disabled{% endif %} style="font-size: 12px; padding: 4px 8px;">Paid</button>
-                            </form>
-                            <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/status" method="post" style="display: inline;">
-                                <input name="action" type="hidden" value="mark_pending" />
-                                <button class="button secondary button--compact" type="submit" {% if payment.status == 'pending' %}disabled{% endif %} style="font-size: 12px; padding: 4px 8px;">Pending</button>
-                            </form>
-                            <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/status" method="post" style="display: inline;">
-                                <input name="action" type="hidden" value="cancel" />
-                                <button class="button secondary button--compact" type="submit" {% if payment.status == 'cancelled' %}disabled{% endif %} style="font-size: 12px; padding: 4px 8px;">Cancel</button>
-                            </form>
-                            <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/delete" method="post" onsubmit="return confirm('Delete this ad hoc payment?');" style="display: inline;">
-                                <button class="button secondary button--compact" type="submit" style="font-size: 12px; padding: 4px 8px; background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3);">Delete</button>
-                            </form>
-                        </div>
-                    </td>
-                    {% endif %}
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payment in adhoc_payments %}
+                    <tr>
+                        <td style="white-space: nowrap;">{{ payment.pay_date|display_date }}</td>
+                        <td><strong style="color: #22c55e;">${{ payment.amount|money }}</strong></td>
+                        <td>
+                            {% if payment.status == 'paid' %}
+                                <span class="status-chip status-chip--success">Paid</span>
+                            {% elif payment.status == 'cancelled' %}
+                                <span class="status-chip status-chip--neutral">Cancelled</span>
+                            {% else %}
+                                <span class="status-chip status-chip--warning">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td style="color: #94a3b8;">{{ payment.description or '—' }}</td>
+                        <td style="color: #94a3b8;">{{ payment.notes or '—' }}</td>
+                        {% if user.role == 'admin' %}
+                        <td>
+                            <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap;">
+                                <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/status" method="post" style="display: inline;">
+                                    <input name="action" type="hidden" value="mark_paid" />
+                                    <button class="button button--compact" type="submit" {% if payment.status == 'paid' %}disabled{% endif %} 
+                                            style="background: rgba(34, 197, 94, 0.15); color: #22c55e; border-color: rgba(34, 197, 94, 0.3); font-size: 12px; padding: 6px 12px;">
+                                        Mark Paid
+                                    </button>
+                                </form>
+                                <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/status" method="post" style="display: inline;">
+                                    <input name="action" type="hidden" value="mark_pending" />
+                                    <button class="button button--compact" type="submit" {% if payment.status == 'pending' %}disabled{% endif %} 
+                                            style="background: rgba(234, 179, 8, 0.15); color: #eab308; border-color: rgba(234, 179, 8, 0.3); font-size: 12px; padding: 6px 12px;">
+                                        Mark Pending
+                                    </button>
+                                </form>
+                                <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/status" method="post" style="display: inline;">
+                                    <input name="action" type="hidden" value="cancel" />
+                                    <button class="button secondary button--compact" type="submit" {% if payment.status == 'cancelled' %}disabled{% endif %} 
+                                            style="font-size: 12px; padding: 6px 12px;">
+                                        Cancel
+                                    </button>
+                                </form>
+                                <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/delete" method="post" 
+                                      onsubmit="return confirm('Delete this ad hoc payment?');" 
+                                      style="display: inline;">
+                                    <button class="button secondary button--compact" type="submit" 
+                                            style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border-color: rgba(239, 68, 68, 0.3); font-size: 12px; padding: 6px 12px;">
+                                        Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         {% else %}
-        <div class="model-view-empty">
-            <div class="model-view-empty__icon">💸</div>
-            <p class="model-view-empty__text">No ad hoc payments recorded yet.</p>
-            <p class="model-view-empty__subtext">Use the form above to log one-off payments.</p>
+            <div class="model-view-empty">
+                <div class="model-view-empty__icon">💸</div>
+                <p class="model-view-empty__text">No ad hoc payments recorded yet.</p>
+                <p class="model-view-empty__subtext">Use the form above to log one-off payments.</p>
+            </div>
+        {% endif %}
+        </div>
+
+    </details>
+
+    <!-- Cash Advances (collapsible header + form; table moved inside) -->
+    <details id="advances-card" class="model-view-table-card collapsible-card">
+        <summary class="model-view-table-header collapsible-summary">
+            <div class="model-view-table-title">
+                <span style="font-size: 24px;">🏦</span>
+                <h2>Cash Advances</h2>
+                <span class="model-view-table-count" style="background: rgba(234, 179, 8, 0.15); color: #eab308; border-color: rgba(234, 179, 8, 0.3);">Outstanding: ${{ (advances_outstanding or 0)|money }}</span>
+            </div>
+        </summary>
+
+        <div style="padding: 24px; background: rgba(15, 23, 42, 0.3); border-bottom: 1px solid rgba(148, 163, 184, 0.08);">
+            <p style="margin: 0; font-size: 14px; color: #94a3b8;">
+                Advances let you pay a model early and automatically recover the balance from future payouts without pushing net pay below a safe floor.
+            </p>
+        </div>
+
+        {% if user.role == 'admin' %}
+        <div style="padding: 24px; background: rgba(30, 41, 59, 0.3); border-bottom: 1px solid rgba(148, 163, 184, 0.08);">
+            <form action="/models/{{ model.id }}/advances" method="post">
+                <div style="margin-bottom: 16px;">
+                    <h3 style="margin: 0 0 6px 0; font-size: 16px; font-weight: 600; color: #f8fafc;">➕ Request Advance</h3>
+                    <p style="margin: 0; font-size: 13px; color: #94a3b8;">Create a cash advance and optionally choose a deduction strategy.</p>
+                </div>
+                <div class="form-grid two-column">
+                    <div class="form-row">
+                        <label for="adv-total">Amount (USD) <span class="required-badge">Required</span></label>
+                        <input id="adv-total" name="amount_total" type="number" step="0.01" min="0.01" required />
+                    </div>
+                    <div class="form-row">
+                        <label for="adv-strategy">Strategy</label>
+                        <select id="adv-strategy" name="strategy" onchange="toggleAdvanceStrategyFields()">
+                            <option value="fixed" selected>Fixed amount per run</option>
+                            <option value="percent">Percent of payout</option>
+                        </select>
+                    </div>
+                    <div class="form-row" id="adv-fixed-row">
+                        <label for="adv-fixed">Fixed amount per run</label>
+                        <input id="adv-fixed" name="fixed_amount" type="number" step="0.01" min="0.01" placeholder="e.g., 300" />
+                    </div>
+                    <div class="form-row" id="adv-percent-row" style="display:none;">
+                        <label for="adv-percent">Percent of payout (%)</label>
+                        <input id="adv-percent" name="percent_rate" type="number" step="0.01" min="0.01" max="100" placeholder="e.g., 25" />
+                    </div>
+                    <div class="form-row">
+                        <label for="adv-notes">Notes</label>
+                        <textarea id="adv-notes" name="notes" rows="2" placeholder="Optional internal notes"></textarea>
+                    </div>
+                </div>
+                <div style="margin-top: 12px; display: flex; align-items: center; gap: 12px;">
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #cbd5e1;">
+                        <input type="checkbox" name="auto_approve" /> Approve now (starts deductions)
+                    </label>
+                    <button class="button" type="submit">Create Advance</button>
+                    <span style="font-size: 12px; color: #64748b;">Cap is evaluated against current outstanding at approval.</span>
+                </div>
+            </form>
         </div>
         {% endif %}
+
+        {# Cash Advances table inside card #}
+        <div style="padding: 0;">
+            <table class="model-view-table">
+                <thead>
+                    <tr>
+                        <th style="white-space: nowrap;">Created</th>
+                        <th style="text-align: center;">Status</th>
+                        <th>Principal</th>
+                        <th>Remaining</th>
+                        <th>Strategy</th>
+                        <th style="min-width: 180px;">Notes</th>
+                        {% if user.role == 'admin' %}<th style="min-width: 200px;">Quick Actions</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if advances %}
+                    {% for adv in advances %}
+                    <tr>
+                        <td style="white-space: nowrap;">
+                            <strong>{{ adv.created_at.strftime('%b %d, %Y') if adv.created_at else '—' }}</strong>
+                        </td>
+                        <td style="text-align: center;">
+                            {% if adv.status == 'active' %}
+                                <span class="status-chip status-chip--success">Active</span>
+                            {% elif adv.status == 'approved' %}
+                                <span class="status-chip status-chip--warning">Approved</span>
+                            {% elif adv.status == 'requested' %}
+                                <span class="status-chip status-chip--warning">Requested</span>
+                            {% else %}
+                                <span class="status-chip" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border-color: rgba(148, 163, 184, 0.3);">Closed</span>
+                            {% endif %}
+                        </td>
+                        <td><strong style="color: #22c55e; font-size: 15px;">${{ adv.amount_total|money }}</strong></td>
+                        <td><strong style="color: #eab308; font-size: 15px;">${{ adv.amount_remaining|money }}</strong></td>
+                        <td style="color: #cbd5e1; font-size: 14px;">
+                            {% if adv.strategy == 'fixed' %}
+                                <span style="font-weight: 600;">Fixed</span> ${{ adv.fixed_amount|money }}/run
+                            {% else %}
+                                <span style="font-weight: 600;">{{ adv.percent_rate }}%</span> of payout
+                            {% endif %}
+                        </td>
+                        <td style="color: #cbd5e1; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ adv.notes or '' }}">
+                            {{ adv.notes or '—' }}
+                        </td>
+                        {% if user.role == 'admin' %}
+                        <td>
+                            <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap;">
+                                {% if adv.status == 'requested' %}
+                                <form action="/models/{{ model.id }}/advances/{{ adv.id }}/approve" method="post" style="display: inline;">
+                                    <button class="button button--compact" type="submit" style="background: rgba(34, 197, 94, 0.15); color: #22c55e; border-color: rgba(34, 197, 94, 0.3); font-size: 12px; padding: 6px 12px;">
+                                        Approve & Activate
+                                    </button>
+                                </form>
+                                {% endif %}
+                                {% if adv.status in ['approved','active'] and adv.amount_remaining and adv.amount_remaining > 0 %}
+                                <button class="button button--compact" type="button" 
+                                        onclick="toggleRepaymentRow('{{ adv.id }}')" 
+                                        style="background: rgba(234, 179, 8, 0.15); color: #eab308; border-color: rgba(234, 179, 8, 0.3); font-size: 12px; padding: 6px 12px;">
+                                    Record Repayment
+                                </button>
+                                {% endif %}
+                                <button class="button secondary button--compact" type="button" 
+                                        onclick="toggleAdvanceNotesRow('{{ adv.id }}')" 
+                                        style="font-size: 12px; padding: 6px 12px;">
+                                    Edit Notes
+                                </button>
+                                <form action="/models/{{ model.id }}/advances/{{ adv.id }}/delete" method="post" 
+                                      onsubmit="return confirm('Delete this advance? This cannot be undone.');" 
+                                      style="display: inline;">
+                                    <button class="button secondary button--compact" type="submit" 
+                                            style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border-color: rgba(239, 68, 68, 0.3); font-size: 12px; padding: 6px 12px;">
+                                        Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    <!-- Expandable Repayment Row -->
+                    {% if user.role == 'admin' and adv.status in ['approved','active'] and adv.amount_remaining and adv.amount_remaining > 0 %}
+                    <tr class="repayment-row" id="repayment-row-{{ adv.id }}" style="display: none;">
+                        <td colspan="7" style="padding: 0; background: rgba(15, 23, 42, 0.95);">
+                            <div style="padding: 16px; border-top: 1px solid rgba(148, 163, 184, 0.1);">
+                                <form method="post" action="/models/{{ model.id }}/advances/{{ adv.id }}/repay" style="display: flex; gap: 12px; align-items: flex-end;">
+                                    <div style="flex: 0 0 200px;">
+                                        <label style="display: block; margin-bottom: 6px; color: #cbd5e1; font-weight: 600; font-size: 13px;">Repayment Amount</label>
+                                        <input name="amount" type="number" step="0.01" min="0.01" max="{{ adv.amount_remaining }}" placeholder="Enter amount" 
+                                               style="width: 100%; padding: 10px; background: rgba(15, 23, 42, 0.7); color: #f8fafc; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 6px; font-size: 14px;" required />
+                                    </div>
+                                    <div style="flex: 1;">
+                                        <label style="display: block; margin-bottom: 6px; color: #cbd5e1; font-weight: 600; font-size: 13px;">Notes (Optional)</label>
+                                        <input name="notes" type="text" placeholder="Payment reference or context" 
+                                               style="width: 100%; padding: 10px; background: rgba(15, 23, 42, 0.7); color: #f8fafc; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 6px; font-size: 14px;" />
+                                    </div>
+                                    <div style="display: flex; gap: 8px;">
+                                        <button class="button button--primary button--compact" type="submit">
+                                            <span>Record</span>
+                                        </button>
+                                        <button class="button secondary button--compact" type="button" onclick="toggleRepaymentRow('{{ adv.id }}')">
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    <!-- Expandable Advance Notes Row -->
+                    <tr class="advance-notes-row" id="advance-notes-{{ adv.id }}" style="display: none;">
+                        <td colspan="7" style="padding: 0; background: rgba(15, 23, 42, 0.95);">
+                            <div style="padding: 16px; border-top: 1px solid rgba(148, 163, 184, 0.1);">
+                                <form method="post" action="/models/{{ model.id }}/advances/{{ adv.id }}/note" style="display: flex; gap: 12px; align-items: flex-start;">
+                                    <input type="hidden" name="redirect_to" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+                                    <div style="flex: 1;">
+                                        <label style="display: block; margin-bottom: 6px; color: #cbd5e1; font-weight: 600; font-size: 13px;">Notes (Internal)</label>
+                                        <textarea name="notes" rows="3" placeholder="Optional notes for this advance" 
+                                                  style="width: 100%; padding: 10px; background: rgba(15, 23, 42, 0.7); color: #f8fafc; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 6px; font-family: inherit; resize: vertical; font-size: 14px;">{{ adv.notes or '' }}</textarea>
+                                    </div>
+                                    <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 28px;">
+                                        <button class="button button--primary button--compact" type="submit">
+                                            <span>Save</span>
+                                        </button>
+                                        <button class="button secondary button--compact" type="button" onclick="toggleAdvanceNotesRow('{{ adv.id }}')">
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td class="model-view-empty" colspan="7">
+                            <div class="model-view-empty__icon">🏦</div>
+                            <p class="model-view-empty__text">No advances recorded.</p>
+                            <p class="model-view-empty__subtext">Create an advance to allow automatic deductions from future payouts.</p>
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+    </details>
+
+    <script>
+    function toggleAdvanceStrategyFields() {
+        const strategy = document.getElementById('adv-strategy')?.value || 'fixed';
+        const fixedRow = document.getElementById('adv-fixed-row');
+        const percentRow = document.getElementById('adv-percent-row');
+        if (!fixedRow || !percentRow) return;
+        if (strategy === 'percent') {
+            fixedRow.style.display = 'none';
+            percentRow.style.display = '';
+        } else {
+            fixedRow.style.display = '';
+            percentRow.style.display = 'none';
+        }
+    }
+
+    // Persist collapsible open state across refreshes until user leaves the tab
+    document.addEventListener('DOMContentLoaded', function() {
+    const MODEL_ID = '{{ model.id }}';
+        function setupPersistentCard(detailsId) {
+            const el = document.getElementById(detailsId);
+            if (!el) return;
+            const key = `model:${MODEL_ID}:${detailsId}:open`;
+            const saved = sessionStorage.getItem(key);
+            if (saved === '1') {
+                el.setAttribute('open', '');
+            }
+            el.addEventListener('toggle', () => {
+                if (el.open) sessionStorage.setItem(key, '1');
+                else sessionStorage.removeItem(key);
+            });
+            // Ensure submitting any form inside keeps the card open after redirect
+            el.querySelectorAll('form').forEach(form => {
+                form.addEventListener('submit', () => {
+                    sessionStorage.setItem(key, '1');
+                });
+            });
+        }
+
+        setupPersistentCard('adhoc-card');
+        setupPersistentCard('advances-card');
+
+        // If there are feedback alerts, ensure advances card is open so messages are visible
+        const feedback = document.querySelector('.alert.error, .alert.success');
+        if (feedback) {
+            const adv = document.getElementById('advances-card');
+            if (adv) {
+                const advKey = `model:${MODEL_ID}:advances-card:open`;
+                adv.setAttribute('open', '');
+                sessionStorage.setItem(advKey, '1');
+            }
+        }
+
+        // Initialize strategy fields visibility on load
+        toggleAdvanceStrategyFields();
+    });
+    
+    // Toggle advance notes rows
+    function toggleAdvanceNotesRow(advId) {
+        const row = document.getElementById(`advance-notes-${advId}`);
+        if (!row) return;
+        // Hide all other advance notes rows
+        document.querySelectorAll('.advance-notes-row').forEach(r => {
+            if (r.id !== `advance-notes-${advId}`) r.style.display = 'none';
+        });
+        // Hide all repayment rows
+        document.querySelectorAll('.repayment-row').forEach(r => {
+            r.style.display = 'none';
+        });
+        if (row.style.display === 'none') row.style.display = '';
+        else row.style.display = 'none';
+    }
+    
+    // Toggle repayment row
+    function toggleRepaymentRow(advId) {
+        const row = document.getElementById(`repayment-row-${advId}`);
+        if (!row) return;
+        // Hide all other repayment rows
+        document.querySelectorAll('.repayment-row').forEach(r => {
+            if (r.id !== `repayment-row-${advId}`) r.style.display = 'none';
+        });
+        // Hide all advance notes rows
+        document.querySelectorAll('.advance-notes-row').forEach(r => {
+            r.style.display = 'none';
+        });
+        if (row.style.display === 'none') row.style.display = '';
+        else row.style.display = 'none';
+    }
+    </script>
+
+    
+
+    {% if error_message %}
+    <div class="alert error">
+        <strong>Could not complete request.</strong> {{ error_message }}
     </div>
+    {% endif %}
+    {% if success_message %}
+    <div class="alert success">
+        <strong>Done.</strong> {{ success_message }}
+    </div>
+    {% endif %}
 
     <!-- Payment History -->
     <div class="model-view-table-card">

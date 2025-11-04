@@ -14,8 +14,35 @@ DEFAULT_SQLITE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 DATABASE_URL = os.getenv("PAYROLL_DATABASE_URL", f"sqlite:///{DEFAULT_SQLITE_PATH}")
 
-connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-engine = create_engine(DATABASE_URL, connect_args=connect_args, future=True)
+
+def _create_engine(url: str):
+    """Create a SQLAlchemy engine for the given URL, handling sqlite connect args."""
+    connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {}
+    return create_engine(url, connect_args=connect_args, future=True)
+
+
+# Try to create the engine and verify a quick connection. On local development
+# environments, if the configured database (commonly PostgreSQL) is unreachable
+# we fall back to the SQLite file so developers can run the app without a
+# running Postgres instance. In production we re-raise the exception.
+try:
+    engine = _create_engine(DATABASE_URL)
+    # quick smoke-check connection (some DBs may reject on connect)
+    with engine.connect() as _conn:  # type: ignore[var-annotated]
+        pass
+except Exception as e:  # pragma: no cover - environment dependent
+    env = os.getenv("ENVIRONMENT", "development").lower()
+    print(f"[database] Could not connect to database at {DATABASE_URL!r}: {e}")
+    if env == "development":
+        # Use local SQLite for development if Postgres is not available
+        fallback = f"sqlite:///{DEFAULT_SQLITE_PATH}"
+        print(f"[database] Falling back to SQLite for local development at {fallback}")
+        DATABASE_URL = fallback
+        engine = _create_engine(DATABASE_URL)
+    else:
+        # Re-raise for non-dev environments so startup fails loudly
+        raise
+
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
 Base = declarative_base()

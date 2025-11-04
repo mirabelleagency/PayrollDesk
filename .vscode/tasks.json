@@ -1,0 +1,34 @@
+{
+  // See https://code.visualstudio.com/docs/editor/tasks for documentation
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run Uvicorn Server",
+      "type": "shell",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": [],
+      "command": "& \"${workspaceFolder}\\.venv\\Scripts\\Activate.ps1\"; uvicorn app.main:app --reload --host 127.0.0.1 --port 8000",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "shell": {
+          "executable": "powershell.exe",
+          "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
+        }
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "runOptions": {
+        "runOn": "default"
+      }
+    }
+  ]
+}

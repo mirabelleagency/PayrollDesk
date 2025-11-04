@@ -40,7 +40,7 @@ class Model(Base):
     payment_method: Mapped[str] = mapped_column(String(100), nullable=False)
     payment_frequency: Mapped[str] = mapped_column(String(20), nullable=False)
     amount_monthly: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
-    crypto_wallet: Mapped[str] = mapped_column(String(200), nullable=True)
+    crypto_wallet: Mapped[str | None] = mapped_column(String(200), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now, onupdate=datetime.now, nullable=False
@@ -98,7 +98,7 @@ class Payout(Base):
     payment_method: Mapped[str] = mapped_column(String(100), nullable=False)
     payment_frequency: Mapped[str] = mapped_column(String(20), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
-    notes: Mapped[str] = mapped_column(Text, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="not_paid")
 
     schedule_run: Mapped[ScheduleRun] = relationship(back_populates="payouts")
@@ -178,3 +178,98 @@ class AdhocPayment(Base):
             name="ck_adhoc_payments_status_valid",
         ),
     )
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    action: Mapped[str] = mapped_column(String(100), nullable=False)
+    details: Mapped[str] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+
+
+# --- Cash advance feature models -------------------------------------------
+
+class ModelAdvance(Base):
+    __tablename__ = "model_advances"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    model_id: Mapped[int] = mapped_column(ForeignKey("models.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # Principal and remaining balance
+    amount_total: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    amount_remaining: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+
+    # Workflow status: requested -> approved -> active -> closed
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="requested")
+
+    # Deduction strategy
+    strategy: Mapped[str] = mapped_column(String(20), nullable=False, default="fixed")  # fixed | percent
+    fixed_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    percent_rate: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)  # 0-100
+
+    # Policy knobs (per-advance overrides)
+    min_net_floor: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=500)
+    max_per_run: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=600)
+    cap_multiplier: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=1.0)
+
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    model: Mapped[Model] = relationship(back_populates="advances")
+    repayments: Mapped[list["AdvanceRepayment"]] = relationship(
+        back_populates="advance", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        CheckConstraint("amount_total > 0", name="ck_advances_total_positive"),
+        CheckConstraint("amount_remaining >= 0", name="ck_advances_remaining_nonnegative"),
+        CheckConstraint("strategy IN ('fixed', 'percent')", name="ck_advances_strategy_valid"),
+        CheckConstraint("percent_rate IS NULL OR (percent_rate >= 0 AND percent_rate <= 100)", name="ck_advances_percent_range"),
+        CheckConstraint("min_net_floor >= 0", name="ck_advances_floor_nonnegative"),
+        CheckConstraint("max_per_run >= 0", name="ck_advances_max_per_run_nonnegative"),
+        CheckConstraint("cap_multiplier >= 0", name="ck_advances_cap_multiplier_nonnegative"),
+    )
+
+
+class AdvanceRepayment(Base):
+    __tablename__ = "advance_repayments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    advance_id: Mapped[int] = mapped_column(ForeignKey("model_advances.id", ondelete="CASCADE"), nullable=False, index=True)
+    payout_id: Mapped[int | None] = mapped_column(ForeignKey("payouts.id", ondelete="SET NULL"), nullable=True)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    source: Mapped[str] = mapped_column(String(20), nullable=False, default="auto")  # auto | manual
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+
+    advance: Mapped[ModelAdvance] = relationship(back_populates="repayments")
+
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="ck_advance_repayment_amount_positive"),
+    )
+
+
+class PayoutAdvanceAllocation(Base):
+    __tablename__ = "payout_advance_allocations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    schedule_run_id: Mapped[int] = mapped_column(ForeignKey("schedule_runs.id", ondelete="CASCADE"), nullable=False, index=True)
+    payout_id: Mapped[int] = mapped_column(ForeignKey("payouts.id", ondelete="CASCADE"), nullable=False, index=True)
+    model_id: Mapped[int] = mapped_column(ForeignKey("models.id", ondelete="CASCADE"), nullable=False, index=True)
+    advance_id: Mapped[int] = mapped_column(ForeignKey("model_advances.id", ondelete="CASCADE"), nullable=False, index=True)
+    planned_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("planned_amount > 0", name="ck_payout_allocation_amount_positive"),
+    )
+
+
+# Back-populate relationships added after class definitions
+Model.advances = relationship(
+    "ModelAdvance", back_populates="model", cascade="all, delete-orphan"
+)

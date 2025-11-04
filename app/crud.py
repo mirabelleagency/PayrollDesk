@@ -11,8 +11,26 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.payroll import ModelRecord, ValidationMessage
-from app.models import AdhocPayment, Model, ModelCompensationAdjustment, Payout, ScheduleRun, ValidationIssue
+from app.models import (
+    AdhocPayment,
+    Model,
+    ModelCompensationAdjustment,
+    Payout,
+    ScheduleRun,
+    ValidationIssue,
+    AuditLog,
+    ModelAdvance,
+    AdvanceRepayment,
+    PayoutAdvanceAllocation,
+)
 from app.schemas import AdhocPaymentCreate, AdhocPaymentUpdate, ModelCreate, ModelUpdate
+from sqlalchemy import distinct
+from decimal import Decimal
+
+# --- Defaults for advances policy knobs ---
+ADVANCE_DEFAULT_MIN_FLOOR = Decimal("500")
+ADVANCE_DEFAULT_MAX_PER_RUN = Decimal("600")
+ADVANCE_DEFAULT_CAP_MULTIPLIER = Decimal("1.0")
 
 
 def list_models(
@@ -144,6 +162,8 @@ def create_compensation_adjustment(
 
 
 def clear_schedule_data(db: Session, schedule_run: ScheduleRun) -> None:
+    # Delete allocations linked to this run first to avoid stale planned deductions
+    db.query(PayoutAdvanceAllocation).filter(PayoutAdvanceAllocation.schedule_run_id == schedule_run.id).delete(synchronize_session=False)
     db.query(Payout).filter(Payout.schedule_run_id == schedule_run.id).delete()
     db.query(ValidationIssue).filter(ValidationIssue.schedule_run_id == schedule_run.id).delete()
     db.commit()
@@ -192,7 +212,7 @@ def store_payouts(db: Session, run: ScheduleRun, payouts: Iterable[dict], amount
     if old_payout_data is None:
         old_payout_data = {}
     
-    objects = []
+    objects: list[Payout] = []
     for payout in payouts:
         pay_date = payout["Pay Date"]
         code = payout["Code"]
@@ -218,6 +238,12 @@ def store_payouts(db: Session, run: ScheduleRun, payouts: Iterable[dict], amount
         objects.append(payout_obj)
     
     db.add_all(objects)
+    # Assign IDs so we can link allocations to payouts
+    db.flush()
+
+    # Apply cash advance allocations and adjust payout amounts (net), without posting repayments yet
+    _apply_advance_allocations_for_run(db, run, objects)
+
     db.commit()
 
 
@@ -345,6 +371,11 @@ def update_payout(db: Session, payout: Payout, note: str | None, status: str) ->
     payout.status = status
     db.add(payout)
     db.commit()
+
+    # If payout marked as paid, realize any planned allocations as repayments (idempotent)
+    if status == "paid":
+        _realize_allocations_for_paid_payout(db, payout)
+        db.commit()
 
 
 def delete_schedule_run(db: Session, run: ScheduleRun) -> None:
@@ -851,3 +882,429 @@ def set_adhoc_payment_status(db: Session, payment: AdhocPayment, status: str, no
     db.commit()
     db.refresh(payment)
     return payment
+
+
+# --- Hard purge helpers ----------------------------------------------------
+
+def get_model_purge_impact(db: Session, model_id: int) -> dict[str, Decimal | int | str]:
+    """Compute the rows and amounts that would be removed when purging a model.
+
+    Returns a summary dictionary with counts and amount breakdowns.
+    """
+    model = get_model(db, model_id)
+    if not model:
+        raise ValueError("Model not found")
+
+    zero = Decimal("0")
+
+    # Payouts breakdown
+    payouts_total = db.execute(
+        select(func.count()).where(Payout.model_id == model_id)
+    ).scalar_one() or 0
+    payouts_paid = db.execute(
+        select(func.count()).where(Payout.model_id == model_id, Payout.status == "paid")
+    ).scalar_one() or 0
+    payouts_unpaid = payouts_total - int(payouts_paid)
+
+    payouts_paid_amount = Decimal(
+        db.execute(
+            select(func.coalesce(func.sum(Payout.amount), 0)).where(
+                Payout.model_id == model_id, Payout.status == "paid"
+            )
+        ).scalar_one()
+        or zero
+    )
+    payouts_unpaid_amount = Decimal(
+        db.execute(
+            select(func.coalesce(func.sum(Payout.amount), 0)).where(
+                Payout.model_id == model_id, Payout.status != "paid"
+            )
+        ).scalar_one()
+        or zero
+    )
+
+    # Distinct runs affected by payouts
+    run_ids_impacted = db.execute(
+        select(distinct(Payout.schedule_run_id)).where(Payout.model_id == model_id)
+    ).scalars().all()
+    runs_affected = len(run_ids_impacted)
+
+    # Determine which runs would become empty (no payouts left) after purging this model
+    runs_empty_ids: list[int] = []
+    for rid in run_ids_impacted:
+        # Total payouts currently in the run (all models)
+        total_in_run = db.execute(
+            select(func.count()).where(Payout.schedule_run_id == rid)
+        ).scalar_one() or 0
+        # Payouts in the run belonging to this model
+        model_in_run = db.execute(
+            select(func.count()).where(Payout.schedule_run_id == rid, Payout.model_id == model_id)
+        ).scalar_one() or 0
+        if total_in_run == model_in_run and total_in_run > 0:
+            runs_empty_ids.append(int(rid))
+
+    # Validation issues
+    validations_count = db.execute(
+        select(func.count()).where(ValidationIssue.model_id == model_id)
+    ).scalar_one() or 0
+
+    # Adhoc payments
+    adhoc_count = db.execute(
+        select(func.count()).where(AdhocPayment.model_id == model_id)
+    ).scalar_one() or 0
+    adhoc_amount = Decimal(
+        db.execute(
+            select(func.coalesce(func.sum(AdhocPayment.amount), 0)).where(AdhocPayment.model_id == model_id)
+        ).scalar_one()
+        or zero
+    )
+
+    # Compensation adjustments
+    adjustments_count = db.execute(
+        select(func.count()).where(ModelCompensationAdjustment.model_id == model_id)
+    ).scalar_one() or 0
+
+    return {
+        "model_id": model.id,
+        "model_code": model.code,
+        "payouts_total": int(payouts_total),
+        "payouts_paid": int(payouts_paid),
+        "payouts_unpaid": int(payouts_unpaid),
+        "payouts_paid_amount": payouts_paid_amount,
+        "payouts_unpaid_amount": payouts_unpaid_amount,
+        "runs_affected": int(runs_affected),
+        "runs_empty_after": int(len(runs_empty_ids)),
+        "runs_empty_ids": runs_empty_ids,
+        "validations": int(validations_count),
+        "adhoc_payments": int(adhoc_count),
+        "adhoc_amount": adhoc_amount,
+        "adjustments": int(adjustments_count),
+        "total_rows": int(payouts_total + validations_count + adhoc_count + adjustments_count + 1),  # +1 for model
+    }
+
+
+def purge_model_hard(db: Session, model_id: int) -> dict[str, Decimal | int | str]:
+    """Transactionally remove a model and all related rows, avoiding orphans.
+
+    Returns the same summary as get_model_purge_impact.
+    """
+    impact = get_model_purge_impact(db, model_id)
+
+    # Perform deletes in a transaction
+    try:
+        # Delete payouts and validations that reference this model (FK is SET NULL otherwise)
+        db.query(Payout).filter(Payout.model_id == model_id).delete(synchronize_session=False)
+        db.query(ValidationIssue).filter(ValidationIssue.model_id == model_id).delete(synchronize_session=False)
+
+        # Delete associated adhoc payments and adjustments (FKs are CASCADE, but do explicitly for SQLite)
+        db.query(AdhocPayment).filter(AdhocPayment.model_id == model_id).delete(synchronize_session=False)
+        db.query(ModelCompensationAdjustment).filter(ModelCompensationAdjustment.model_id == model_id).delete(synchronize_session=False)
+
+        # Finally delete the model
+        model = get_model(db, model_id)
+        if model:
+            db.delete(model)
+
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    return impact
+
+
+# --- Maintenance and audit helpers ----------------------------------------
+
+def log_admin_action(db: Session, user_id: int | None, action: str, details: dict | None = None) -> None:
+    payload = AuditLog(
+        user_id=user_id,
+        action=action,
+        details=json.dumps(details or {}),
+    )
+    db.add(payload)
+    db.commit()
+
+
+def cleanup_empty_runs(db: Session) -> dict[str, int | list[int]]:
+    """Delete schedule runs that have zero payouts. Returns count and ids."""
+    runs = db.execute(select(ScheduleRun.id)).scalars().all()
+    deleted_ids: list[int] = []
+    for run_id in runs:
+        count = db.execute(
+            select(func.count()).where(Payout.schedule_run_id == run_id)
+        ).scalar_one() or 0
+        if count == 0:
+            run = get_schedule_run(db, run_id)
+            if run:
+                db.delete(run)
+                deleted_ids.append(run_id)
+    if deleted_ids:
+        db.commit()
+    return {"deleted_runs": len(deleted_ids), "run_ids": deleted_ids}
+
+
+def cleanup_orphans(db: Session) -> dict[str, int]:
+    """Remove legacy orphan records where model_id is NULL.
+
+    Payouts with model_id NULL are deleted. ValidationIssues with model_id NULL are deleted.
+    """
+    deleted_payouts = db.query(Payout).filter(Payout.model_id.is_(None)).delete(synchronize_session=False)
+    deleted_validations = (
+        db.query(ValidationIssue).filter(ValidationIssue.model_id.is_(None)).delete(synchronize_session=False)
+    )
+    if deleted_payouts or deleted_validations:
+        db.commit()
+    return {"payouts": int(deleted_payouts or 0), "validations": int(deleted_validations or 0)}
+
+
+# --- Cash Advances CRUD ----------------------------------------------------
+
+def list_advances_for_model(db: Session, model_id: int, status: str | None = None) -> Sequence[ModelAdvance]:
+    stmt = select(ModelAdvance).where(ModelAdvance.model_id == model_id)
+    if status:
+        stmt = stmt.where(ModelAdvance.status == status)
+    stmt = stmt.order_by(ModelAdvance.created_at.desc())
+    return db.execute(stmt).scalars().all()
+
+
+def get_advance(db: Session, advance_id: int) -> ModelAdvance | None:
+    return db.get(ModelAdvance, advance_id)
+
+
+def outstanding_advance_total(db: Session, model_id: int) -> Decimal:
+    stmt = (
+        select(func.coalesce(func.sum(ModelAdvance.amount_remaining), 0))
+        .where(ModelAdvance.model_id == model_id)
+        .where(ModelAdvance.status.in_(["approved", "active"]))
+    )
+    value = db.execute(stmt).scalar_one() or 0
+    return Decimal(value)
+
+
+def create_advance(
+    db: Session,
+    model: Model,
+    *,
+    amount_total: Decimal,
+    strategy: str = "fixed",
+    fixed_amount: Decimal | None = None,
+    percent_rate: Decimal | None = None,
+    min_net_floor: Decimal | None = None,
+    max_per_run: Decimal | None = None,
+    cap_multiplier: Decimal | None = None,
+    notes: str | None = None,
+) -> ModelAdvance:
+    strategy_value = (strategy or "fixed").lower()
+    if strategy_value not in {"fixed", "percent"}:
+        raise ValueError("strategy must be 'fixed' or 'percent'")
+
+    if strategy_value == "fixed":
+        if not fixed_amount or fixed_amount <= 0:
+            raise ValueError("fixed_amount must be > 0 for fixed strategy")
+    else:
+        if percent_rate is None or percent_rate <= 0 or percent_rate > 100:
+            raise ValueError("percent_rate must be in (0, 100] for percent strategy")
+
+    advance = ModelAdvance(
+        model_id=model.id,
+        amount_total=amount_total,
+        amount_remaining=amount_total,
+        status="requested",
+        strategy=strategy_value,
+        fixed_amount=fixed_amount if strategy_value == "fixed" else None,
+        percent_rate=percent_rate if strategy_value == "percent" else None,
+        min_net_floor=(min_net_floor if min_net_floor is not None else ADVANCE_DEFAULT_MIN_FLOOR),
+        max_per_run=(max_per_run if max_per_run is not None else ADVANCE_DEFAULT_MAX_PER_RUN),
+        cap_multiplier=(cap_multiplier if cap_multiplier is not None else ADVANCE_DEFAULT_CAP_MULTIPLIER),
+        notes=(notes.strip() if notes else None),
+    )
+    db.add(advance)
+    db.commit()
+    db.refresh(advance)
+    return advance
+
+
+def approve_advance(db: Session, advance: ModelAdvance, *, activate: bool = True) -> ModelAdvance:
+    model = get_model(db, advance.model_id)
+    if not model:
+        raise ValueError("Model not found")
+    # Cap enforcement removed per simplified policy
+
+    advance.status = "active" if activate else "approved"
+    if activate:
+        advance.activated_at = datetime.now()
+    db.add(advance)
+    db.commit()
+    db.refresh(advance)
+    return advance
+
+
+def close_advance_if_settled(db: Session, advance: ModelAdvance) -> None:
+    if Decimal(advance.amount_remaining or 0) <= 0 and advance.status != "closed":
+        advance.amount_remaining = Decimal("0")
+        advance.status = "closed"
+        db.add(advance)
+
+
+def record_advance_repayment(
+    db: Session,
+    advance: ModelAdvance,
+    *,
+    amount: Decimal,
+    source: str = "manual",
+    payout: Payout | None = None,
+) -> AdvanceRepayment:
+    if amount <= 0:
+        raise ValueError("Repayment amount must be > 0")
+    applied = min(amount, Decimal(advance.amount_remaining or 0))
+    repayment = AdvanceRepayment(
+        advance_id=advance.id,
+        payout_id=(payout.id if payout else None),
+        amount=applied,
+        source=("auto" if source == "auto" else "manual"),
+    )
+    advance.amount_remaining = Decimal(advance.amount_remaining or 0) - applied
+    close_advance_if_settled(db, advance)
+    db.add(advance)
+    db.add(repayment)
+    db.commit()
+    db.refresh(repayment)
+    return repayment
+
+
+def _apply_advance_allocations_for_run(db: Session, run: ScheduleRun, payouts: list[Payout]) -> None:
+    """Plan allocations for active advances and reduce payout amounts (net) accordingly.
+
+    Creates PayoutAdvanceAllocation rows for this run and adjusts payout.amount.
+    Does not modify advance balances. Idempotent per clear_schedule_data (we purge allocations on refresh).
+    """
+    # Group payouts by model, sort by pay_date to apply sequentially
+    by_model: dict[int, list[Payout]] = {}
+    for p in payouts:
+        if not p.model_id:
+            continue
+        by_model.setdefault(p.model_id, []).append(p)
+    for model_id, rows in by_model.items():
+        rows.sort(key=lambda x: (x.pay_date, x.id))
+        # Fetch active advances
+        advances: list[ModelAdvance] = (
+            db.execute(
+                select(ModelAdvance).where(
+                    ModelAdvance.model_id == model_id,
+                    ModelAdvance.status == "active",
+                ).order_by(ModelAdvance.created_at.asc())
+            ).scalars().all()
+        )
+        if not advances:
+            continue
+        # Track a local temp remaining per advance for this run's planning
+        temp_remaining: dict[int, Decimal] = {adv.id: Decimal(adv.amount_remaining or 0) for adv in advances}
+
+        for payout in rows:
+            # Available to deduct is the full payout amount (no floor)
+            available = Decimal(payout.amount or 0)
+            if available <= 0:
+                continue
+            total_deducted = Decimal("0")
+
+            for adv in advances:
+                if temp_remaining[adv.id] <= 0:
+                    continue
+                # Strategy amount
+                if (adv.strategy or "fixed") == "fixed":
+                    candidate = Decimal(adv.fixed_amount or 0)
+                else:
+                    # percent of gross payout amount
+                    pct = Decimal(adv.percent_rate or 0) / Decimal("100")
+                    candidate = (Decimal(payout.amount or 0) * pct)
+                # Respect remaining room on this payout and advance balance
+                remaining_room = max(available - total_deducted, Decimal("0"))
+                planned = min(candidate, temp_remaining[adv.id], remaining_room)
+                # Ensure non-negative and meaningful
+                if planned <= 0:
+                    continue
+
+                # Reduce payout amount and temp remaining
+                payout.amount = (Decimal(payout.amount or 0) - planned)
+                total_deducted += planned
+                temp_remaining[adv.id] = temp_remaining[adv.id] - planned
+
+                # Create allocation row
+                alloc = PayoutAdvanceAllocation(
+                    schedule_run_id=run.id,
+                    payout_id=payout.id,
+                    model_id=model_id,
+                    advance_id=adv.id,
+                    planned_amount=planned,
+                )
+                db.add(alloc)
+
+                # Stop if no more room on this payout
+                if (available - total_deducted) <= 0:
+                    break
+
+        # Persist adjustments for this model's payouts before next model
+        db.flush()
+
+
+def delete_advance(db: Session, advance: ModelAdvance) -> None:
+    """Delete an advance if it has no repayments; also remove any planned allocations."""
+    # Prevent deletion if there are repayments recorded
+    has_repayments = db.execute(
+        select(func.count()).select_from(AdvanceRepayment).where(AdvanceRepayment.advance_id == advance.id)
+    ).scalar_one() or 0
+    if int(has_repayments) > 0:
+        raise ValueError("Cannot delete an advance that has repayments.")
+
+    # Delete any planned allocations for this advance
+    db.query(PayoutAdvanceAllocation).filter(PayoutAdvanceAllocation.advance_id == advance.id).delete(synchronize_session=False)
+    db.delete(advance)
+    db.commit()
+
+
+def _realize_allocations_for_paid_payout(db: Session, payout: Payout) -> None:
+    allocations = db.execute(
+        select(PayoutAdvanceAllocation).where(PayoutAdvanceAllocation.payout_id == payout.id)
+    ).scalars().all()
+    if not allocations:
+        return
+    # If repayments already exist for this payout, skip (idempotent)
+    existing = db.execute(
+        select(AdvanceRepayment).where(AdvanceRepayment.payout_id == payout.id)
+    ).scalars().first()
+    if existing:
+        return
+
+    for alloc in allocations:
+        adv = get_advance(db, alloc.advance_id)
+        if not adv:
+            continue
+        record_advance_repayment(db, adv, amount=Decimal(alloc.planned_amount or 0), source="auto", payout=payout)
+        # Allocation will be deleted by cascade when clearing runs is not guaranteed, so delete explicitly on realize
+        db.delete(alloc)
+    db.flush()
+
+
+# --- Export helpers for advances ------------------------------------------
+
+def get_allocation_totals_for_run(db: Session, run_id: int) -> dict[int, Decimal]:
+    """Return a mapping of payout_id -> total planned allocation for the run."""
+    stmt = (
+        select(PayoutAdvanceAllocation.payout_id, func.coalesce(func.sum(PayoutAdvanceAllocation.planned_amount), 0))
+        .where(PayoutAdvanceAllocation.schedule_run_id == run_id)
+        .group_by(PayoutAdvanceAllocation.payout_id)
+    )
+    out: dict[int, Decimal] = {}
+    for payout_id, total in db.execute(stmt).all():
+        out[int(payout_id)] = Decimal(total or 0)
+    return out
+
+
+def list_payouts_with_allocations_for_run(db: Session, run_id: int) -> Sequence[tuple[Payout, Decimal]]:
+    """List payouts for a run and include the allocated amount for each payout (if any)."""
+    allocations = get_allocation_totals_for_run(db, run_id)
+    payouts = list_payouts_for_run(db, run_id)
+    results: list[tuple[Payout, Decimal]] = []
+    for p in payouts:
+        results.append((p, allocations.get(p.id, Decimal("0"))))
+    return results
