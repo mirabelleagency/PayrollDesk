@@ -5,10 +5,11 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, Query
 from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.engine.url import make_url
 
 from app import crud
 from app.auth import User
-from app.database import get_session
+from app.database import get_session, engine, DATABASE_URL
 from app.dependencies import templates
 from app.routers.auth import get_current_user, get_admin_user
 from app.security import unlock_account
@@ -358,6 +359,67 @@ def maintenance_reset_application_data(
 
 
 # --- JSON API variants ------------------------------------------------------
+
+@router.get("/diagnostics/db")
+def diagnostics_db(
+    db: Session = Depends(get_session),
+    admin: User = Depends(get_admin_user),
+):
+    """Return a sanitized snapshot of the current database backend (admin only).
+
+    This reveals only high-level details needed for SRE checks and avoids leaking
+    credentials. Use it to confirm whether production is connected to Postgres
+    or SQLite.
+    """
+    # Determine dialect in use by the live engine
+    dialect = engine.dialect.name  # e.g., 'postgresql' or 'sqlite'
+    driver = getattr(engine.dialect, "driver", None)
+
+    # Parse configured DATABASE_URL safely (masking any password)
+    try:
+        parsed = make_url(DATABASE_URL)
+        masked_url_obj = parsed.set(password="***") if getattr(parsed, "password", None) else parsed
+        masked_url = str(masked_url_obj)
+        db_name = parsed.database
+        host = parsed.host
+        port = parsed.port
+        username = parsed.username
+        scheme = parsed.drivername
+    except Exception:
+        masked_url = "(unparseable)"
+        db_name = None
+        host = None
+        port = None
+        username = None
+        scheme = None
+
+    is_sqlite = dialect == "sqlite"
+    is_postgres = dialect in ("postgresql", "postgres")
+
+    # Effective engine URL (password masked if present)
+    try:
+        eff_url = engine.url
+        eff_masked_url = eff_url.set(password="***") if getattr(eff_url, "password", None) else eff_url
+        effective_url = str(eff_masked_url)
+    except Exception:
+        effective_url = "(unavailable)"
+
+    payload = {
+        "dialect": dialect,
+        "driver": driver,
+        "url_scheme": scheme,
+        "is_sqlite": is_sqlite,
+        "is_postgres": is_postgres,
+        "database": db_name,
+        "host": host,
+        "port": port,
+        "username": username,
+        "configured_url": masked_url,
+        # The effective URL bound to the engine (masked if it contains password)
+        "effective_url": effective_url,
+    }
+
+    return JSONResponse(payload)
 
 @router.get("/api/models/{model_id}/purge")
 def api_purge_model_preview(
