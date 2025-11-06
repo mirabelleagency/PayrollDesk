@@ -492,30 +492,122 @@ function cancelBulkUpdate() {
 
 // Quick status update via button
 function quickUpdateStatus(payoutId, status) {
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = `/schedules/{{ run.id }}/payouts/${payoutId}/note`;
-    
-    const statusInput = document.createElement('input');
-    statusInput.type = 'hidden';
-    statusInput.name = 'status';
-    statusInput.value = status;
-    
-    const notesInput = document.createElement('input');
-    notesInput.type = 'hidden';
-    notesInput.name = 'notes';
-    notesInput.value = '';
-    
-    const redirectInput = document.createElement('input');
-    redirectInput.type = 'hidden';
-    redirectInput.name = 'redirect_to';
-    redirectInput.value = window.location.pathname + window.location.search;
+    // Try in-place update via JSON endpoint first; fallback to form submit on failure
+    const endpoint = `/schedules/{{ run.id }}/payouts/${payoutId}/status`;
+    const formData = new FormData();
+    formData.append('status', status);
 
-    form.appendChild(statusInput);
-    form.appendChild(notesInput);
-    form.appendChild(redirectInput);
-    document.body.appendChild(form);
-    form.submit();
+    fetch(endpoint, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'fetch' } })
+        .then(async (res) => {
+            if (!res.ok) throw new Error('Bad response');
+            return res.json();
+        })
+        .then((data) => {
+            if (!data || !data.ok) throw new Error('Update failed');
+            const row = document.querySelector(`tr.payout-row[data-payout-id="${payoutId}"]`);
+            if (!row) return;
+
+            // Update data-status
+            const newStatus = String(data.new_status || '').toLowerCase();
+            row.setAttribute('data-status', newStatus);
+
+            // Update overdue class/label
+            const wasOverdue = row.classList.contains('payout-row--overdue');
+            const isOverdue = !!data.is_overdue;
+            if (isOverdue) {
+                row.classList.add('payout-row--overdue');
+            } else {
+                row.classList.remove('payout-row--overdue');
+            }
+            // Toggle OVERDUE label inside status cell
+            const statusCell = row.cells[7];
+            if (statusCell) {
+                let label = statusCell.querySelector('.overdue-label');
+                if (isOverdue && !label) {
+                    label = document.createElement('span');
+                    label.className = 'overdue-label';
+                    label.textContent = 'OVERDUE';
+                    statusCell.appendChild(label);
+                } else if (!isOverdue && label) {
+                    label.remove();
+                }
+            }
+
+            // Update status chip text and variant
+            const chip = row.querySelector('.status-chip');
+            if (chip) {
+                chip.textContent = newStatus.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+                chip.classList.remove('status-chip--success', 'status-chip--warning', 'status-chip--danger');
+                if (newStatus === 'paid') chip.classList.add('status-chip--success');
+                else if (newStatus === 'not_paid') chip.classList.add('status-chip--warning');
+                else chip.classList.add('status-chip--danger');
+            }
+
+            // Update quick action buttons in-place
+            const buttons = row.querySelectorAll('.js-quick-update');
+            if (buttons && buttons.length >= 2) {
+                const primaryBtn = buttons[0]; // paid/unpaid toggle
+                const holdBtn = buttons[1];    // hold/unhold toggle
+
+                // Primary button
+                if (newStatus === 'paid') {
+                    primaryBtn.classList.remove('action-button--success');
+                    primaryBtn.classList.add('action-button--neutral');
+                    primaryBtn.setAttribute('data-action', 'not_paid');
+                    primaryBtn.setAttribute('title', 'Unmark Paid');
+                    primaryBtn.textContent = '↺';
+                } else {
+                    primaryBtn.classList.remove('action-button--neutral');
+                    primaryBtn.classList.add('action-button--success');
+                    primaryBtn.setAttribute('data-action', 'paid');
+                    primaryBtn.setAttribute('title', 'Mark as Paid');
+                    primaryBtn.textContent = '✓';
+                }
+
+                // Hold button
+                if (newStatus === 'on_hold') {
+                    holdBtn.classList.remove('action-button--warning');
+                    holdBtn.classList.add('action-button--neutral');
+                    holdBtn.setAttribute('data-action', 'not_paid');
+                    holdBtn.setAttribute('title', 'Remove Hold');
+                    holdBtn.textContent = '▶';
+                } else {
+                    holdBtn.classList.remove('action-button--neutral');
+                    holdBtn.classList.add('action-button--warning');
+                    holdBtn.setAttribute('data-action', 'on_hold');
+                    holdBtn.setAttribute('title', 'Put On Hold');
+                    holdBtn.textContent = '⏸';
+                }
+            }
+
+            // Recompute totals if that widget exists
+            if (typeof recomputeVisibleTotal === 'function') {
+                try { recomputeVisibleTotal(); } catch (_) { }
+            }
+        })
+        .catch(() => {
+            // Fallback to original form submit behavior to preserve functionality
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/schedules/{{ run.id }}/payouts/${payoutId}/note`;
+            const statusInput = document.createElement('input');
+            statusInput.type = 'hidden';
+            statusInput.name = 'status';
+            statusInput.value = status;
+            const notesInput = document.createElement('input');
+            notesInput.type = 'hidden';
+            notesInput.name = 'notes';
+            notesInput.value = '';
+            const redirectInput = document.createElement('input');
+            redirectInput.type = 'hidden';
+            redirectInput.name = 'redirect_to';
+            redirectInput.value = window.location.pathname + window.location.search;
+            form.appendChild(statusInput);
+            form.appendChild(notesInput);
+            form.appendChild(redirectInput);
+            document.body.appendChild(form);
+            form.submit();
+        });
 }
 
 // Toggle notes row for editing

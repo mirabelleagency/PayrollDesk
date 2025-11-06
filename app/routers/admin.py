@@ -6,6 +6,7 @@ from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.engine.url import make_url
+import os
 
 from app import crud
 from app.auth import User
@@ -404,20 +405,42 @@ def diagnostics_db(
     except Exception:
         effective_url = "(unavailable)"
 
+    # Effective engine URL (password masked if present)
+    try:
+        eff_url = engine.url
+        eff_masked_url = eff_url.set(password="***") if getattr(eff_url, "password", None) else eff_url
+        effective_url = str(eff_masked_url)
+    except Exception:
+        effective_url = "(unavailable)"
+
+    # Base payload
     payload = {
         "dialect": dialect,
         "driver": driver,
         "url_scheme": scheme,
         "is_sqlite": is_sqlite,
         "is_postgres": is_postgres,
-        "database": db_name,
-        "host": host,
-        "port": port,
-        "username": username,
-        "configured_url": masked_url,
-        # The effective URL bound to the engine (masked if it contains password)
-        "effective_url": effective_url,
+        # details field may be redacted in production
     }
+
+    # Environment-aware redaction: in production, avoid exposing connection details
+    env = os.getenv("ENVIRONMENT", "production").lower()
+    if env in ("production", "prod", "live"):
+        payload.update({
+            "verbose": False,
+            "details": "redacted in production",
+        })
+    else:
+        payload.update({
+            "verbose": True,
+            "database": db_name,
+            "host": host,
+            "port": port,
+            "username": username,
+            "configured_url": masked_url,
+            # The effective URL bound to the engine (masked if it contains password)
+            "effective_url": effective_url,
+        })
 
     return JSONResponse(payload)
 
