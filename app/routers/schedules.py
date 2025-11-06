@@ -2269,3 +2269,47 @@ def api_update_payout_status(
         }
     )
 
+
+@router.post("/{run_id}/payouts/bulk-update/status")
+def api_bulk_update_payouts(
+    run_id: int,
+    payout_ids: str = Form(""),
+    status: str = Form(...),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """AJAX-friendly endpoint to bulk update payouts without full-page reload."""
+    run = crud.get_schedule_run(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Schedule run not found")
+
+    status_value = (status or "").strip().lower()
+    if status_value not in PAYOUT_STATUS_ENUM:
+        raise HTTPException(status_code=400, detail="Invalid payout status")
+
+    if not payout_ids.strip():
+        return JSONResponse({"ok": True, "updated_ids": [], "new_status": status_value})
+
+    try:
+        ids = [int(pid.strip()) for pid in payout_ids.split(",") if pid.strip()]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid payout IDs")
+
+    today = date.today()
+    updated: list[int] = []
+    overdue_flags: dict[int, bool] = {}
+
+    for pid in ids:
+        payout = crud.get_payout(db, pid)
+        if payout and payout.schedule_run_id == run_id:
+            crud.update_payout(db, payout, payout.notes, status_value)
+            updated.append(pid)
+            overdue_flags[pid] = bool(payout.pay_date and payout.pay_date < today and status_value in ("not_paid", "on_hold"))
+
+    return JSONResponse({
+        "ok": True,
+        "updated_ids": updated,
+        "new_status": status_value,
+        "overdue_flags": overdue_flags,
+    })
+

@@ -643,15 +643,45 @@ function toggleValidation() {
     }
 }
 
-// Filter by status (chip buttons)
+// Filter by status (chip buttons) - client-side, no reload
 function filterByStatus(status) {
+    const tableBody = document.querySelector('#payouts-table tbody');
+    if (!tableBody) return;
+
+    const rows = Array.from(tableBody.querySelectorAll('tr.payout-row'));
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+        const rowStatus = (row.getAttribute('data-status') || '').toLowerCase();
+        const match = !status || rowStatus === status.toLowerCase();
+        if (match) {
+            row.style.display = '';
+            const payoutId = row.getAttribute('data-payout-id');
+            const notesRow = document.getElementById(`notes-row-${payoutId}`);
+            if (notesRow && notesRow.style.display !== 'none') {
+                notesRow.style.display = '';
+            }
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+            const payoutId = row.getAttribute('data-payout-id');
+            const notesRow = document.getElementById(`notes-row-${payoutId}`);
+            if (notesRow) notesRow.style.display = 'none';
+        }
+    });
+
+    const visibleCountEl = document.getElementById('visible-count');
+    if (visibleCountEl) visibleCountEl.textContent = visibleCount;
+
+    // Update URL without reload so it's shareable
     const url = new URL(window.location.href);
-    if (status) {
-        url.searchParams.set('status', status);
-    } else {
-        url.searchParams.delete('status');
+    if (status) url.searchParams.set('status', status);
+    else url.searchParams.delete('status');
+    history.replaceState(null, '', url.toString());
+
+    if (typeof recomputeVisibleTotal === 'function') {
+        try { recomputeVisibleTotal(); } catch (_) { }
     }
-    window.location.href = url.toString();
 }
 
 // Filter by overdue (client-side)
@@ -926,6 +956,112 @@ document.addEventListener('click', function (e) {
         }
     }
 });
+
+// Intercept bulk form submit for in-place updates
+document.addEventListener('submit', function (e) {
+    const form = e.target.closest('#bulk-form');
+    if (!form) return;
+    e.preventDefault();
+    const ids = document.getElementById('bulk-payout-ids')?.value || '';
+    const statusSel = document.getElementById('bulk-status');
+    const status = statusSel ? statusSel.value : '';
+    if (!ids || !status) return;
+
+    const endpoint = `/schedules/{{ run.id }}/payouts/bulk-update/status`;
+    const fd = new FormData();
+    fd.append('payout_ids', ids);
+    fd.append('status', status);
+
+    fetch(endpoint, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'fetch' } })
+        .then(async (res) => {
+            if (!res.ok) throw new Error('Bad response');
+            return res.json();
+        })
+        .then((data) => {
+            if (!data || !data.ok) throw new Error('Update failed');
+            const updatedIds = data.updated_ids || [];
+            const overdueFlags = data.overdue_flags || {};
+            const newStatus = String(data.new_status || '').toLowerCase();
+
+            updatedIds.forEach((pid) => {
+                applyRowStatusUpdate(String(pid), newStatus, !!overdueFlags[pid]);
+            });
+
+            // Clear selection and hide bulk bar
+            cancelBulkUpdate();
+            if (typeof recomputeVisibleTotal === 'function') {
+                try { recomputeVisibleTotal(); } catch (_) { }
+            }
+        })
+        .catch(() => {
+            // Fallback to regular submit if fetch fails
+            form.submit();
+        });
+});
+
+// Helper to apply DOM updates after a status change
+function applyRowStatusUpdate(payoutId, newStatus, isOverdue) {
+    const row = document.querySelector(`tr.payout-row[data-payout-id="${payoutId}"]`);
+    if (!row) return;
+    row.setAttribute('data-status', newStatus);
+
+    if (isOverdue) row.classList.add('payout-row--overdue');
+    else row.classList.remove('payout-row--overdue');
+
+    const statusCell = row.cells[7];
+    if (statusCell) {
+        let label = statusCell.querySelector('.overdue-label');
+        if (isOverdue && !label) {
+            label = document.createElement('span');
+            label.className = 'overdue-label';
+            label.textContent = 'OVERDUE';
+            statusCell.appendChild(label);
+        } else if (!isOverdue && label) {
+            label.remove();
+        }
+    }
+
+    const chip = row.querySelector('.status-chip');
+    if (chip) {
+        chip.textContent = newStatus.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+        chip.classList.remove('status-chip--success', 'status-chip--warning', 'status-chip--danger');
+        if (newStatus === 'paid') chip.classList.add('status-chip--success');
+        else if (newStatus === 'not_paid') chip.classList.add('status-chip--warning');
+        else chip.classList.add('status-chip--danger');
+    }
+
+    const buttons = row.querySelectorAll('.js-quick-update');
+    if (buttons && buttons.length >= 2) {
+        const primaryBtn = buttons[0];
+        const holdBtn = buttons[1];
+        if (newStatus === 'paid') {
+            primaryBtn.classList.remove('action-button--success');
+            primaryBtn.classList.add('action-button--neutral');
+            primaryBtn.setAttribute('data-action', 'not_paid');
+            primaryBtn.setAttribute('title', 'Unmark Paid');
+            primaryBtn.textContent = '↺';
+        } else {
+            primaryBtn.classList.remove('action-button--neutral');
+            primaryBtn.classList.add('action-button--success');
+            primaryBtn.setAttribute('data-action', 'paid');
+            primaryBtn.setAttribute('title', 'Mark as Paid');
+            primaryBtn.textContent = '✓';
+        }
+        if (newStatus === 'on_hold') {
+            holdBtn.classList.remove('action-button--warning');
+            holdBtn.classList.add('action-button--neutral');
+            holdBtn.setAttribute('data-action', 'not_paid');
+            holdBtn.setAttribute('title', 'Remove Hold');
+            holdBtn.textContent = '▶';
+        } else {
+            holdBtn.classList.remove('action-button--neutral');
+            holdBtn.classList.add('action-button--warning');
+            holdBtn.setAttribute('data-action', 'on_hold');
+            holdBtn.setAttribute('title', 'Put On Hold');
+            holdBtn.textContent = '⏸';
+        }
+    }
+}
 </script>
 
 <style>
