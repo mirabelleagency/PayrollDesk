@@ -2,4 +2,4 @@
 
 # Central place to define the application version shown in the UI and
 # reported by the FastAPI app metadata.
-__version__ = "2.9.1"
+__version__ = "2.10.0"
