@@ -1508,3 +1508,106 @@ All notable changes to this project will be documented in this file.
 - Refactor: replace 'run(s)' with 'cycle(s)' and make schedules export respect year/range filters
 - Initial commit
 
+## v2.19.0 - 2025-11-08
+
+- merge: Dev into staging (resolve version & changelog conflicts, set version 2.18.0)
+- fix(types): avoid mutating summary dict; pass view model for latest_run to satisfy type checker
+- change(overdue): dashboard Review links to current month cycle with overdue filter; bump 2.15.2
+- fix(overdue): unify dashboard review link to consolidated current-month listing; add anchors and tests; bump version to 2.15.1
+- Merge branch 'Dev' into staging
+- chore(version): bump to 2.13.2; fix(import): normalize model code lookup; test(env): add per-test domain reset; docs: clarify orphan payout exclusion
+- chore(version): bump to 2.13.1; docs(changelog): add auth redirect tests + a11y motion reduction
+- test(auth): add redirect + next flow tests; a11y: add prefers-reduced-motion CSS; docs: update changelog
+- chore(version): bump to 2.12.1; docs(changelog): record auth redirect next param and type fixes
+- fix(types): use date & Decimal in model create/update forms; explicit description=None for AdhocPaymentUpdate
+- feat(auth): preserve intended destination with next param on login redirect
+- feat(auth): redirect 401 HTML requests to /login instead of JSON Not authenticated
+- chore(version): bump to 2.9.1 align commit history and refine models page transitions
+- chore(version): bump to 2.7.1 and remove models page animations
+- merge: resolve conflicts in excel_importer (date parsing & adhoc code normalization)
+- feat(models): add server-side pagination + DB aggregates for roster page; feat(ui): in-app changelog page and sidebar link; chore: bump version to v2.7.0; docs: update README; build: add markdown dep
+- schedules/detail: make status chips filter client-side (no reload) and intercept bulk update for in-place changes; schedules: add bulk JSON endpoint
+- schedules/detail: make quick actions in-place (no full reload) via JSON endpoint; schedules: add /status API for payout updates; admin/diagnostics: redact details in production; docs: add Render Postgres setup section
+- schedules: add Current Month quickfilter + green button; admin: add DB diagnostics endpoint for DB backend check (password-masked); ci: tweak auto-versioning.yml 'on' key formatting
+- importer: normalize model code lookups with strip().lower() to fix Postgres mismatch causing most payouts to be skipped; add test for multiple payouts import
+- tests: remove duplicate test_admin_reset_data.py from repo root; keep under tests/
+- admin: add secondary confirmation ('RESET') for database reset; validate server-side and disable submit until matched; show error message on mismatch
+- ci: add auto version bump and changelog workflow; script to bump __version__ and append commits to CHANGELOG
+- Database: prevent accidental SQLite fallback in prod by defaulting ENVIRONMENT=production and requiring LOCAL_DEV_SQLITE_FALLBACK for dev fallback; add startup logging
+- Template: add second Adhoc sample row with status=paid; update samples script to ensure both pending and paid examples
+- Import template: add Adhoc sheet with status dropdown and example row; extend validation and sample scripts to manage Adhoc
+- Importer: support optional 'Adhoc' sheet for AdhocPayment import; add status normalization and summary fields; type-check fixes for row numbering
+- Importer: support optional 'Adhoc' sheet for AdhocPayment import; add status normalization and summary fields; type-check fixes for row numbering
+- UI: keep schedule payouts header titles inline and set column widths to avoid wrapping on /schedules/:id
+- UI: keep schedule payouts header titles inline and set column widths to avoid wrapping on /schedules/:id
+- Merge remote-tracking branch 'origin/Dev' into staging
+- Import template: add weekly sample row (Models) and on_hold sample row (Payouts); include idempotent script to maintain samples
+- feat(template): add dropdowns to import template (Models payment_frequency; Payouts status) including all allowed types; add maintenance script to update validations
+- feat(ui): hide Cycle ID and Created columns in Payroll Hub cycles table
+- feat(ui): hide Cycle ID and Created columns in Payroll Hub cycles table
+- feat(ui): show app version across pages; centralize version in app.__init__; expose APP_VERSION to Jinja templates; use version in FastAPI metadata
+- feat(dev): fallback to SQLite when DB unreachable in development; improve Excel import to handle empty Payouts and invalid pay dates non-fatally; fix nullable types for crypto_wallet and notes
+- chore(vscode): add Run Uvicorn Server task (PowerShell .venv activation + uvicorn)
+- ui(models/form): update compensation adjustments to match system theme - use form-row pattern with proper labels and dark glassmorphic styling; add card background, improve spacing and alignment
+- export(xlsx): remove AdvanceAllocations sheet; drop internal IDs and use model code across sheets (no model_id, no payout_id/schedule_run_id); tidy Advances/AdvanceRepayments columns
+- export(xlsx): include cash advances in dashboard Excel  add Advances, AdvanceRepayments, and AdvanceAllocations sheets
+- ui: add Deductions column to schedule and restyle models view (advances/ad-hoc payments)  move tables into cards, color buttons, inline repayment controls, remove emojis
+- ui: preserve scroll position across form submissions and link navigations (restore on same-path load)
+- export: include cash advance impacts in Pay_Schedule Excel (gross, advances deducted, net, status); keep CSV download for schedules as DB net amounts
+- feat(advances): cash advance requests, approval, auto-deduction with safeguards; allocations apply on schedule and convert to repayments on payment; model page UI for advances
+- admin(settings): remove purge preview & orphan-cleanup button; simplify settings route
+- admin: add hard purge for models with dry-run preview; CRUD helpers and tests
+- dashboard: recent activity totals recomputed from linked paid payouts to avoid residuals
+- dashboard: zero out residuals when models are deleted; filter metrics to payouts with model_id; show YTD paid instead of run rate
+- schedules/all-table: fix year selector by passing available_years and auto-submit on change
+- schedules: persist filters after quick status/note updates (redirect_to)
+- ui(dashboard/models): include pending ad hoc in Requires Attention badge; highlight current month unpaid as warning; replace broken models metric icons with inline SVGs
+- fix(analytics): prevent Safari mobile overflow for date range inputs (min-width:0, flex, -webkit-appearance)
+- ui(dashboard): change pending adhoc payment card to yellow/amber alert
+- ui(sidebar): fix User Admin icon with accessible SVG
+- ui(schedules): remove checkboxes and adjust table columns for single-run view
+- ui(schedules): remove Code filter from payout schedule
+- ui: preserve dashboard export button label after export
+- UI: dashboard KPI label -> '<Month> Total to pay' (dynamic)
+- UI: center-align hero stat cards (Total Payout, Outstanding, Paid, Ad Hoc) on Payroll Hub for mobile
+- JS: add defensive guards to schedules/detail.html to avoid DOM null errors
+- UI: center-align model metric cards (Total Roster, Payment Methods, Payment Frequency, Lifetime Paid) for mobile view on /models/ page
+- UI: center-align all dashboard elements including hero KPI cards and trend text for mobile view
+- UI: finalize mobile dashboard spacing fixes and center alignment
+- UI: fix filter section gap and add horizontal table scrolling on model payments page for mobile
+- UI: make admin users page mobile responsive with horizontal scroll and stacked action buttons
+- UI: fix filter overflow, enable horizontal table scroll, and center-align Status column on schedule detail page
+- UI: make action buttons (Open/Delete) uniform size in schedules table on mobile
+- UI: make All Payroll Cycles table responsive for mobile with horizontal scroll and improve Export to Excel button styling
+- UI: make Model Registry & Payment History table responsive for mobile view with horizontal scroll and compact layout
+- UI: fix filter card vertical gap by adjusting responsive breakpoint from 1024px to 768px
+- UI: make Import Excel, Snapshot, Register Model, and Export to Excel buttons same size in mobile view
+- UI: make 'Not Paid' status chip yellow (warning style) in Payment History
+- UI: center Status column in Payment History and add colored status chips (paid/on hold/not paid)
+- UI: remove 'Last Payment' column from Model Registry table; adjust colspan and JS accordingly
+- UI: move 'Lifetime Paid' card to end of metrics (after Payment Frequency) on /models
+- UI: fix Snapshot button icon on /models (replace garbled glyph with )
+- UI: inline quick search with filter selects on /models and make search flex-grow; keep responsive wrapping
+- UI: center-align Frequency column in Model Registry table
+- UI: fix biweekly frequency badge styling in Model Registry table (support .frequency-badge--biweekly)
+- Models: payment methods card shows selected method count and per-method breakdown counts (mirrors frequency card)
+- Models: show counts by payment frequency in dashboard card (value reflects selected frequency; breakdown shows per-frequency counts)
+- tools: add debug script to inspect exported Payouts columns (dev only)
+- Import template: remove Payment Frequency from Payouts sheet (redundant; present on Models)
+- Export (xlsx): remove Payment Frequency from Payouts sheet (redundant; present on Models)
+- Importer: update-or-create payouts by code+pay_date; add regression test; UI: overdue card pulse CSS
+- schedules: add blue info button style for Open action
+- schedules: match Open button style to Delete button (secondary compact)
+- dashboard: rename Special Payments card to Ad Hoc Payments
+- dashboard: rename Top Contributors card to Top Earners
+- schedules: wire Compliance card to on-hold/detail filter and render compliance list; adjust templates
+- ui(schedules): compact single-line filters for All Payroll Cycles
+- ui(schedules): Pending Approvals card, badge variants, and Salary Payments rename
+- UI: center brand and icons in collapsed sidebar; tweak toggle placement
+- UI: sidebar polish (collapsible + gradients) and standardize export buttons styling/text/icon across app
+- Tests: use temporary SQLite DB per session (isolated PAYROLL_DATABASE_URL), remove drop_all and clean up temp dir
+- Feature: prorate first-month payouts based on start_date; add test
+- Feature: default Payroll Hub cycles filter to current month; keep clear action
+- Refactor: replace 'run(s)' with 'cycle(s)' and make schedules export respect year/range filters
+- Initial commit
+
