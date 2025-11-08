@@ -579,7 +579,8 @@ def import_payouts(
         existing_by_key[(payout.model_id, payout.pay_date)] = payout
     normalized = normalize_columns(df, PAYOUT_COLUMNS, "payout")
     records = normalized.dropna(how="all")
-    models_by_code = {m.code.lower(): m for m in session.query(Model).all()}
+    # Normalize model codes by stripping whitespace and lowering for robust lookups
+    models_by_code = {m.code.strip().lower(): m for m in session.query(Model).all()}
 
     payouts_to_add: list[Payout] = []
     for idx, row in records.iterrows():

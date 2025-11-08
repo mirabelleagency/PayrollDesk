@@ -38,6 +38,23 @@ def setup_test_database():
     shutil.rmtree(_TEMP_DIR, ignore_errors=True)
 
 
+# Function-scope autouse fixture to ensure each test starts with a clean domain state.
+# This prevents data leakage (payouts, models, runs, adhoc payments, etc.) between tests
+# while preserving user accounts for authentication-related tests.
+@pytest.fixture(autouse=True)
+def _clean_domain_tables():
+    from app import crud
+    from app.database import SessionLocal
+    session = SessionLocal()
+    try:
+        crud.reset_application_data(session)
+    finally:
+        try:
+            session.close()
+        except Exception:
+            pass
+
+
 @pytest.fixture
 def test_db():
     """Provide a database session for each test with automatic rollback."""

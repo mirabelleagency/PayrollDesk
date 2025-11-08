@@ -385,6 +385,8 @@ def _gather_dashboard_data(db: Session, month: str | None, year: int | None = No
         ],
         zero,
     )
+    # Ignore payouts that have become orphaned (model deleted) by relying on run.paid_total/unpaid_total
+    # which already exclude rows with model_id is NULL. This prevents inflated totals after deletions.
     paid_total = sum(((getattr(run, "paid_total", zero) or zero) for run in selected_runs), zero)
     unpaid_total = sum(((getattr(run, "unpaid_total", zero) or zero) for run in selected_runs), zero)
 

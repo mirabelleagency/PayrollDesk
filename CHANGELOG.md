@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.14.1 - 2025-11-08
+
+- version: align with remote v2.14.0 and include local fixes
+- test(env): add per-test domain reset fixture to eliminate cross-test data leakage and stabilize counts
+- fix(import): normalize model code lookup (strip + lower) to prevent false 'model not found' errors
+- docs(schedules): clarify monthly summary excludes orphan payouts (improves maintainability)
+
+## v2.13.2 - 2025-11-08
+
+- test(env): add per-test domain reset fixture to eliminate cross-test data leakage and stabilize counts
+- fix(import): normalize model code lookup (strip + lower) to prevent false 'model not found' errors
+- docs(schedules): clarify monthly summary excludes orphan payouts (improves maintainability)
+
 ## v2.13.1 - 2025-11-08
 
 - tests(auth): add redirect + next flow coverage (preserve destination; handles 303/307 and absolute Location)
