@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.9.1 - 2025-11-08
+
+- chore(version): align history after remote bump to 2.9.0; set internal version to 2.9.1
+- ui(models): refine removal of broad transitions (retain only subtle feedback) and document change
+
 ## v2.8.1 - 2025-11-08
 
 - ui(models): remove hover lift and broad transitions on the Models page to eliminate perceived animations; keep subtle feedback only
