@@ -693,11 +693,11 @@ def create_model(
     code: str = Form(...),
     real_name: str = Form(...),
     working_name: str = Form(...),
-    start_date: str = Form(...),
+    start_date: date = Form(...),
     payment_method: str = Form(...),
     payment_frequency: str = Form(...),
-    amount_monthly: str = Form(...),
-    crypto_wallet: str = Form(None),
+    amount_monthly: Decimal = Form(...),
+    crypto_wallet: str | None = Form(None),
     adjustment_effective_dates: list[str] = Form([]),
     adjustment_amounts: list[str] = Form([]),
     adjustment_notes: list[str] = Form([]),
@@ -902,7 +902,7 @@ def update_adhoc_payment_notes(
     if not payment or payment.model_id != model_id:
         raise HTTPException(status_code=404, detail="Ad hoc payment not found")
 
-    update_payload = AdhocPaymentUpdate(notes=notes.strip() if notes else None)
+    update_payload = AdhocPaymentUpdate(description=None, notes=notes.strip() if notes else None)
     crud.update_adhoc_payment(db, payment, update_payload)
     return _redirect_to_model(model_id, success="Notes updated.")
 
@@ -1100,11 +1100,11 @@ def update_model(
     code: str = Form(...),
     real_name: str = Form(...),
     working_name: str = Form(...),
-    start_date: str = Form(...),
+    start_date: date = Form(...),
     payment_method: str = Form(...),
     payment_frequency: str = Form(...),
-    amount_monthly: str = Form(...),
-    crypto_wallet: str = Form(None),
+    amount_monthly: Decimal = Form(...),
+    crypto_wallet: str | None = Form(None),
     adjustment_effective_dates: list[str] = Form([]),
     adjustment_amounts: list[str] = Form([]),
     adjustment_notes: list[str] = Form([]),
