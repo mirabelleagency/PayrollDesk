@@ -4,7 +4,7 @@ from __future__ import annotations
 import csv
 from datetime import date, datetime
 from io import StringIO
-from typing import Iterable
+from typing import Iterable, cast
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
@@ -16,7 +16,7 @@ from app.database import get_session
 from app.dependencies import templates
 from app.core.formatting import format_display_date, format_display_datetime
 from app.routers.auth import get_current_user
-from app.models import Model
+from app.models import Model, ScheduleRun
 from app.exporting import export_full_workbook
 from fastapi.responses import Response
 
@@ -26,9 +26,11 @@ router = APIRouter(tags=["Dashboard"])
 @router.get("/dashboard")
 def dashboard(request: Request, db: Session = Depends(get_session), user: User = Depends(get_current_user)):
     summary = crud.dashboard_summary(db)
-    latest = summary.get("latest_run")
+    latest = cast(ScheduleRun | None, summary.get("latest_run"))
+    # Provide a view-model copy to avoid type narrowing issues on the summary dict
+    summary_view: dict[str, object] = dict(summary)  # type: ignore[arg-type]
     if latest is not None:
-        summary["latest_run"] = {
+        summary_view["latest_run"] = {
             "target_year": latest.target_year,
             "target_month": latest.target_month,
             "created_at": latest.created_at,
@@ -80,17 +82,31 @@ def dashboard(request: Request, db: Session = Depends(get_session), user: User =
     current_month_name = date.today().strftime("%B")
     current_year = date.today().year
 
+    # Determine current month payroll cycle (latest run for this month)
+    today = date.today()
+    current_month_run = (
+        db.query(ScheduleRun)
+        .filter(
+            ScheduleRun.target_year == today.year,
+            ScheduleRun.target_month == today.month,
+        )
+        .order_by(ScheduleRun.created_at.desc())
+        .first()
+    )
+    current_month_run_id = current_month_run.id if current_month_run else None
+
     return templates.TemplateResponse(
         "dashboard/index.html",
         {
             "request": request,
             "user": user,
-            "summary": summary,
+            "summary": summary_view,
             "recent_runs": recent_runs_data,
             "top_models": top_models_data,
             "pending_adhoc_payments": pending_adhoc_data,
             "current_month_name": current_month_name,
             "current_year": current_year,
+            "current_month_run_id": current_month_run_id,
         },
     )
 

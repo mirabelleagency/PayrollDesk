@@ -252,7 +252,7 @@
 
 <!-- Compliance Hold Detail View -->
 {% if show_filter == 'compliance' and compliance_payments %}
-<section class="card card--urgent" style="margin-top: 32px;">
+<section id="payments-on-hold" class="card card--urgent" style="margin-top: 32px;">
     <div class="section-heading">
         <div>
             <h2><span class="section-icon">🛡️</span> Compliance Holds (Overdue)</h2>
@@ -302,7 +302,7 @@
 
 <!-- Overdue Payments Detail View -->
 {% if show_filter == 'overdue' and overdue_payments %}
-<section class="card card--urgent" style="margin-top: 32px;">
+<section id="payments-overdue" class="card card--urgent" style="margin-top: 32px;">
     <div class="section-heading">
         <div>
             <h2><span class="section-icon">🚨</span> Overdue Payments</h2>
@@ -352,7 +352,7 @@
 
 <!-- On-Hold Payments Detail View -->
 {% if show_filter == 'on_hold' and on_hold_payments %}
-<section class="card card--warning" style="margin-top: 32px;">
+<section id="payments-on-hold" class="card card--warning" style="margin-top: 32px;">
     <div class="section-heading">
         <div>
             <h2><span class="section-icon">⏸️</span> On-Hold Payments</h2>
