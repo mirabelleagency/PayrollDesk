@@ -244,6 +244,8 @@ def normalize_payout_status(raw: Any) -> str:
     text = str(raw).strip().lower().replace(" ", "_")
     if text == "paid":
         return "paid"
+    if text in ("approved", "approve"):
+        return "approved"
     if text in ("not_paid", "unpaid"):
         return "not_paid"
     if text in ("on_hold", "hold", "holding"):

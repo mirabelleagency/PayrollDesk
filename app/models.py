@@ -24,7 +24,7 @@ from app.database import Base
 
 STATUS_ENUM = ("Active", "Inactive")
 FREQUENCY_ENUM = ("weekly", "biweekly", "monthly")
-PAYOUT_STATUS_ENUM = ("paid", "on_hold", "not_paid")
+PAYOUT_STATUS_ENUM = ("paid", "approved", "on_hold", "not_paid")
 ADHOC_PAYMENT_STATUS_ENUM = ("pending", "paid", "cancelled")
 
 
