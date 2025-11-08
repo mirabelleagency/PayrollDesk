@@ -93,5 +93,7 @@ def test_dashboard_overdue_review_links_to_current_month_view():
 
     resp = client.get("/dashboard")
     assert resp.status_code == 200
-    # The dashboard Review button should link to current-month consolidated overdue view
-    assert "/schedules?range=current_month&show=overdue#payments-overdue" in resp.text
+    # The dashboard Review button should now link directly to the current month cycle with overdue filter
+    import re
+    match = re.search(r"/schedules/(\d+)\?show=overdue#payments-overdue", resp.text)
+    assert match, "Expected Review link to point to current month cycle with overdue filter"

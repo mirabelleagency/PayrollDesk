@@ -178,7 +178,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 <div class="alert-item-title">{{ summary.overdue_count }} Overdue Payment{{ 's' if summary.overdue_count != 1 else '' }}</div>
                 <div class="alert-item-description">Payments past due date requiring immediate attention</div>
             </div>
+            {% if current_month_run_id %}
+            <a class="button secondary button--compact" href="/schedules/{{ current_month_run_id }}?show=overdue#payments-overdue">Review</a>
+            {% else %}
             <a class="button secondary button--compact" href="/schedules?range=current_month&show=overdue#payments-overdue">Review</a>
+            {% endif %}
         </div>
         {% endif %}
         

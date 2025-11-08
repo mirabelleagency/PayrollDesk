@@ -4,12 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## v2.14.1 - 2025-11-08
 
-## v2.15.1 - 2025-11-08
+## v2.16.1 - 2025-11-08
 
-- fix(overdue): unify dashboard Review overdue link to consolidated current-month view (`/schedules?range=current_month&show=overdue`) for complete visibility
-- fix(overdue): simplify backend target URL logic to avoid earliest-run focus and ensure aggregation across runs
+- change(overdue UX): dashboard "Review" now links to the current month payroll cycle with overdue filter (`/schedules/{run_id}?show=overdue#payments-overdue`) when available; falls back to consolidated current-month view
+- fix(overdue): simplify backend overdue_target_url to a consolidated current-month listing when run-specific link unavailable
 - feat(templates): add anchors (`#payments-overdue`, `#payments-on-hold`) for deep links from dashboard alert actions
-- test(overdue): add coverage ensuring consolidated overdue list shows payouts from multiple runs and dashboard link correctness
+- test(overdue): coverage for consolidated overdue list across runs and dashboard link to current-month cycle
+- chore(version): resolve rebase conflict by advancing version to 2.16.1 (supersedes 2.16.0 & 2.15.2)
 
 
 - version: align with remote v2.14.0 and include local fixes

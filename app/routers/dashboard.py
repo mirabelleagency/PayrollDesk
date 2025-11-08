@@ -16,7 +16,7 @@ from app.database import get_session
 from app.dependencies import templates
 from app.core.formatting import format_display_date, format_display_datetime
 from app.routers.auth import get_current_user
-from app.models import Model
+from app.models import Model, ScheduleRun
 from app.exporting import export_full_workbook
 from fastapi.responses import Response
 
@@ -80,6 +80,19 @@ def dashboard(request: Request, db: Session = Depends(get_session), user: User =
     current_month_name = date.today().strftime("%B")
     current_year = date.today().year
 
+    # Determine current month payroll cycle (latest run for this month)
+    today = date.today()
+    current_month_run = (
+        db.query(ScheduleRun)
+        .filter(
+            ScheduleRun.target_year == today.year,
+            ScheduleRun.target_month == today.month,
+        )
+        .order_by(ScheduleRun.created_at.desc())
+        .first()
+    )
+    current_month_run_id = current_month_run.id if current_month_run else None
+
     return templates.TemplateResponse(
         "dashboard/index.html",
         {
@@ -91,6 +104,7 @@ def dashboard(request: Request, db: Session = Depends(get_session), user: User =
             "pending_adhoc_payments": pending_adhoc_data,
             "current_month_name": current_month_name,
             "current_year": current_year,
+            "current_month_run_id": current_month_run_id,
         },
     )
 
