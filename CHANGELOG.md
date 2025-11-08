@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## v2.14.1 - 2025-11-08
 
+## v2.15.1 - 2025-11-08
+
+- fix(overdue): unify dashboard Review overdue link to consolidated current-month view (`/schedules?range=current_month&show=overdue`) for complete visibility
+- fix(overdue): simplify backend target URL logic to avoid earliest-run focus and ensure aggregation across runs
+- feat(templates): add anchors (`#payments-overdue`, `#payments-on-hold`) for deep links from dashboard alert actions
+- test(overdue): add coverage ensuring consolidated overdue list shows payouts from multiple runs and dashboard link correctness
+
+
 - version: align with remote v2.14.0 and include local fixes
 - test(env): add per-test domain reset fixture to eliminate cross-test data leakage and stabilize counts
 - fix(import): normalize model code lookup (strip + lower) to prevent false 'model not found' errors

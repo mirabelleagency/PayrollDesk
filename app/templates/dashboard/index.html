@@ -171,18 +171,14 @@ document.addEventListener('DOMContentLoaded', function () {
         <span class="alert-card-badge">{{ summary.overdue_count + summary.on_hold_count + (pending_adhoc_payments|length if pending_adhoc_payments else 0) }}</span>
     </div>
     <div class="alert-items">
-        {% if summary.overdue_count > 0 %}
-        <div class="alert-item alert-item--urgent">
+    {% if summary.overdue_count > 0 %}
+    <div class="alert-item alert-item--urgent">
             <div class="alert-item-icon">🚨</div>
             <div class="alert-item-content">
                 <div class="alert-item-title">{{ summary.overdue_count }} Overdue Payment{{ 's' if summary.overdue_count != 1 else '' }}</div>
                 <div class="alert-item-description">Payments past due date requiring immediate attention</div>
             </div>
-            {% if summary.overdue_payments and summary.overdue_payments[0].run_id %}
-                <a class="button secondary button--compact" href="/schedules/{{ summary.overdue_payments[0].run_id }}?show=overdue">Review</a>
-            {% else %}
-                <a class="button secondary button--compact" href="/schedules?show=overdue#payments-overdue">Review</a>
-            {% endif %}
+            <a class="button secondary button--compact" href="/schedules?range=current_month&show=overdue#payments-overdue">Review</a>
         </div>
         {% endif %}
         

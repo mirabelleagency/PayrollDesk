@@ -884,11 +884,8 @@ def list_runs(
     overdue_query_suffix = f"?{overdue_query}" if overdue_query else ""
     overdue_fallback_url = f"/schedules{overdue_query_suffix}"
 
-    overdue_target_url = (
-        f"/schedules/{overdue_target_run_id}{overdue_query_suffix}"
-        if overdue_target_run_id
-        else overdue_fallback_url
-    )
+    # Always prefer a consolidated current-month overdue view so users see full scope
+    overdue_target_url = f"/schedules?range=current_month&show=overdue"
 
     compliance_filter_params: dict[str, object] = {"show": "compliance"}
     if target_year != today.year:
