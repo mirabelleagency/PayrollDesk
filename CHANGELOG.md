@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.19.0 - 2025-11-08
+
+### Added
+- feat(payouts): introduce new payout status 'Approved' (distinct from 'Paid' and 'Not Paid') for pre-payment verification workflow
+- ui(schedules/detail): add third quick action button to toggle Approved; inline button logic now supports Paid, Approved, On Hold cycles
+- ui(schedules/detail): add blue info chip and filter styling for Approved; row background highlight
+- importer(excel): normalize 'Approved' and 'Approve' payout status values when importing
+- tests: add test_status_approved.py covering status transitions and overdue exclusion logic
+
+### Changed
+- core(constants): extend PAYOUT_STATUS_ENUM with 'approved'
+- ui(schedules/detail): refactor status chip variant mapping to include info/neutral fallback
+
+### Notes
+- Overdue semantics remain limited to 'not_paid' and 'on_hold' to preserve existing escalation logic; 'approved' is treated as non-overdue even if past pay_date.
+
 ## v2.14.1 - 2025-11-08
 
 ## v2.16.1 - 2025-11-08

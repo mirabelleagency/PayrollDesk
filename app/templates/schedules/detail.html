@@ -212,15 +212,18 @@
         <table class="data-table schedule-payouts-table" id="payouts-table">
             <thead>
                 <tr>
-                    <th onclick="sortTable(0)" data-sortable="true" style="cursor: pointer; user-select: none;">Pay Date ▼</th>
-                    <th onclick="sortTable(1)" data-sortable="true" style="cursor: pointer; user-select: none;">Code ▼</th>
-                    <th onclick="sortTable(2)" data-sortable="true" style="cursor: pointer; user-select: none;">Working Name ▼</th>
-                    <th onclick="sortTable(3)" data-sortable="true" style="cursor: pointer; user-select: none;">Method ▼</th>
-                    <th onclick="sortTable(4)" data-sortable="true" style="cursor: pointer; user-select: none;">Frequency ▼</th>
-                    <th onclick="sortTable(5)" data-sortable="true" style="cursor: pointer; user-select: none;">Amount ▼</th>
-                    <th onclick="sortTable(6)" data-sortable="true" style="cursor: pointer; user-select: none; text-align: center;">Deductions ▼</th>
-                    <th onclick="sortTable(7)" data-sortable="true" style="cursor: pointer; user-select: none; text-align: center;">Status ▼</th>
-                    <th onclick="sortTable(8)" data-sortable="true" style="cursor: pointer; user-select: none; min-width: 200px;">Notes ▼</th>
+                    <th style="width: 40px; text-align: center;">
+                        <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" title="Select All">
+                    </th>
+                    <th onclick="sortTable(1)" data-sortable="true" style="cursor: pointer; user-select: none;">Pay Date ▼</th>
+                    <th onclick="sortTable(2)" data-sortable="true" style="cursor: pointer; user-select: none;">Code ▼</th>
+                    <th onclick="sortTable(3)" data-sortable="true" style="cursor: pointer; user-select: none;">Working Name ▼</th>
+                    <th onclick="sortTable(4)" data-sortable="true" style="cursor: pointer; user-select: none;">Method ▼</th>
+                    <th onclick="sortTable(5)" data-sortable="true" style="cursor: pointer; user-select: none;">Frequency ▼</th>
+                    <th onclick="sortTable(6)" data-sortable="true" style="cursor: pointer; user-select: none;">Amount ▼</th>
+                    <th onclick="sortTable(7)" data-sortable="true" style="cursor: pointer; user-select: none; text-align: center;">Deductions ▼</th>
+                    <th onclick="sortTable(8)" data-sortable="true" style="cursor: pointer; user-select: none; text-align: center;">Status ▼</th>
+                    <th onclick="sortTable(9)" data-sortable="true" style="cursor: pointer; user-select: none; min-width: 200px;">Notes ▼</th>
                     <th style="min-width: 120px;">Quick Actions</th>
                 </tr>
             </thead>
@@ -234,7 +237,9 @@
                     data-status="{{ payout.status }}"
                     data-is-overdue="{{ 'true' if is_overdue else 'false' }}"
                     data-amount="{{ payout.amount or 0 }}">
-                    {# Checkbox removed for single-run view #}
+                    <td style="text-align: center;">
+                        <input type="checkbox" class="payout-checkbox" value="{{ payout.id }}" onchange="updateBulkSection()" title="Select payout {{ payout.code }}">
+                    </td>
                     <td style="white-space: nowrap;">
                         <strong>{{ payout.pay_date|display_date }}</strong>
                         {% if is_overdue %}
@@ -265,7 +270,12 @@
                         {% endif %}
                     </td>
                     <td style="text-align: center;">
-                        <span class="status-chip status-chip--{{ 'success' if payout.status == 'paid' else ('warning' if payout.status == 'not_paid' else 'danger') }}">
+                        {% set variant = (
+                            'success' if payout.status == 'paid' else (
+                            'info' if payout.status == 'approved' else (
+                            'warning' if payout.status == 'not_paid' else (
+                            'danger' if payout.status == 'on_hold' else 'neutral')))) %}
+                        <span class="status-chip status-chip--{{ variant }}">
                             {{ payout.status.replace('_', ' ')|title }}
                         </span>
                         {% if is_overdue %}
@@ -291,6 +301,19 @@
                 <button class="action-button action-button--neutral js-quick-update" 
                     data-payout-id="{{ payout.id }}" data-action="not_paid"
                     title="Unmark Paid">
+                                ↺
+                            </button>
+                            {% endif %}
+                            {% if payout.status != 'approved' %}
+                <button class="action-button action-button--primary js-quick-update" 
+                    data-payout-id="{{ payout.id }}" data-action="approved"
+                    title="Mark Approved">
+                                ✔
+                            </button>
+                            {% else %}
+                <button class="action-button action-button--neutral js-quick-update" 
+                    data-payout-id="{{ payout.id }}" data-action="not_paid"
+                    title="Unmark Approved">
                                 ↺
                             </button>
                             {% endif %}
@@ -361,7 +384,7 @@
             </tbody>
             <tfoot>
                 <tr style="background: rgba(59, 130, 246, 0.05); font-weight: 600;">
-                    <th colspan="5" style="text-align: right; padding: 16px;">Cycle Total</th>
+                    <th colspan="6" style="text-align: right; padding: 16px;">Cycle Total</th>
                     <th style="font-size: 16px; color: #3b82f6;">{{ run.currency }} <span id="visible-total">{{ payout_total|money }}</span></th>
                     <th colspan="4"></th>
                 </tr>
@@ -520,7 +543,7 @@ function quickUpdateStatus(payoutId, status) {
                 row.classList.remove('payout-row--overdue');
             }
             // Toggle OVERDUE label inside status cell
-            const statusCell = row.cells[7];
+            const statusCell = row.cells[8];
             if (statusCell) {
                 let label = statusCell.querySelector('.overdue-label');
                 if (isOverdue && !label) {
@@ -537,31 +560,48 @@ function quickUpdateStatus(payoutId, status) {
             const chip = row.querySelector('.status-chip');
             if (chip) {
                 chip.textContent = newStatus.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
-                chip.classList.remove('status-chip--success', 'status-chip--warning', 'status-chip--danger');
+                chip.classList.remove('status-chip--success', 'status-chip--warning', 'status-chip--danger', 'status-chip--info', 'status-chip--neutral');
                 if (newStatus === 'paid') chip.classList.add('status-chip--success');
+                else if (newStatus === 'approved') chip.classList.add('status-chip--info');
                 else if (newStatus === 'not_paid') chip.classList.add('status-chip--warning');
-                else chip.classList.add('status-chip--danger');
+                else if (newStatus === 'on_hold') chip.classList.add('status-chip--danger');
+                else chip.classList.add('status-chip--neutral');
             }
 
             // Update quick action buttons in-place
             const buttons = row.querySelectorAll('.js-quick-update');
-            if (buttons && buttons.length >= 2) {
-                const primaryBtn = buttons[0]; // paid/unpaid toggle
-                const holdBtn = buttons[1];    // hold/unhold toggle
+            if (buttons && buttons.length >= 3) {
+                const paidBtn = buttons[0]; // paid/unpaid
+                const approvedBtn = buttons[1]; // approved/not_paid
+                const holdBtn = buttons[2];    // hold/not_paid
 
-                // Primary button
+                // Paid toggle button
                 if (newStatus === 'paid') {
-                    primaryBtn.classList.remove('action-button--success');
-                    primaryBtn.classList.add('action-button--neutral');
-                    primaryBtn.setAttribute('data-action', 'not_paid');
-                    primaryBtn.setAttribute('title', 'Unmark Paid');
-                    primaryBtn.textContent = '↺';
+                    paidBtn.classList.remove('action-button--success');
+                    paidBtn.classList.add('action-button--neutral');
+                    paidBtn.setAttribute('data-action', 'not_paid');
+                    paidBtn.setAttribute('title', 'Unmark Paid');
+                    paidBtn.textContent = '↺';
                 } else {
-                    primaryBtn.classList.remove('action-button--neutral');
-                    primaryBtn.classList.add('action-button--success');
-                    primaryBtn.setAttribute('data-action', 'paid');
-                    primaryBtn.setAttribute('title', 'Mark as Paid');
-                    primaryBtn.textContent = '✓';
+                    paidBtn.classList.remove('action-button--neutral');
+                    paidBtn.classList.add('action-button--success');
+                    paidBtn.setAttribute('data-action', 'paid');
+                    paidBtn.setAttribute('title', 'Mark as Paid');
+                    paidBtn.textContent = '✓';
+                }
+                // Approved toggle button
+                if (newStatus === 'approved') {
+                    approvedBtn.classList.remove('action-button--primary');
+                    approvedBtn.classList.add('action-button--neutral');
+                    approvedBtn.setAttribute('data-action', 'not_paid');
+                    approvedBtn.setAttribute('title', 'Unmark Approved');
+                    approvedBtn.textContent = '↺';
+                } else {
+                    approvedBtn.classList.remove('action-button--neutral');
+                    approvedBtn.classList.add('action-button--primary');
+                    approvedBtn.setAttribute('data-action', 'approved');
+                    approvedBtn.setAttribute('title', 'Mark Approved');
+                    approvedBtn.textContent = '✔';
                 }
 
                 // Hold button
@@ -1008,7 +1048,7 @@ function applyRowStatusUpdate(payoutId, newStatus, isOverdue) {
     if (isOverdue) row.classList.add('payout-row--overdue');
     else row.classList.remove('payout-row--overdue');
 
-    const statusCell = row.cells[7];
+    const statusCell = row.cells[8];
     if (statusCell) {
         let label = statusCell.querySelector('.overdue-label');
         if (isOverdue && !label) {
@@ -1024,10 +1064,12 @@ function applyRowStatusUpdate(payoutId, newStatus, isOverdue) {
     const chip = row.querySelector('.status-chip');
     if (chip) {
         chip.textContent = newStatus.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
-        chip.classList.remove('status-chip--success', 'status-chip--warning', 'status-chip--danger');
-        if (newStatus === 'paid') chip.classList.add('status-chip--success');
-        else if (newStatus === 'not_paid') chip.classList.add('status-chip--warning');
-        else chip.classList.add('status-chip--danger');
+    chip.classList.remove('status-chip--success', 'status-chip--warning', 'status-chip--danger', 'status-chip--info', 'status-chip--neutral');
+    if (newStatus === 'paid') chip.classList.add('status-chip--success');
+    else if (newStatus === 'approved') chip.classList.add('status-chip--info');
+    else if (newStatus === 'not_paid') chip.classList.add('status-chip--warning');
+    else if (newStatus === 'on_hold') chip.classList.add('status-chip--danger');
+    else chip.classList.add('status-chip--neutral');
     }
 
     const buttons = row.querySelectorAll('.js-quick-update');
@@ -1471,6 +1513,9 @@ function applyRowStatusUpdate(payoutId, newStatus, isOverdue) {
 .payout-row--on_hold {
     background: rgba(239, 68, 68, 0.05);
 }
+.payout-row--approved {
+    background: rgba(59, 130, 246, 0.07);
+}
 
 .payout-row--overdue {
     background: rgba(239, 68, 68, 0.15) !important;
@@ -1588,6 +1633,30 @@ function applyRowStatusUpdate(payoutId, newStatus, isOverdue) {
 .action-button--neutral:hover:not(:disabled) {
     background: rgba(148, 163, 184, 0.15);
     border-color: rgba(148, 163, 184, 0.4);
+}
+
+.action-button--primary {
+    border-color: rgba(59, 130, 246, 0.4);
+    color: #3b82f6;
+}
+.action-button--primary:hover:not(:disabled) {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.6);
+}
+
+/* Info status chip */
+.status-chip--info {
+    background: rgba(59, 130, 246, 0.15);
+    color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.4);
+}
+
+/* Approved filter chip */
+.status-chip-filter--approved { border-color: rgba(59,130,246,0.3); }
+.status-chip-filter--approved.status-chip-filter--active {
+    background: rgba(59,130,246,0.2);
+    color: #3b82f6;
+    border-color: rgba(59,130,246,0.4);
 }
 
 /* Bulk Actions Bar */

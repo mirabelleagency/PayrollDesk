@@ -2045,7 +2045,7 @@ def view_schedule(
     overdue_count = 0
     overdue_amount = Decimal("0")
     for payout in payouts:
-        if payout.pay_date and payout.pay_date < today and payout.status in ["not_paid", "on_hold"]:
+        if payout.pay_date and payout.pay_date < today and payout.status in ["not_paid", "on_hold", "approved"]:
             overdue_count += 1
             overdue_amount += payout.amount or Decimal("0")
 
