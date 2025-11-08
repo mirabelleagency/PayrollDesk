@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.8.1 - 2025-11-08
+
+- ui(models): remove hover lift and broad transitions on the Models page to eliminate perceived animations; keep subtle feedback only
+- chore: bump version to 2.8.1
+
 ## v2.7.0 - 2025-11-08
 
 - feature(ui): add `/changelog` route, markdown rendering, and sidebar link to publish release notes in-app
