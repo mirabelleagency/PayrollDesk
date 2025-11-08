@@ -4,11 +4,10 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Response, Request
-from fastapi.responses import RedirectResponse, HTMLResponse
-from fastapi.exceptions import RequestValidationError
-from fastapi import status
+from fastapi.responses import RedirectResponse
+from fastapi import status, HTTPException
 from fastapi.responses import JSONResponse
-from fastapi import HTTPException
+from urllib.parse import quote
 from fastapi.staticfiles import StaticFiles
 
 from app.database import init_db
@@ -62,5 +61,10 @@ async def http_exception_redirect_login(request: Request, exc: HTTPException):
     accept = request.headers.get("accept", "")
     wants_html = "text/html" in accept or "*/*" in accept  # browsers often send */*
     if wants_html:
-        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+        # Preserve original target so we can return after login
+        original = request.url.path
+        if request.url.query:
+            original = f"{original}?{request.url.query}"
+        login_url = f"/login?next={quote(original, safe='')}"
+        return RedirectResponse(url=login_url, status_code=status.HTTP_303_SEE_OTHER)
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})

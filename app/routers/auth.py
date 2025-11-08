@@ -21,8 +21,9 @@ router = APIRouter(tags=["Auth"])
 
 @router.get("/login")
 def login_page(request: Request):
-    """Render login page."""
-    return templates.TemplateResponse("auth/login.html", {"request": request})
+    """Render login page, optionally preserving a next destination."""
+    next_param = request.query_params.get("next")
+    return templates.TemplateResponse("auth/login.html", {"request": request, "next": next_param})
 
 
 @router.post("/login")
@@ -30,6 +31,7 @@ def login(
     request: Request,
     username: str = Form(...),
     password: str = Form(...),
+    next: str | None = Form(default=None),
     db: Session = Depends(get_session),
 ):
     """Handle login form submission with rate limiting and account lockout."""
@@ -84,8 +86,14 @@ def login(
     reset_failed_login(db, username)
     record_login_attempt(db, username, True, client_ip, user_agent)
     
-    # Set session cookie and redirect to dashboard
-    response = RedirectResponse(url="/dashboard", status_code=303)
+    # Determine safe redirect target
+    redirect_to = next or request.query_params.get("next") or "/dashboard"
+    # Prevent open redirects: only allow same-site paths
+    if not isinstance(redirect_to, str) or "://" in redirect_to or not redirect_to.startswith("/"):
+        redirect_to = "/dashboard"
+
+    # Set session cookie and redirect
+    response = RedirectResponse(url=redirect_to, status_code=303)
     # In production (Render), secure=True for HTTPS. In dev, secure=False for HTTP.
     is_production = os.getenv("PAYROLL_DATABASE_URL", "").startswith("postgresql")
     response.set_cookie(
