@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 - fix(types): correct form parameter types (date, Decimal) for model create/update; resolve Pylance diagnostics
 - feat(auth): add next parameter support to login redirect (return user to intended destination after auth)
 - feat(auth): redirect 401 HTML requests to login with original path preserved
+- a11y: add prefers-reduced-motion CSS to respect user accessibility settings
 
 ## v2.9.1 - 2025-11-08
 
