@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.7.0 - 2025-11-08
+
+- feature(ui): add `/changelog` route, markdown rendering, and sidebar link to publish release notes in-app
+- feature(models): paginate roster table with database-backed counts, page controls, and live aggregates
+- ui(models): align filter clear action with select inputs for consistent layout
+- build: add `markdown` dependency for rendering documentation
+- docs: describe version bump workflow and changelog surface in README
+
 ## [2.0.0] - 2025-10-20
 ### Added
 - Stable release: Consolidated exporter to `app.exporting` with a new multi-sheet XLSX exporter.

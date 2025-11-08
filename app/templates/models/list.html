@@ -78,14 +78,14 @@
             <span class="model-metric__icon">👥</span>
             <span class="model-metric__label">Total Roster</span>
         </div>
-        <div class="model-metric__value">{{ models|length }}</div>
+        <div class="model-metric__value">{{ pagination.total_count }}</div>
         <div class="model-metric__breakdown">
             <span class="model-metric__item model-metric__item--success">
-                {{ models|selectattr('status', 'equalto', 'Active')|list|length }} Active
+                {{ status_counts.get('Active', 0) }} Active
             </span>
             <span class="model-metric__divider">·</span>
             <span class="model-metric__item model-metric__item--neutral">
-                {{ models|selectattr('status', 'equalto', 'Inactive')|list|length }} Inactive
+                {{ status_counts.get('Inactive', 0) }} Inactive
             </span>
         </div>
     </div>
@@ -105,7 +105,7 @@
             {% if filters.payment_method %}
                 {{ method_counts.get(filters.payment_method, 0) }}
             {% else %}
-                {{ models|length }}
+                {{ pagination.total_count }}
             {% endif %}
         </div>
         <div class="model-metric__breakdown">
@@ -132,7 +132,7 @@
             {% if filters.frequency %}
                 {{ frequency_counts.get(filters.frequency, 0) }}
             {% else %}
-                {{ models|length }}
+                {{ pagination.total_count }}
             {% endif %}
         </div>
         <div class="model-metric__breakdown">
@@ -157,9 +157,8 @@
         </div>
         <div class="model-metric__value">USD {{ total_paid_sum|money }}</div>
         <div class="model-metric__breakdown">
-            {% set active_models = models|selectattr('status', 'equalto', 'Active')|list %}
             <span class="model-metric__item">
-                {{ '%.2f'|format(total_paid_sum / active_models|length if active_models|length > 0 else 0) }} avg/active
+                {{ average_paid_active|money }} avg/active
             </span>
         </div>
     </div>
@@ -169,6 +168,7 @@
 <section class="card" style="margin-top: 24px;">
     <div class="filter-toolbar">
         <form class="filter-toolbar__filters" method="get">
+            <input type="hidden" name="page" value="1">
             <div class="filter-group filter-group--compact filter-group--search">
                 <label for="quick-search">Search</label>
                 <input type="text" id="quick-search" placeholder="🔍 Quick search by code, name, or wallet..." 
@@ -204,18 +204,36 @@
                     {% endfor %}
                 </select>
             </div>
+
+            <div class="filter-group filter-group--compact">
+                <label for="page_size">Rows per page</label>
+                <select id="page_size" name="page_size" onchange="this.form.submit()">
+                    {% for size in page_sizes %}
+                        <option value="{{ size }}" {% if pagination.page_size == size %}selected{% endif %}>{{ size }}</option>
+                    {% endfor %}
+                </select>
+            </div>
             
             {% if filters.code or filters.status or filters.frequency or filters.payment_method %}
-            <a class="button secondary button--compact" href="/models" style="margin-left: auto;">
-                <span>✕</span>
-                <span>Clear</span>
-            </a>
+            <div class="filter-group filter-group--compact filter-group--clear">
+                <label for="filter-clear">&nbsp;</label>
+                <a id="filter-clear" class="button secondary button--compact" href="/models">
+                    <span>✕</span>
+                    <span>Clear</span>
+                </a>
+            </div>
             {% endif %}
         </form>
     </div>
     
     <div class="filter-toolbar__stats" id="filter-stats">
-        <span>Showing <strong id="visible-count">{{ models|length }}</strong> of <strong>{{ models|length }}</strong> models</span>
+        <span>
+            Showing <strong id="visible-count">{{ pagination.page_count }}</strong> of
+            <strong id="total-count">{{ pagination.total_count }}</strong> models
+            {% if pagination.total_count %}
+                (rows {{ pagination.start_index }}-{{ pagination.end_index }})
+            {% endif %}
+        </span>
     </div>
 </section>
 
@@ -318,6 +336,34 @@
             </tbody>
         </table>
     </div>
+
+    {% if pagination.total_pages > 1 %}
+    <nav class="pagination-nav" aria-label="Models pagination" style="margin-top: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+        <div>
+            {% if pagination.has_previous %}
+                <a class="button secondary button--compact" href="{{ pagination.previous_url }}">← Previous</a>
+            {% else %}
+                <span class="button secondary button--compact" style="opacity: 0.5; pointer-events: none;">← Previous</span>
+            {% endif %}
+        </div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;">
+            {% for link in pagination.page_links %}
+                {% if link.is_current %}
+                    <span class="button button--compact" style="pointer-events: none;">{{ link.number }}</span>
+                {% else %}
+                    <a class="button secondary button--compact" href="{{ link.url }}">{{ link.number }}</a>
+                {% endif %}
+            {% endfor %}
+        </div>
+        <div>
+            {% if pagination.has_next %}
+                <a class="button secondary button--compact" href="{{ pagination.next_url }}">Next →</a>
+            {% else %}
+                <span class="button secondary button--compact" style="opacity: 0.5; pointer-events: none;">Next →</span>
+            {% endif %}
+        </div>
+    </nav>
+    {% endif %}
 </section>
 
 {% if user.role == 'admin' %}
@@ -875,6 +921,14 @@ document.addEventListener('DOMContentLoaded', function () {
     font-size: 13px;
     font-weight: 500;
     color: #cbd5e1;
+}
+
+.filter-group--clear {
+    align-self: flex-end;
+}
+
+.filter-group--clear label {
+    visibility: hidden;
 }
 
 .filter-group--compact select {

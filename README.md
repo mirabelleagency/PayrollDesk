@@ -37,6 +37,11 @@ Visit `http://127.0.0.1:8000` and use the navigation links to:
 
 The application stores data in `data/payroll.db` (SQLite). Override the location by setting the `PAYROLL_DATABASE_URL` environment variable.
 
+### Switching between SQLite (dev) and Postgres (prod)
+
+- Local development: set `ENVIRONMENT=development` (or `dev`) and run the server. If a Postgres URL is unreachable, the app now falls back to the bundled SQLite database automatically. To **force Postgres failures locally**, set `LOCAL_DEV_SQLITE_FALLBACK=0`.
+- Production/staging: set `ENVIRONMENT=production` (or leave unset) and point `PAYROLL_DATABASE_URL` to your managed Postgres instance. In these environments the SQLite fallback stays disabled unless you explicitly set `LOCAL_DEV_SQLITE_FALLBACK=1`.
+
 ## Production database on Render (Postgres)
 
 Use PostgreSQL in production to avoid data loss across deploys and dyno restarts.
@@ -50,7 +55,7 @@ Use PostgreSQL in production to avoid data loss across deploys and dyno restarts
 - In your Render web service ("payroll-desk"), add/update:
 	- `PAYROLL_DATABASE_URL` = the Postgres connection string above
 	- `ENVIRONMENT` = `production`
-	- `LOCAL_DEV_SQLITE_FALLBACK` = `false` (or leave it unset)
+	- `LOCAL_DEV_SQLITE_FALLBACK` = `false` (optional — defaults to disabled in production)
 
 3) Redeploy/restart
 - Save the variables and trigger a deploy/restart so the app reconnects using Postgres.
@@ -74,6 +79,12 @@ python -m pytest
 ```
 
 Sample data is available in `models_sample.csv` for quick experimentation.
+
+## Versioning & Release Notes
+
+- Run `python scripts/auto_bump_and_changelog.py` before pushing to `staging`, `develop`, or `main`. The helper bumps `app/__version__`, appends the latest commits to `CHANGELOG.md`, and tags the release when run in CI.
+- The UI surfaces the active build number in the lower-right corner and exposes the full changelog at `/changelog` (also linked from the sidebar).
+- Keep commit messages descriptive—those lines populate the release notes grouped under each version section.
 
 ## Branching Workflow
 
