@@ -282,34 +282,34 @@
                     <td>
                         <div style="display: flex; gap: 6px; align-items: center;">
                             {% if payout.status != 'paid' %}
-                            <button class="action-button action-button--success" 
-                                    onclick="quickUpdateStatus({{ payout.id }}, 'paid')" 
-                                    title="Mark as Paid">
+                <button class="action-button action-button--success js-quick-update" 
+                    data-payout-id="{{ payout.id }}" data-action="paid"
+                    title="Mark as Paid">
                                 ✓
                             </button>
                             {% else %}
-                            <button class="action-button action-button--neutral" 
-                                    onclick="quickUpdateStatus({{ payout.id }}, 'not_paid')" 
-                                    title="Unmark Paid">
+                <button class="action-button action-button--neutral js-quick-update" 
+                    data-payout-id="{{ payout.id }}" data-action="not_paid"
+                    title="Unmark Paid">
                                 ↺
                             </button>
                             {% endif %}
                             {% if payout.status != 'on_hold' %}
-                            <button class="action-button action-button--warning" 
-                                    onclick="quickUpdateStatus({{ payout.id }}, 'on_hold')" 
-                                    title="Put On Hold">
+                <button class="action-button action-button--warning js-quick-update" 
+                    data-payout-id="{{ payout.id }}" data-action="on_hold"
+                    title="Put On Hold">
                                 ⏸
                             </button>
                             {% else %}
-                            <button class="action-button action-button--neutral" 
-                                    onclick="quickUpdateStatus({{ payout.id }}, 'not_paid')" 
-                                    title="Remove Hold">
+                <button class="action-button action-button--neutral js-quick-update" 
+                    data-payout-id="{{ payout.id }}" data-action="not_paid"
+                    title="Remove Hold">
                                 ▶
                             </button>
                             {% endif %}
-                            <button class="action-button action-button--secondary" 
-                                    onclick="toggleNotesRow({{ payout.id }})" 
-                                    title="Edit Notes">
+                <button class="action-button action-button--secondary js-toggle-notes" 
+                    data-payout-id="{{ payout.id }}"
+                    title="Edit Notes">
                                 📝
                             </button>
                         </div>
@@ -344,8 +344,8 @@
                                         <span>💾</span>
                                         <span>Save</span>
                                     </button>
-                                    <button class="button secondary button--compact" type="button" 
-                                            onclick="toggleNotesRow({{ payout.id }})">
+                                    <button class="button secondary button--compact js-toggle-notes" type="button" 
+                                            data-payout-id="{{ payout.id }}">
                                         Cancel
                                     </button>
                                 </div>
@@ -492,30 +492,122 @@ function cancelBulkUpdate() {
 
 // Quick status update via button
 function quickUpdateStatus(payoutId, status) {
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = `/schedules/{{ run.id }}/payouts/${payoutId}/note`;
-    
-    const statusInput = document.createElement('input');
-    statusInput.type = 'hidden';
-    statusInput.name = 'status';
-    statusInput.value = status;
-    
-    const notesInput = document.createElement('input');
-    notesInput.type = 'hidden';
-    notesInput.name = 'notes';
-    notesInput.value = '';
-    
-    const redirectInput = document.createElement('input');
-    redirectInput.type = 'hidden';
-    redirectInput.name = 'redirect_to';
-    redirectInput.value = window.location.pathname + window.location.search;
+    // Try in-place update via JSON endpoint first; fallback to form submit on failure
+    const endpoint = `/schedules/{{ run.id }}/payouts/${payoutId}/status`;
+    const formData = new FormData();
+    formData.append('status', status);
 
-    form.appendChild(statusInput);
-    form.appendChild(notesInput);
-    form.appendChild(redirectInput);
-    document.body.appendChild(form);
-    form.submit();
+    fetch(endpoint, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'fetch' } })
+        .then(async (res) => {
+            if (!res.ok) throw new Error('Bad response');
+            return res.json();
+        })
+        .then((data) => {
+            if (!data || !data.ok) throw new Error('Update failed');
+            const row = document.querySelector(`tr.payout-row[data-payout-id="${payoutId}"]`);
+            if (!row) return;
+
+            // Update data-status
+            const newStatus = String(data.new_status || '').toLowerCase();
+            row.setAttribute('data-status', newStatus);
+
+            // Update overdue class/label
+            const wasOverdue = row.classList.contains('payout-row--overdue');
+            const isOverdue = !!data.is_overdue;
+            if (isOverdue) {
+                row.classList.add('payout-row--overdue');
+            } else {
+                row.classList.remove('payout-row--overdue');
+            }
+            // Toggle OVERDUE label inside status cell
+            const statusCell = row.cells[7];
+            if (statusCell) {
+                let label = statusCell.querySelector('.overdue-label');
+                if (isOverdue && !label) {
+                    label = document.createElement('span');
+                    label.className = 'overdue-label';
+                    label.textContent = 'OVERDUE';
+                    statusCell.appendChild(label);
+                } else if (!isOverdue && label) {
+                    label.remove();
+                }
+            }
+
+            // Update status chip text and variant
+            const chip = row.querySelector('.status-chip');
+            if (chip) {
+                chip.textContent = newStatus.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+                chip.classList.remove('status-chip--success', 'status-chip--warning', 'status-chip--danger');
+                if (newStatus === 'paid') chip.classList.add('status-chip--success');
+                else if (newStatus === 'not_paid') chip.classList.add('status-chip--warning');
+                else chip.classList.add('status-chip--danger');
+            }
+
+            // Update quick action buttons in-place
+            const buttons = row.querySelectorAll('.js-quick-update');
+            if (buttons && buttons.length >= 2) {
+                const primaryBtn = buttons[0]; // paid/unpaid toggle
+                const holdBtn = buttons[1];    // hold/unhold toggle
+
+                // Primary button
+                if (newStatus === 'paid') {
+                    primaryBtn.classList.remove('action-button--success');
+                    primaryBtn.classList.add('action-button--neutral');
+                    primaryBtn.setAttribute('data-action', 'not_paid');
+                    primaryBtn.setAttribute('title', 'Unmark Paid');
+                    primaryBtn.textContent = '↺';
+                } else {
+                    primaryBtn.classList.remove('action-button--neutral');
+                    primaryBtn.classList.add('action-button--success');
+                    primaryBtn.setAttribute('data-action', 'paid');
+                    primaryBtn.setAttribute('title', 'Mark as Paid');
+                    primaryBtn.textContent = '✓';
+                }
+
+                // Hold button
+                if (newStatus === 'on_hold') {
+                    holdBtn.classList.remove('action-button--warning');
+                    holdBtn.classList.add('action-button--neutral');
+                    holdBtn.setAttribute('data-action', 'not_paid');
+                    holdBtn.setAttribute('title', 'Remove Hold');
+                    holdBtn.textContent = '▶';
+                } else {
+                    holdBtn.classList.remove('action-button--neutral');
+                    holdBtn.classList.add('action-button--warning');
+                    holdBtn.setAttribute('data-action', 'on_hold');
+                    holdBtn.setAttribute('title', 'Put On Hold');
+                    holdBtn.textContent = '⏸';
+                }
+            }
+
+            // Recompute totals if that widget exists
+            if (typeof recomputeVisibleTotal === 'function') {
+                try { recomputeVisibleTotal(); } catch (_) { }
+            }
+        })
+        .catch(() => {
+            // Fallback to original form submit behavior to preserve functionality
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/schedules/{{ run.id }}/payouts/${payoutId}/note`;
+            const statusInput = document.createElement('input');
+            statusInput.type = 'hidden';
+            statusInput.name = 'status';
+            statusInput.value = status;
+            const notesInput = document.createElement('input');
+            notesInput.type = 'hidden';
+            notesInput.name = 'notes';
+            notesInput.value = '';
+            const redirectInput = document.createElement('input');
+            redirectInput.type = 'hidden';
+            redirectInput.name = 'redirect_to';
+            redirectInput.value = window.location.pathname + window.location.search;
+            form.appendChild(statusInput);
+            form.appendChild(notesInput);
+            form.appendChild(redirectInput);
+            document.body.appendChild(form);
+            form.submit();
+        });
 }
 
 // Toggle notes row for editing
@@ -551,15 +643,45 @@ function toggleValidation() {
     }
 }
 
-// Filter by status (chip buttons)
+// Filter by status (chip buttons) - client-side, no reload
 function filterByStatus(status) {
+    const tableBody = document.querySelector('#payouts-table tbody');
+    if (!tableBody) return;
+
+    const rows = Array.from(tableBody.querySelectorAll('tr.payout-row'));
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+        const rowStatus = (row.getAttribute('data-status') || '').toLowerCase();
+        const match = !status || rowStatus === status.toLowerCase();
+        if (match) {
+            row.style.display = '';
+            const payoutId = row.getAttribute('data-payout-id');
+            const notesRow = document.getElementById(`notes-row-${payoutId}`);
+            if (notesRow && notesRow.style.display !== 'none') {
+                notesRow.style.display = '';
+            }
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+            const payoutId = row.getAttribute('data-payout-id');
+            const notesRow = document.getElementById(`notes-row-${payoutId}`);
+            if (notesRow) notesRow.style.display = 'none';
+        }
+    });
+
+    const visibleCountEl = document.getElementById('visible-count');
+    if (visibleCountEl) visibleCountEl.textContent = visibleCount;
+
+    // Update URL without reload so it's shareable
     const url = new URL(window.location.href);
-    if (status) {
-        url.searchParams.set('status', status);
-    } else {
-        url.searchParams.delete('status');
+    if (status) url.searchParams.set('status', status);
+    else url.searchParams.delete('status');
+    history.replaceState(null, '', url.toString());
+
+    if (typeof recomputeVisibleTotal === 'function') {
+        try { recomputeVisibleTotal(); } catch (_) { }
     }
-    window.location.href = url.toString();
 }
 
 // Filter by overdue (client-side)
@@ -812,6 +934,132 @@ function recomputeVisibleTotal() {
     const totalEl = document.getElementById('visible-total');
     if (totalEl) {
         totalEl.textContent = formatMoney(total);
+    }
+}
+
+// Delegated click handlers for quick updates and toggling notes
+document.addEventListener('click', function (e) {
+    const quickBtn = e.target.closest('.js-quick-update');
+    if (quickBtn) {
+        const payoutId = quickBtn.getAttribute('data-payout-id');
+        const action = quickBtn.getAttribute('data-action');
+        if (payoutId && action) {
+            quickUpdateStatus(payoutId, action);
+        }
+        return;
+    }
+    const notesBtn = e.target.closest('.js-toggle-notes');
+    if (notesBtn) {
+        const payoutId = notesBtn.getAttribute('data-payout-id');
+        if (payoutId) {
+            toggleNotesRow(payoutId);
+        }
+    }
+});
+
+// Intercept bulk form submit for in-place updates
+document.addEventListener('submit', function (e) {
+    const form = e.target.closest('#bulk-form');
+    if (!form) return;
+    e.preventDefault();
+    const ids = document.getElementById('bulk-payout-ids')?.value || '';
+    const statusSel = document.getElementById('bulk-status');
+    const status = statusSel ? statusSel.value : '';
+    if (!ids || !status) return;
+
+    const endpoint = `/schedules/{{ run.id }}/payouts/bulk-update/status`;
+    const fd = new FormData();
+    fd.append('payout_ids', ids);
+    fd.append('status', status);
+
+    fetch(endpoint, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'fetch' } })
+        .then(async (res) => {
+            if (!res.ok) throw new Error('Bad response');
+            return res.json();
+        })
+        .then((data) => {
+            if (!data || !data.ok) throw new Error('Update failed');
+            const updatedIds = data.updated_ids || [];
+            const overdueFlags = data.overdue_flags || {};
+            const newStatus = String(data.new_status || '').toLowerCase();
+
+            updatedIds.forEach((pid) => {
+                applyRowStatusUpdate(String(pid), newStatus, !!overdueFlags[pid]);
+            });
+
+            // Clear selection and hide bulk bar
+            cancelBulkUpdate();
+            if (typeof recomputeVisibleTotal === 'function') {
+                try { recomputeVisibleTotal(); } catch (_) { }
+            }
+        })
+        .catch(() => {
+            // Fallback to regular submit if fetch fails
+            form.submit();
+        });
+});
+
+// Helper to apply DOM updates after a status change
+function applyRowStatusUpdate(payoutId, newStatus, isOverdue) {
+    const row = document.querySelector(`tr.payout-row[data-payout-id="${payoutId}"]`);
+    if (!row) return;
+    row.setAttribute('data-status', newStatus);
+
+    if (isOverdue) row.classList.add('payout-row--overdue');
+    else row.classList.remove('payout-row--overdue');
+
+    const statusCell = row.cells[7];
+    if (statusCell) {
+        let label = statusCell.querySelector('.overdue-label');
+        if (isOverdue && !label) {
+            label = document.createElement('span');
+            label.className = 'overdue-label';
+            label.textContent = 'OVERDUE';
+            statusCell.appendChild(label);
+        } else if (!isOverdue && label) {
+            label.remove();
+        }
+    }
+
+    const chip = row.querySelector('.status-chip');
+    if (chip) {
+        chip.textContent = newStatus.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+        chip.classList.remove('status-chip--success', 'status-chip--warning', 'status-chip--danger');
+        if (newStatus === 'paid') chip.classList.add('status-chip--success');
+        else if (newStatus === 'not_paid') chip.classList.add('status-chip--warning');
+        else chip.classList.add('status-chip--danger');
+    }
+
+    const buttons = row.querySelectorAll('.js-quick-update');
+    if (buttons && buttons.length >= 2) {
+        const primaryBtn = buttons[0];
+        const holdBtn = buttons[1];
+        if (newStatus === 'paid') {
+            primaryBtn.classList.remove('action-button--success');
+            primaryBtn.classList.add('action-button--neutral');
+            primaryBtn.setAttribute('data-action', 'not_paid');
+            primaryBtn.setAttribute('title', 'Unmark Paid');
+            primaryBtn.textContent = '↺';
+        } else {
+            primaryBtn.classList.remove('action-button--neutral');
+            primaryBtn.classList.add('action-button--success');
+            primaryBtn.setAttribute('data-action', 'paid');
+            primaryBtn.setAttribute('title', 'Mark as Paid');
+            primaryBtn.textContent = '✓';
+        }
+        if (newStatus === 'on_hold') {
+            holdBtn.classList.remove('action-button--warning');
+            holdBtn.classList.add('action-button--neutral');
+            holdBtn.setAttribute('data-action', 'not_paid');
+            holdBtn.setAttribute('title', 'Remove Hold');
+            holdBtn.textContent = '▶';
+        } else {
+            holdBtn.classList.remove('action-button--neutral');
+            holdBtn.classList.add('action-button--warning');
+            holdBtn.setAttribute('data-action', 'on_hold');
+            holdBtn.setAttribute('title', 'Put On Hold');
+            holdBtn.textContent = '⏸';
+        }
     }
 }
 </script>

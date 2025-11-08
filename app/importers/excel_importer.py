@@ -279,26 +279,42 @@ def load_sheet(workbook_bytes: bytes, sheet_name: str) -> pd.DataFrame:
 
 
 def group_payout_rows_by_month(df: pd.DataFrame) -> tuple[dict[tuple[int, int], pd.DataFrame], list[str]]:
+    """Group payout rows by (year, month) of pay_date.
+
+    Parses each pay_date cell robustly and collects invalid rows as errors without aborting.
+    Returns a mapping of (year, month) -> sub-DataFrame preserving the original row order.
+    """
     column = resolve_column(df, PAYOUT_COLUMNS["pay_date"]["aliases"])
     if not column:
         raise ValueError("Missing required pay_date column in payout sheet")
 
     errors: list[str] = []
-    buckets: dict[tuple[int, int], list[int]] = {}
+    parsed_dates: list[date | None] = []
+    row_numbers: list[int] = []
 
-    for index, raw in df[column].items():
+    # Parse dates row-by-row so we can retain row numbers for error messages
+    for idx, raw in df[column].items():
         try:
-            pay_date = parse_date_value(raw, "pay date")
+            parsed = parse_date_value(raw, "pay date")
+            parsed_dates.append(parsed)
         except ValueError as exc:
-            errors.append(f"Row {_row_number(index)}: {exc}")
-            continue
-        key = (pay_date.year, pay_date.month)
-    idx_as_int = max(_row_number(index) - 2, 0)
-    buckets.setdefault(key, []).append(idx_as_int)
+            errors.append(f"Row {_row_number(idx)}: {exc}")
+            parsed_dates.append(None)
+        row_numbers.append(_row_number(idx))
 
+    # Build (year, month) keys for valid rows
+    groups: dict[tuple[int, int], list[int]] = {}
+    for i, d in enumerate(parsed_dates):
+        if d is None:
+            continue
+        key = (d.year, d.month)
+        groups.setdefault(key, []).append(i)
+
+    # Slice by positional indices to avoid label-vs-position confusion
     grouped_frames: dict[tuple[int, int], pd.DataFrame] = {}
-    for key, indices in buckets.items():
-        grouped_frames[key] = df.loc[indices].copy()
+    for key, positions in groups.items():
+        # Use iloc to pick rows by position; copy to detach from original
+        grouped_frames[key] = df.iloc[positions].copy()
 
     return grouped_frames, errors
 
@@ -309,7 +325,8 @@ def import_models(df: pd.DataFrame, session: Session, update_existing: bool) -> 
     errors: list[str] = []
     normalized = normalize_columns(df, MODEL_COLUMNS, "model")
     records = normalized.dropna(how="all")
-    existing = {m.code.lower(): m for m in session.query(Model).all()}
+    # Normalize codes when building lookup keys to avoid trailing/leading whitespace mismatches
+    existing = {(m.code or "").strip().lower(): m for m in session.query(Model).all()}
 
     for idx, row in records.iterrows():
         code_raw = row.get("code")
@@ -378,7 +395,8 @@ def import_compensation_adjustments(
     errors: list[str] = []
     normalized = normalize_columns(df, ADJUSTMENT_COLUMNS, "compensation adjustment")
     records = normalized.dropna(how="all")
-    models_by_code = {m.code.lower(): m for m in session.query(Model).all()}
+    # Normalize codes to be resilient to stray whitespace or casing differences
+    models_by_code = {(m.code or "").strip().lower(): m for m in session.query(Model).all()}
 
     for idx, row in records.iterrows():
         code_raw = row.get("code")
@@ -440,7 +458,8 @@ def import_adhoc_payments(
     normalized = normalize_columns(df, ADHOC_COLUMNS, "adhoc")
     records = normalized.dropna(how="all")
 
-    models_by_code = {m.code.lower(): m for m in session.query(Model).all()}
+    # Normalize codes to match input values even if DB has stray spaces/casing
+    models_by_code = {(m.code or "").strip().lower(): m for m in session.query(Model).all()}
     # Prefetch all existing adhoc payments and index by (model_id, pay_date, normalized_description)
     existing_index: dict[tuple[int, date, str], AdhocPayment] = {}
     for ap in session.query(AdhocPayment).all():

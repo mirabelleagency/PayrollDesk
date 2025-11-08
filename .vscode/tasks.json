@@ -29,6 +29,41 @@
       "runOptions": {
         "runOn": "default"
       }
+    },
+    {
+      "label": "Run Uvicorn Server (SQLite Dev)",
+      "type": "shell",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": [],
+      "command": "& \"${workspaceFolder}\\.venv\\Scripts\\Activate.ps1\"; uvicorn app.main:app --reload --host 127.0.0.1 --port 8000",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "ENVIRONMENT": "development",
+          "LOCAL_DEV_SQLITE_FALLBACK": "true",
+          "PAYROLL_DATABASE_URL": "sqlite:///data/payroll.db"
+        },
+        "shell": {
+          "executable": "powershell.exe",
+          "args": [
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command"
+          ]
+        }
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
     }
   ]
 }

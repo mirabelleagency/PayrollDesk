@@ -4,6 +4,7 @@ from __future__ import annotations
 Update the import template to include dropdown validations for:
 - Models sheet: payment_frequency (weekly, biweekly, monthly)
 - Payouts sheet: status (paid, on_hold, not_paid)
+- Adhoc sheet: status (pending, paid, cancelled) and create the sheet if missing
 
 Run this script whenever enums change to refresh the template.
 """
@@ -45,6 +46,23 @@ def _apply_list_validation(ws: Worksheet, col_idx: int, allowed: Iterable[str]) 
     dv.add(f"{letter}2:{letter}1048576")
 
 
+def _ensure_adhoc_sheet(wb) -> Worksheet:
+    """Ensure an 'Adhoc' sheet exists with expected headers. Return the worksheet."""
+    headers = ["code", "pay_date", "amount", "status", "description", "notes"]
+    if "Adhoc" in wb.sheetnames:
+        ws = wb["Adhoc"]
+        # If header row is empty, set headers
+        existing = [str(c.value).strip().lower() if c.value else "" for c in ws[1]]
+        if not any(existing):
+            for i, name in enumerate(headers, start=1):
+                ws.cell(row=1, column=i, value=name)
+        return ws
+    ws = wb.create_sheet(title="Adhoc")
+    for i, name in enumerate(headers, start=1):
+        ws.cell(row=1, column=i, value=name)
+    return ws
+
+
 def main() -> None:
     if not TEMPLATE_PATH.exists():
         raise SystemExit(f"Template not found: {TEMPLATE_PATH}")
@@ -52,6 +70,7 @@ def main() -> None:
     # Define enums here to avoid importing SQLAlchemy models (keeps script lightweight).
     FREQUENCY_ENUM = ("weekly", "biweekly", "monthly")
     PAYOUT_STATUS_ENUM = ("paid", "on_hold", "not_paid")
+    ADHOC_STATUS_ENUM = ("pending", "paid", "cancelled")
 
     wb = load_workbook(TEMPLATE_PATH)
 
@@ -78,6 +97,12 @@ def main() -> None:
             print("[WARN] Could not find status column in Payouts sheet")
     else:
         print("[WARN] Payouts sheet not found in template")
+
+    # Adhoc sheet: ensure exists and apply status validation
+    ws_adhoc = _ensure_adhoc_sheet(wb)
+    idx = _find_column_index(ws_adhoc, ["status"]) or 4
+    _apply_list_validation(ws_adhoc, idx, ADHOC_STATUS_ENUM)
+    print(f"Applied status validation to Adhoc!{idx} (sheet ensured)")
 
     wb.save(TEMPLATE_PATH)
     print("Template updated:", TEMPLATE_PATH)

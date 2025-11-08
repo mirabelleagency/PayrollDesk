@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import io
+import math
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from itertools import zip_longest
@@ -32,6 +33,8 @@ import os
 router = APIRouter(prefix="/models", tags=["Models"])
 
 _DECIMAL_PLACES = Decimal("0.01")
+DEFAULT_PAGE_SIZE = 50
+PAGE_SIZE_OPTIONS = [25, 50, 100, 200]
 
 
 def _normalize_filters(
@@ -47,6 +50,50 @@ def _normalize_filters(
     return code_filter, status_filter, frequency_filter, method_filter
 
 
+def _build_page_url(
+    request: Request,
+    base_params: dict[str, str],
+    page: int,
+    page_size: int,
+) -> str:
+    params = dict(base_params)
+    params["page_size"] = str(page_size)
+    if page > 1:
+        params["page"] = str(page)
+    else:
+        params.pop("page", None)
+    query = urlencode(params)
+    path = request.url.path
+    return f"{path}?{query}" if query else path
+
+
+def _build_page_links(
+    request: Request,
+    base_params: dict[str, str],
+    page: int,
+    total_pages: int,
+    page_size: int,
+) -> list[dict[str, Any]]:
+    if total_pages <= 1:
+        return []
+
+    max_links = 7
+    start = max(1, page - max_links // 2)
+    end = min(total_pages, start + max_links - 1)
+    start = max(1, end - max_links + 1)
+
+    links: list[dict[str, Any]] = []
+    for number in range(start, end + 1):
+        links.append(
+            {
+                "number": number,
+                "url": _build_page_url(request, base_params, number, page_size),
+                "is_current": number == page,
+            }
+        )
+    return links
+
+
 def _build_model_list_context(
     request: Request,
     user: User,
@@ -55,13 +102,15 @@ def _build_model_list_context(
     status: str | None,
     frequency: str | None,
     payment_method: str | None,
+    page: int,
+    page_size: int,
     extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     code_filter, status_filter, frequency_filter, method_filter = _normalize_filters(
         code, status, frequency, payment_method
     )
 
-    models = crud.list_models(
+    total_count = crud.count_models(
         db,
         code=code_filter,
         status=status_filter,
@@ -69,23 +118,73 @@ def _build_model_list_context(
         payment_method=method_filter,
     )
 
+    total_pages = max(1, math.ceil(total_count / page_size)) if total_count else 1
+    current_page = max(1, min(page, total_pages))
+    offset = (current_page - 1) * page_size if total_count else 0
+
+    models = []
+    if total_count:
+        models = crud.list_models(
+            db,
+            code=code_filter,
+            status=status_filter,
+            frequency=frequency_filter,
+            payment_method=method_filter,
+            limit=page_size,
+            offset=offset,
+        )
+
+    page_count = len(models)
+    start_index = offset + 1 if total_count else 0
+    end_index = offset + page_count
+
     totals_map = crud.total_paid_by_model(db, [model.id for model in models])
-    total_paid_sum = sum(totals_map.values(), Decimal("0")) if totals_map else Decimal("0")
+    total_paid_sum = crud.sum_paid_for_models(
+        db,
+        code=code_filter,
+        status=status_filter,
+        frequency=frequency_filter,
+        payment_method=method_filter,
+    )
     payment_methods = crud.list_payment_methods(db)
 
-    # Count models per payment method for the current (filtered) list
-    method_counts: dict[str, int] = {}
-    for model in models:
-        method = (model.payment_method or "").strip()
-        if method:
-            method_counts[method] = method_counts.get(method, 0) + 1
+    status_counts_raw = crud.count_models_by_status(
+        db,
+        code=code_filter,
+        status=status_filter,
+        frequency=frequency_filter,
+        payment_method=method_filter,
+    )
+    status_counts = {status: status_counts_raw.get(status, 0) for status in STATUS_ENUM}
+    for status_value, count in status_counts_raw.items():
+        if status_value not in status_counts and status_value:
+            status_counts[status_value] = count
 
-    # Count models per payment frequency for the current (filtered) list
-    frequency_counts: dict[str, int] = {}
-    for model in models:
-        freq = (model.payment_frequency or "").lower()
-        if freq:
-            frequency_counts[freq] = frequency_counts.get(freq, 0) + 1
+    method_counts_raw = crud.count_models_by_payment_method(
+        db,
+        code=code_filter,
+        status=status_filter,
+        frequency=frequency_filter,
+        payment_method=method_filter,
+    )
+    method_counts: dict[str, int] = {}
+    for method in payment_methods:
+        method_counts[method] = method_counts_raw.get(method, 0)
+    for method_value, count in method_counts_raw.items():
+        if method_value not in method_counts:
+            method_counts[method_value] = count
+
+    frequency_counts_raw = crud.count_models_by_frequency(
+        db,
+        code=code_filter,
+        status=status_filter,
+        frequency=frequency_filter,
+        payment_method=method_filter,
+    )
+    frequency_counts = {freq: frequency_counts_raw.get(freq, 0) for freq in FREQUENCY_ENUM}
+    for freq_value, count in frequency_counts_raw.items():
+        if freq_value not in frequency_counts and freq_value:
+            frequency_counts[freq_value] = count
 
     # Include available schedule runs for export/filter dropdowns
     schedule_runs = crud.list_schedule_runs(db)
@@ -104,6 +203,31 @@ def _build_model_list_context(
     if export_params:
         export_url = f"{export_url}?{urlencode(export_params)}"
 
+    base_params = dict(export_params)
+    pagination = {
+        "page": current_page,
+        "page_size": page_size,
+        "total_pages": total_pages,
+        "total_count": total_count,
+        "page_count": page_count,
+        "start_index": start_index,
+        "end_index": end_index,
+        "has_previous": current_page > 1,
+        "has_next": current_page < total_pages,
+        "previous_url": _build_page_url(request, base_params, current_page - 1, page_size)
+        if current_page > 1
+        else None,
+        "next_url": _build_page_url(request, base_params, current_page + 1, page_size)
+        if current_page < total_pages
+        else None,
+        "page_links": _build_page_links(request, base_params, current_page, total_pages, page_size),
+    }
+
+    average_paid_active = Decimal("0")
+    active_count = status_counts.get("Active", 0)
+    if active_count:
+        average_paid_active = (total_paid_sum / Decimal(active_count)).quantize(_DECIMAL_PLACES)
+
     context: dict[str, Any] = {
         "request": request,
         "user": user,
@@ -115,14 +239,18 @@ def _build_model_list_context(
             "frequency": frequency_filter or "",
             "payment_method": method_filter or "",
         },
-    "payment_methods": payment_methods,
-    "method_counts": method_counts,
+        "payment_methods": payment_methods,
+        "method_counts": method_counts,
         "status_options": STATUS_ENUM,
         "frequency_options": FREQUENCY_ENUM,
         "frequency_counts": frequency_counts,
         "totals_map": totals_map,
         "total_paid_sum": total_paid_sum,
         "export_url": export_url,
+        "status_counts": status_counts,
+        "pagination": pagination,
+        "average_paid_active": average_paid_active,
+        "page_sizes": PAGE_SIZE_OPTIONS,
     }
     if extra:
         context.update(extra)
@@ -185,10 +313,24 @@ def list_models(
     status: str | None = None,
     frequency: str | None = None,
     payment_method: str | None = None,
+    page: int = 1,
+    page_size: int = DEFAULT_PAGE_SIZE,
     db: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    context = _build_model_list_context(request, user, db, code, status, frequency, payment_method)
+    normalized_page = max(page, 1)
+    normalized_page_size = page_size if page_size in PAGE_SIZE_OPTIONS else DEFAULT_PAGE_SIZE
+    context = _build_model_list_context(
+        request,
+        user,
+        db,
+        code,
+        status,
+        frequency,
+        payment_method,
+        normalized_page,
+        normalized_page_size,
+    )
     return templates.TemplateResponse("models/list.html", context)
 
 
@@ -1226,6 +1368,17 @@ async def import_models_excel(
         db.rollback()
         extra_context["import_error"] = str(exc)
 
-    context = _build_model_list_context(request, user, db, None, None, None, None, extra_context)
+    context = _build_model_list_context(
+        request,
+        user,
+        db,
+        None,
+        None,
+        None,
+        None,
+        page=1,
+        page_size=DEFAULT_PAGE_SIZE,
+        extra=extra_context,
+    )
     return templates.TemplateResponse("models/list.html", context)
 

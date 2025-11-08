@@ -1,4 +1,5 @@
 """Routes for managing payroll cycles."""
+# pyright: reportAttributeAccessIssue=false, reportGeneralTypeIssues=false, reportOperatorIssue=false, reportArgumentType=false, reportOptionalMemberAccess=false
 from __future__ import annotations
 
 import calendar
@@ -7,12 +8,12 @@ import io
 import json
 from datetime import date, datetime, timedelta
 from decimal import Decimal
-from typing import Sequence
+from typing import Sequence, cast, Any
 from pathlib import Path
 
 import pandas as pd
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
-from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse, JSONResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 from urllib.parse import urlencode
@@ -22,7 +23,7 @@ from app.auth import User
 from app.database import get_session
 from app.dependencies import templates
 from app.core.formatting import format_display_date
-from app.models import AdhocPayment, PAYOUT_STATUS_ENUM, Payout, Model
+from app.models import AdhocPayment, PAYOUT_STATUS_ENUM, Payout, Model, ScheduleRun
 from app.routers.auth import get_current_user, get_admin_user
 from app.services import PayrollService
 
@@ -36,6 +37,7 @@ QUICK_RANGE_OPTIONS = [
     {"id": "past_3_months", "label": "Past 3 Months", "months": 3},
     {"id": "past_6_months", "label": "Past 6 Months", "months": 6},
     {"id": "past_1_year", "label": "Past 1 Year", "months": 12},
+    {"id": "current_month", "label": "Current Month"},
 ]
 
 
@@ -62,6 +64,12 @@ def _subtract_months(anchor: date, months: int) -> date:
 def _resolve_quick_range(identifier: str | None, today: date) -> tuple[date | None, date | None, str | None]:
     if not identifier:
         return None, None, None
+    # Special-case current month
+    if identifier == "current_month":
+        start = date(today.year, today.month, 1)
+        last_day = calendar.monthrange(today.year, today.month)[1]
+        end = date(today.year, today.month, last_day)
+        return start, end, identifier
     for option in QUICK_RANGE_OPTIONS:
         if option["id"] != identifier:
             continue
@@ -209,10 +217,12 @@ def _count_unique_models(db: Session, run_ids: list[int]) -> int:
     )
 
 
-def _ensure_current_month_run(db: Session, runs: list) -> list:
-    """Return existing runs without creating automatic placeholders."""
+def _ensure_current_month_run(db: Session, runs: Sequence[Any]) -> list[Any]:
+    """Return existing runs without creating automatic placeholders.
 
-    return runs
+    Accepts any sequence of ScheduleRun and returns a concrete list for downstream processing.
+    """
+    return list(runs)
 
 
 def _prepare_runs_by_year(db: Session, target_year: int) -> tuple[list, list[int], list]:
@@ -263,8 +273,9 @@ def _prepare_runs_by_year(db: Session, target_year: int) -> tuple[list, list[int
     return runs_for_year, available_years, filtered_runs
 
 
-def _format_frequency_summary(frequency_counts: dict[str, int] | None) -> str:
-    if not frequency_counts:
+def _format_frequency_summary(frequency_counts: object | None) -> str:
+    # Accept flexible input; if not a dict[str, int], return empty string
+    if not isinstance(frequency_counts, dict):
         return ""
     parts = []
     for name, count in sorted(frequency_counts.items()):
@@ -439,6 +450,10 @@ def _gather_dashboard_data(db: Session, month: str | None, year: int | None = No
             "latest_pay_date_display": format_display_date(latest_pay_date),
         }
     )
+    # Safely extract status dicts for typing
+    status_counts = cast(dict[str, int], monthly_adhoc_summary.get("status_counts", {}))
+    amount_by_status = cast(dict[str, Decimal], monthly_adhoc_summary.get("amount_by_status", {}))
+
     status_display = []
     for status_key, status_label in (
         ("pending", "Pending"),
@@ -449,12 +464,12 @@ def _gather_dashboard_data(db: Session, month: str | None, year: int | None = No
             {
                 "key": status_key,
                 "label": status_label,
-                "count": monthly_adhoc_summary["status_counts"].get(status_key, 0),
-                "amount": monthly_adhoc_summary["amount_by_status"].get(status_key, zero),
+                "count": status_counts.get(status_key, 0),
+                "amount": amount_by_status.get(status_key, zero),
             }
         )
     monthly_adhoc_summary["status_display"] = status_display
-    monthly_adhoc_summary["has_payments"] = monthly_adhoc_summary["count"] > 0
+    monthly_adhoc_summary["has_payments"] = bool(monthly_adhoc_summary.get("count", 0))
 
     for option in month_options:
         option["is_selected"] = option["value"] == selected_month_value
@@ -503,7 +518,11 @@ def _gather_dashboard_data(db: Session, month: str | None, year: int | None = No
         )
 
     current_year_runs = [run for run in all_runs if run.target_year == current_year]
-    current_year_runs.sort(key=lambda item: item.created_at, reverse=True)
+    # Sort by period (year, month) descending, then by creation timestamp
+    current_year_runs.sort(
+        key=lambda item: (item.target_year, item.target_month, item.created_at),
+        reverse=True,
+    )
 
     current_year_run_ids = [run.id for run in current_year_runs]
     total_table_payout = sum(
@@ -595,7 +614,7 @@ def list_runs(
     dashboard = _gather_dashboard_data(db, month, target_year)
 
     # Apply year and range filtering to current_year_runs
-    all_runs_unfiltered = dashboard["current_year_runs"]
+    all_runs_unfiltered = cast(list[Any], dashboard["current_year_runs"])  # type: ignore[assignment]
 
     clear_requested = request.query_params.get("clear") == "1"
 
@@ -610,19 +629,8 @@ def list_runs(
     effective_start = preset_start if active_preset else start_input
     effective_end = preset_end if active_preset else end_input
 
+    # Do not apply an implicit current-month filter by default; show all cycles for the selected year
     default_filter_applied = False
-    if (
-        not clear_requested
-        and not active_preset
-        and not start_input
-        and not end_input
-        and target_year == today.year
-    ):
-        first_day = date(today.year, today.month, 1)
-        last_day = date(today.year, today.month, calendar.monthrange(today.year, today.month)[1])
-        effective_start = first_day
-        effective_end = last_day
-        default_filter_applied = True
 
     filter_active = bool(active_preset or start_input or end_input or default_filter_applied)
     if clear_requested:
@@ -632,6 +640,18 @@ def list_runs(
         filtered_runs = _filter_runs_by_range(all_runs_unfiltered, effective_start, effective_end)
     else:
         filtered_runs = [run for run in all_runs_unfiltered if run.target_year == target_year]
+
+    # Sort by period (year, month) descending for consistent export ordering
+    filtered_runs.sort(
+        key=lambda run: (run.target_year, run.target_month, getattr(run, "created_at", datetime.min)),
+        reverse=True,
+    )
+
+    # Sort the table by period (newest to oldest)
+    filtered_runs.sort(
+        key=lambda run: (run.target_year, run.target_month, getattr(run, "created_at", datetime.min)),
+        reverse=True,
+    )
     
     # Recalculate summary for filtered runs
     zero = Decimal("0")
@@ -663,7 +683,8 @@ def list_runs(
         if filtered_currency:
             break
     if not filtered_currency:
-        filtered_currency = dashboard["current_year_summary"].get("currency") or "USD"
+        curr_summary = cast(dict[str, object], dashboard["current_year_summary"])  # type: ignore[assignment]
+        filtered_currency = cast(str | None, curr_summary.get("currency")) or "USD"
     
     filtered_summary = {
         "run_count": len(filtered_runs),
@@ -706,13 +727,12 @@ def list_runs(
 
     filtered_adhoc_payments = adhoc_query.all()
     filtered_adhoc_summary = _summarize_adhoc_payments(filtered_adhoc_payments)
-    filtered_adhoc_summary["currency"] = (
-        dashboard["monthly_adhoc_summary"].get("currency") or "USD"
-    )
-    filtered_adhoc_summary["has_payments"] = filtered_adhoc_summary["count"] > 0
+    monthly_adhoc_summary_ctx = cast(dict[str, object], dashboard.get("monthly_adhoc_summary", {}))
+    filtered_adhoc_summary["currency"] = cast(str | None, monthly_adhoc_summary_ctx.get("currency")) or "USD"
+    filtered_adhoc_summary["has_payments"] = bool(filtered_adhoc_summary.get("count", 0))
 
     # Build available years for dropdown
-    all_available_runs = dashboard["all_runs"]
+    all_available_runs = cast(list[Any], dashboard["all_runs"])  # type: ignore[assignment]
     available_years = sorted({run.target_year for run in all_available_runs}, reverse=True)
     
     # Build quick range options
@@ -761,6 +781,13 @@ def list_runs(
     if adhoc_filter_params:
         adhoc_filter_url = f"{adhoc_filter_url}?{urlencode(adhoc_filter_params)}"
 
+    # Current month quickfilter URL
+    current_month_params: dict[str, object] = {}
+    if target_year != today.year:
+        current_month_params["year"] = target_year
+    current_month_params["range"] = "current_month"
+    current_month_url = f"/schedules?{urlencode(current_month_params)}"
+
     export_params: dict[str, object] = {"year": target_year}
     if active_preset:
         export_params["range"] = active_preset
@@ -774,11 +801,13 @@ def list_runs(
     if export_query:
         export_url = f"{export_url}?{export_query}"
 
+    monthly_adhoc_summary_for_defaults = cast(dict[str, object], dashboard.get("monthly_adhoc_summary", {}))
+    monthly_adhoc_count = int(monthly_adhoc_summary_for_defaults.get("count", 0) or 0)
     export_defaults = {
         "monthly_summary": True,
         "run_details": bool(dashboard["selected_runs"]),
-        "adhoc_summary": dashboard["monthly_adhoc_summary"].get("count", 0) > 0,
-        "adhoc_details": dashboard["monthly_adhoc_summary"].get("count", 0) > 0,
+        "adhoc_summary": monthly_adhoc_count > 0,
+        "adhoc_details": monthly_adhoc_count > 0,
         "recent_runs": bool(dashboard["recent_run_cards"]),
     }
 
@@ -1001,6 +1030,7 @@ def list_runs(
             "has_custom_range": bool(start_input or end_input),
             "filtered_adhoc_summary": filtered_adhoc_summary,
             "adhoc_filter_url": adhoc_filter_url,
+            "current_month_url": current_month_url,
             "overdue_count": overdue_count,
             "on_hold_count": on_hold_count,
             "on_hold_overdue_count": on_hold_overdue_count,
@@ -1122,6 +1152,10 @@ def view_adhoc_payments(
         }
     )
 
+    # Safely access nested dicts for type checking
+    f_status_counts = cast(dict[str, int], filtered_summary.get("status_counts", {}))
+    f_amount_by_status = cast(dict[str, Decimal], filtered_summary.get("amount_by_status", {}))
+
     filtered_status_display = []
     for status_key, status_label in (
         ("pending", "Pending"),
@@ -1132,12 +1166,12 @@ def view_adhoc_payments(
             {
                 "key": status_key,
                 "label": status_label,
-                "count": filtered_summary["status_counts"].get(status_key, 0),
-                "amount": filtered_summary["amount_by_status"].get(status_key, Decimal("0")),
+                "count": f_status_counts.get(status_key, 0),
+                "amount": f_amount_by_status.get(status_key, Decimal("0")),
             }
         )
     filtered_summary["status_display"] = filtered_status_display
-    filtered_summary["has_payments"] = filtered_summary["count"] > 0
+    filtered_summary["has_payments"] = bool(filtered_summary.get("count", 0))
 
     status_options = [
         {"value": "pending", "label": "Pending"},
@@ -1266,7 +1300,7 @@ def export_dashboard_excel(
 
     filter_active = bool(active_preset or start_input or end_input)
 
-    all_runs_unfiltered = dashboard["current_year_runs"]
+    all_runs_unfiltered = cast(list[Any], dashboard["current_year_runs"])  # type: ignore[assignment]
     if filter_active and (effective_start or effective_end):
         filtered_runs = _filter_runs_by_range(all_runs_unfiltered, effective_start, effective_end)
     else:
@@ -1295,7 +1329,8 @@ def export_dashboard_excel(
         if filtered_currency:
             break
     if not filtered_currency:
-        filtered_currency = dashboard["current_year_summary"].get("currency") or "USD"
+        curr_summary = cast(dict[str, object], dashboard["current_year_summary"])  # type: ignore[assignment]
+        filtered_currency = cast(str | None, curr_summary.get("currency")) or "USD"
 
     filtered_summary = {
         "run_count": len(filtered_runs),
@@ -1333,10 +1368,12 @@ def export_dashboard_excel(
         {
             "currency": filtered_currency,
             "month_label": scope_label,
-            "has_payments": filtered_adhoc_summary.get("count", 0) > 0,
+            "has_payments": bool(filtered_adhoc_summary.get("count", 0)),
         }
     )
 
+    f_status_counts = cast(dict[str, int], filtered_adhoc_summary.get("status_counts", {}))
+    f_amount_by_status = cast(dict[str, Decimal], filtered_adhoc_summary.get("amount_by_status", {}))
     filtered_status_display = []
     for status_key, status_label in (
         ("pending", "Pending"),
@@ -1346,18 +1383,20 @@ def export_dashboard_excel(
         filtered_status_display.append(
             {
                 "label": status_label,
-                "count": filtered_adhoc_summary["status_counts"].get(status_key, 0),
-                "amount": filtered_adhoc_summary["amount_by_status"].get(status_key, Decimal("0")),
+                "count": f_status_counts.get(status_key, 0),
+                "amount": f_amount_by_status.get(status_key, Decimal("0")),
             }
         )
     filtered_adhoc_summary["status_display"] = filtered_status_display
 
-    def _decimal_to_float(value: Decimal | float | int | None) -> float:
+    def _decimal_to_float(value: object | None) -> float:
         if value is None:
             return 0.0
         if isinstance(value, Decimal):
             return float(value)
-        return float(value)
+        if isinstance(value, (int, float)):
+            return float(value)
+        return 0.0
 
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
@@ -1560,7 +1599,8 @@ def list_runs_all(
 
     month_totals_map: dict[str, int] = {}
     for run in run_cards:
-        month_totals_map[run["cycle"]] = month_totals_map.get(run["cycle"], 0) + 1
+        cycle_label = str(run.get("cycle") or "")
+        month_totals_map[cycle_label] = month_totals_map.get(cycle_label, 0) + 1
 
     month_totals: list[dict[str, object]] = []
     for month_index in range(1, 13):
@@ -2190,4 +2230,86 @@ def bulk_update_payouts(
     if not target_url.startswith("/schedules/"):
         target_url = f"/schedules/{run_id}"
     return RedirectResponse(url=target_url, status_code=303)
+
+
+@router.post("/{run_id}/payouts/{payout_id}/status")
+def api_update_payout_status(
+    run_id: int,
+    payout_id: int,
+    status: str = Form(...),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """AJAX-friendly endpoint to update a single payout's status without full-page reload.
+
+    Returns minimal JSON so the client can update the UI in-place.
+    """
+    payout = crud.get_payout(db, payout_id)
+    if not payout or payout.schedule_run_id != run_id:
+        raise HTTPException(status_code=404, detail="Payout not found")
+
+    status_value = (status or "").strip().lower()
+    if status_value not in PAYOUT_STATUS_ENUM:
+        raise HTTPException(status_code=400, detail="Invalid payout status")
+
+    # Preserve existing notes, only update status
+    crud.update_payout(db, payout, payout.notes, status_value)
+
+    # Compute overdue flag server-side to reduce client logic differences
+    today = date.today()
+    is_overdue = bool(payout.pay_date and payout.pay_date < today and status_value in ("not_paid", "on_hold"))
+
+    return JSONResponse(
+        {
+            "ok": True,
+            "payout_id": payout.id,
+            "run_id": run_id,
+            "new_status": status_value,
+            "is_overdue": is_overdue,
+        }
+    )
+
+
+@router.post("/{run_id}/payouts/bulk-update/status")
+def api_bulk_update_payouts(
+    run_id: int,
+    payout_ids: str = Form(""),
+    status: str = Form(...),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """AJAX-friendly endpoint to bulk update payouts without full-page reload."""
+    run = crud.get_schedule_run(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Schedule run not found")
+
+    status_value = (status or "").strip().lower()
+    if status_value not in PAYOUT_STATUS_ENUM:
+        raise HTTPException(status_code=400, detail="Invalid payout status")
+
+    if not payout_ids.strip():
+        return JSONResponse({"ok": True, "updated_ids": [], "new_status": status_value})
+
+    try:
+        ids = [int(pid.strip()) for pid in payout_ids.split(",") if pid.strip()]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid payout IDs")
+
+    today = date.today()
+    updated: list[int] = []
+    overdue_flags: dict[int, bool] = {}
+
+    for pid in ids:
+        payout = crud.get_payout(db, pid)
+        if payout and payout.schedule_run_id == run_id:
+            crud.update_payout(db, payout, payout.notes, status_value)
+            updated.append(pid)
+            overdue_flags[pid] = bool(payout.pay_date and payout.pay_date < today and status_value in ("not_paid", "on_hold"))
+
+    return JSONResponse({
+        "ok": True,
+        "updated_ids": updated,
+        "new_status": status_value,
+        "overdue_flags": overdue_flags,
+    })
 

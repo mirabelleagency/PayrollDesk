@@ -167,6 +167,7 @@
 
                 <div class="inline-filter-actions--compact">
                     <button class="button button--compact" type="submit">Apply</button>
+                    <a class="button button--compact button--success" href="{{ current_month_url }}">Current Month</a>
                     {% if filter_active %}
                     <a class="button button--ghost button--compact" href="{{ clear_filter_url }}">Clear</a>
                     {% endif %}
@@ -826,6 +827,20 @@
     background: rgba(239, 68, 68, 0.2);
     border-color: rgba(239, 68, 68, 0.6);
     color: #fca5a5;
+}
+
+/* Green success button variant */
+.button--success {
+    background: rgba(34, 197, 94, 0.12); /* emerald-500 */
+    border: 1px solid rgba(34, 197, 94, 0.4);
+    color: #86efac; /* emerald-300 */
+}
+
+.button--success:hover,
+.button--success:focus {
+    background: rgba(34, 197, 94, 0.2);
+    border-color: rgba(34, 197, 94, 0.6);
+    color: #bbf7d0; /* emerald-200 */
 }
 
 /* Cycle Cards Grid */

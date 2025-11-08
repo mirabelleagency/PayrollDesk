@@ -3,11 +3,11 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Iterable, Sequence
+from typing import Iterable, Sequence, Dict
 
 import json
 
-from sqlalchemy import func, select
+from sqlalchemy import case, distinct, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.payroll import ModelRecord, ValidationMessage
@@ -24,13 +24,30 @@ from app.models import (
     PayoutAdvanceAllocation,
 )
 from app.schemas import AdhocPaymentCreate, AdhocPaymentUpdate, ModelCreate, ModelUpdate
-from sqlalchemy import distinct
-from decimal import Decimal
 
 # --- Defaults for advances policy knobs ---
 ADVANCE_DEFAULT_MIN_FLOOR = Decimal("500")
 ADVANCE_DEFAULT_MAX_PER_RUN = Decimal("600")
 ADVANCE_DEFAULT_CAP_MULTIPLIER = Decimal("1.0")
+
+
+def _model_filters(
+    code: str | None = None,
+    status: str | None = None,
+    frequency: str | None = None,
+    payment_method: str | None = None,
+) -> list:
+    filters: list = []
+    if code:
+        like_value = f"%{code.strip()}%"
+        filters.append(Model.code.ilike(like_value))
+    if status:
+        filters.append(Model.status == status)
+    if frequency:
+        filters.append(Model.payment_frequency == frequency)
+    if payment_method:
+        filters.append(Model.payment_method == payment_method)
+    return filters
 
 
 def list_models(
@@ -39,24 +56,100 @@ def list_models(
     status: str | None = None,
     frequency: str | None = None,
     payment_method: str | None = None,
+    *,
+    limit: int | None = None,
+    offset: int = 0,
 ) -> Sequence[Model]:
     stmt = select(Model)
-
-    if code:
-        like_value = f"%{code.strip()}%"
-        stmt = stmt.where(Model.code.ilike(like_value))
-
-    if status:
-        stmt = stmt.where(Model.status == status)
-
-    if frequency:
-        stmt = stmt.where(Model.payment_frequency == frequency)
-
-    if payment_method:
-        stmt = stmt.where(Model.payment_method == payment_method)
+    filters = _model_filters(code=code, status=status, frequency=frequency, payment_method=payment_method)
+    if filters:
+        stmt = stmt.where(*filters)
 
     stmt = stmt.order_by(Model.code)
+    if offset:
+        stmt = stmt.offset(offset)
+    if limit is not None:
+        stmt = stmt.limit(limit)
     return db.execute(stmt).scalars().all()
+
+
+def count_models(
+    db: Session,
+    code: str | None = None,
+    status: str | None = None,
+    frequency: str | None = None,
+    payment_method: str | None = None,
+) -> int:
+    stmt = select(func.count()).select_from(Model)
+    filters = _model_filters(code=code, status=status, frequency=frequency, payment_method=payment_method)
+    if filters:
+        stmt = stmt.where(*filters)
+    return int(db.execute(stmt).scalar_one())
+
+
+def count_models_by_status(
+    db: Session,
+    code: str | None = None,
+    status: str | None = None,
+    frequency: str | None = None,
+    payment_method: str | None = None,
+) -> Dict[str, int]:
+    stmt = select(Model.status, func.count()).select_from(Model)
+    filters = _model_filters(code=code, status=status, frequency=frequency, payment_method=payment_method)
+    if filters:
+        stmt = stmt.where(*filters)
+    stmt = stmt.group_by(Model.status)
+    return {row[0]: int(row[1]) for row in db.execute(stmt).all() if row[0]}
+
+
+def count_models_by_payment_method(
+    db: Session,
+    code: str | None = None,
+    status: str | None = None,
+    frequency: str | None = None,
+    payment_method: str | None = None,
+) -> Dict[str, int]:
+    stmt = select(Model.payment_method, func.count()).select_from(Model)
+    filters = _model_filters(code=code, status=status, frequency=frequency, payment_method=payment_method)
+    if filters:
+        stmt = stmt.where(*filters)
+    stmt = stmt.group_by(Model.payment_method)
+    return {row[0]: int(row[1]) for row in db.execute(stmt).all() if row[0]}
+
+
+def count_models_by_frequency(
+    db: Session,
+    code: str | None = None,
+    status: str | None = None,
+    frequency: str | None = None,
+    payment_method: str | None = None,
+) -> Dict[str, int]:
+    stmt = select(Model.payment_frequency, func.count()).select_from(Model)
+    filters = _model_filters(code=code, status=status, frequency=frequency, payment_method=payment_method)
+    if filters:
+        stmt = stmt.where(*filters)
+    stmt = stmt.group_by(Model.payment_frequency)
+    return {row[0]: int(row[1]) for row in db.execute(stmt).all() if row[0]}
+
+
+def sum_paid_for_models(
+    db: Session,
+    code: str | None = None,
+    status: str | None = None,
+    frequency: str | None = None,
+    payment_method: str | None = None,
+) -> Decimal:
+    stmt = (
+        select(func.coalesce(func.sum(Payout.amount), 0))
+        .select_from(Payout)
+        .join(Model, Model.id == Payout.model_id)
+        .where(Payout.status == "paid")
+    )
+    filters = _model_filters(code=code, status=status, frequency=frequency, payment_method=payment_method)
+    if filters:
+        stmt = stmt.where(*filters)
+    result = db.execute(stmt).scalar_one()
+    return Decimal(result or 0)
 
 
 def get_model(db: Session, model_id: int) -> Model | None:
@@ -516,9 +609,12 @@ def payout_dates_for_run(db: Session, run_id: int) -> list[date]:
 
 
 def dashboard_summary(db: Session) -> dict[str, Decimal | int | date | None]:
-    total_models = db.execute(select(func.count(Model.id))).scalar_one() or 0
-    active_models = db.execute(select(func.count(Model.id)).where(Model.status == "Active")).scalar_one() or 0
-    inactive_models = db.execute(select(func.count(Model.id)).where(Model.status == "Inactive")).scalar_one() or 0
+    # Model counts with a single grouped query to reduce round-trips
+    model_counts_stmt = select(Model.status, func.count(Model.id)).group_by(Model.status)
+    model_counts = {status or "": count for status, count in db.execute(model_counts_stmt).all()}
+    total_models = sum(model_counts.values())
+    active_models = model_counts.get("Active", 0)
+    inactive_models = model_counts.get("Inactive", 0)
 
     total_runs = db.execute(select(func.count(ScheduleRun.id))).scalar_one() or 0
     latest_run = (
@@ -541,61 +637,66 @@ def dashboard_summary(db: Session) -> dict[str, Decimal | int | date | None]:
 
     run_for_metrics = current_month_run or latest_run
 
-    lifetime_paid_stmt = (
-        select(func.coalesce(func.sum(Payout.amount), 0))
-        .where(Payout.status == "paid")
-        .where(Payout.model_id.isnot(None))
-    )
-    lifetime_paid = Decimal(db.execute(lifetime_paid_stmt).scalar_one() or 0)
+    payout_metrics_stmt = select(
+        func.coalesce(func.sum(Payout.amount), 0).label("total_amount"),
+        func.coalesce(
+            func.sum(case((Payout.status == "paid", Payout.amount), else_=0)),
+            0,
+        ).label("paid_amount"),
+        func.coalesce(
+            func.sum(case((Payout.status != "paid", Payout.amount), else_=0)),
+            0,
+        ).label("outstanding_amount"),
+        func.coalesce(func.sum(case((Payout.status == "not_paid", 1), else_=0)), 0).label("pending_count"),
+        func.coalesce(func.sum(case((Payout.status == "on_hold", 1), else_=0)), 0).label("on_hold_count"),
+    ).where(Payout.model_id.isnot(None))
 
-    outstanding_stmt = (
-        select(func.coalesce(func.sum(Payout.amount), 0))
-        .where(Payout.status != "paid")
-        .where(Payout.model_id.isnot(None))
-    )
-    outstanding_total = Decimal(db.execute(outstanding_stmt).scalar_one() or 0)
-
-    pending_count_stmt = select(func.count()).where(Payout.status == "not_paid").where(Payout.model_id.isnot(None))
-    pending_count = db.execute(pending_count_stmt).scalar_one() or 0
-
-    on_hold_count_stmt = select(func.count()).where(Payout.status == "on_hold").where(Payout.model_id.isnot(None))
-    on_hold_count = db.execute(on_hold_count_stmt).scalar_one() or 0
+    payout_metrics = db.execute(payout_metrics_stmt).one()
+    lifetime_paid = Decimal(payout_metrics.paid_amount or 0)
+    outstanding_total = Decimal(payout_metrics.outstanding_amount or 0)
+    pending_count = int(payout_metrics.pending_count or 0)
+    on_hold_count = int(payout_metrics.on_hold_count or 0)
 
     latest_run_paid = Decimal("0")
     latest_run_unpaid = Decimal("0")
     if run_for_metrics:
-        latest_paid_stmt = (
-            select(func.coalesce(func.sum(Payout.amount), 0))
-            .where(Payout.schedule_run_id == run_for_metrics.id, Payout.status == "paid")
-            .where(Payout.model_id.isnot(None))
+        run_metrics_stmt = select(
+            func.coalesce(
+                func.sum(case((Payout.status == "paid", Payout.amount), else_=0)),
+                0,
+            ).label("paid_amount"),
+            func.coalesce(
+                func.sum(case((Payout.status != "paid", Payout.amount), else_=0)),
+                0,
+            ).label("unpaid_amount"),
+        ).where(
+            Payout.schedule_run_id == run_for_metrics.id,
+            Payout.model_id.isnot(None),
         )
-        latest_run_paid = Decimal(db.execute(latest_paid_stmt).scalar_one() or 0)
 
-        latest_unpaid_stmt = (
-            select(func.coalesce(func.sum(Payout.amount), 0))
-            .where(Payout.schedule_run_id == run_for_metrics.id, Payout.status != "paid")
-            .where(Payout.model_id.isnot(None))
-        )
-        latest_run_unpaid = Decimal(db.execute(latest_unpaid_stmt).scalar_one() or 0)
+        run_metrics = db.execute(run_metrics_stmt).one()
+        latest_run_paid = Decimal(run_metrics.paid_amount or 0)
+        latest_run_unpaid = Decimal(run_metrics.unpaid_amount or 0)
 
     # Calculate monthly burn (current month total payout)
     monthly_burn = Decimal("0")
     monthly_unpaid = Decimal("0")
     if current_month_run:
         # Recompute monthly burn from actual payouts with linked models to avoid stale summary totals
-        monthly_burn_stmt = (
-            select(func.coalesce(func.sum(Payout.amount), 0))
-            .where(Payout.schedule_run_id == current_month_run.id)
-            .where(Payout.model_id.isnot(None))
+        current_month_metrics_stmt = select(
+            func.coalesce(func.sum(Payout.amount), 0).label("total_amount"),
+            func.coalesce(
+                func.sum(case((Payout.status != "paid", Payout.amount), else_=0)),
+                0,
+            ).label("unpaid_amount"),
+        ).where(
+            Payout.schedule_run_id == current_month_run.id,
+            Payout.model_id.isnot(None),
         )
-        monthly_burn = Decimal(db.execute(monthly_burn_stmt).scalar_one() or 0)
-        # Calculate current month unpaid (linked models only)
-        monthly_unpaid_stmt = (
-            select(func.coalesce(func.sum(Payout.amount), 0))
-            .where(Payout.schedule_run_id == current_month_run.id, Payout.status != "paid")
-            .where(Payout.model_id.isnot(None))
-        )
-        monthly_unpaid = Decimal(db.execute(monthly_unpaid_stmt).scalar_one() or 0)
+
+        current_month_metrics = db.execute(current_month_metrics_stmt).one()
+        monthly_burn = Decimal(current_month_metrics.total_amount or 0)
+        monthly_unpaid = Decimal(current_month_metrics.unpaid_amount or 0)
 
     # Calculate run rate (annualized from monthly burn)
     run_rate = monthly_burn * 12
@@ -886,7 +987,10 @@ def set_adhoc_payment_status(db: Session, payment: AdhocPayment, status: str, no
 
 # --- Hard purge helpers ----------------------------------------------------
 
-def get_model_purge_impact(db: Session, model_id: int) -> dict[str, Decimal | int | str]:
+from typing import Any
+
+
+def get_model_purge_impact(db: Session, model_id: int) -> dict[str, Any]:
     """Compute the rows and amounts that would be removed when purging a model.
 
     Returns a summary dictionary with counts and amount breakdowns.
@@ -1187,7 +1291,7 @@ def _apply_advance_allocations_for_run(db: Session, run: ScheduleRun, payouts: l
     for model_id, rows in by_model.items():
         rows.sort(key=lambda x: (x.pay_date, x.id))
         # Fetch active advances
-        advances: list[ModelAdvance] = (
+        advances = list(
             db.execute(
                 select(ModelAdvance).where(
                     ModelAdvance.model_id == model_id,
@@ -1308,3 +1412,59 @@ def list_payouts_with_allocations_for_run(db: Session, run_id: int) -> Sequence[
     for p in payouts:
         results.append((p, allocations.get(p.id, Decimal("0"))))
     return results
+
+
+# --- Application reset (keep users) ---------------------------------------
+
+def reset_application_data(db: Session) -> dict[str, int]:
+    """Delete all model and payout related data while retaining user accounts.
+
+    This removes:
+      - PayoutAdvanceAllocation, AdvanceRepayment, ModelAdvance
+      - ValidationIssue, Payout, ScheduleRun
+      - ModelCompensationAdjustment, AdhocPayment, Model
+      - Leaves Users and LoginAttempt intact
+
+    Returns a dict of deleted row counts by entity.
+    """
+    deleted: dict[str, int] = {}
+
+    try:
+        # Delete in dependency order to satisfy FKs across SQLite/Postgres
+        deleted["payout_allocations"] = int(
+            db.query(PayoutAdvanceAllocation).delete(synchronize_session=False) or 0
+        )
+        deleted["advance_repayments"] = int(
+            db.query(AdvanceRepayment).delete(synchronize_session=False) or 0
+        )
+        deleted["model_advances"] = int(
+            db.query(ModelAdvance).delete(synchronize_session=False) or 0
+        )
+
+        deleted["validations"] = int(
+            db.query(ValidationIssue).delete(synchronize_session=False) or 0
+        )
+        deleted["payouts"] = int(
+            db.query(Payout).delete(synchronize_session=False) or 0
+        )
+        deleted["schedule_runs"] = int(
+            db.query(ScheduleRun).delete(synchronize_session=False) or 0
+        )
+
+        deleted["adjustments"] = int(
+            db.query(ModelCompensationAdjustment).delete(synchronize_session=False) or 0
+        )
+        deleted["adhoc_payments"] = int(
+            db.query(AdhocPayment).delete(synchronize_session=False) or 0
+        )
+        deleted["models"] = int(
+            db.query(Model).delete(synchronize_session=False) or 0
+        )
+
+        # Optionally keep audit logs for traceability; do not delete by default
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    return deleted
