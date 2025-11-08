@@ -4,7 +4,7 @@ from __future__ import annotations
 import csv
 from datetime import date, datetime
 from io import StringIO
-from typing import Iterable
+from typing import Iterable, cast
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
@@ -26,9 +26,11 @@ router = APIRouter(tags=["Dashboard"])
 @router.get("/dashboard")
 def dashboard(request: Request, db: Session = Depends(get_session), user: User = Depends(get_current_user)):
     summary = crud.dashboard_summary(db)
-    latest = summary.get("latest_run")
+    latest = cast(ScheduleRun | None, summary.get("latest_run"))
+    # Provide a view-model copy to avoid type narrowing issues on the summary dict
+    summary_view: dict[str, object] = dict(summary)  # type: ignore[arg-type]
     if latest is not None:
-        summary["latest_run"] = {
+        summary_view["latest_run"] = {
             "target_year": latest.target_year,
             "target_month": latest.target_month,
             "created_at": latest.created_at,
@@ -98,7 +100,7 @@ def dashboard(request: Request, db: Session = Depends(get_session), user: User =
         {
             "request": request,
             "user": user,
-            "summary": summary,
+            "summary": summary_view,
             "recent_runs": recent_runs_data,
             "top_models": top_models_data,
             "pending_adhoc_payments": pending_adhoc_data,
