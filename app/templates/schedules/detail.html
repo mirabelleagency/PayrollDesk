@@ -18,10 +18,16 @@
         <a class="button secondary" href="/schedules">
             <span>← Back to Cycles</span>
         </a>
-        <a class="button button--primary" href="/schedules/{{ run.id }}/download/schedule_csv">
-            <span>📥</span>
-            <span>Export Schedule</span>
-        </a>
+        <div class="export-controls" style="display: flex; gap: 8px;">
+            <a class="button secondary" href="/schedules/{{ run.id }}/download/schedule_csv">
+                <span>⬇️</span>
+                <span>Export CSV</span>
+            </a>
+            <a class="button button--primary" href="/schedules/{{ run.id }}/download/schedule_excel">
+                <span>📥</span>
+                <span>Export Excel</span>
+            </a>
+        </div>
     </div>
 </section>
 
@@ -186,18 +192,18 @@
     <!-- Status Filter Chips -->
     <div class="status-filter-chips" style="margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap;">
         <button class="status-chip-filter {% if not filters.status %}status-chip-filter--active{% endif %}" 
-                onclick="filterByStatus('')" type="button">
+            onclick="filterByStatus('')" type="button" data-status-value="">
             All ({{ payouts|length }})
         </button>
         {% if overdue_count > 0 %}
         <button class="status-chip-filter status-chip-filter--overdue" 
-                onclick="filterByOverdue()" type="button">
+            onclick="filterByOverdue()" type="button" data-status-value="overdue">
             🚨 Overdue ({{ overdue_count }})
         </button>
         {% endif %}
         {% for option in status_options %}
         <button class="status-chip-filter status-chip-filter--{{ option }} {% if filters.status == option %}status-chip-filter--active{% endif %}" 
-                onclick="filterByStatus('{{ option }}')" type="button">
+            onclick="filterByStatus('{{ option }}')" type="button" data-status-value="{{ option }}">
             {{ option.replace('_', ' ')|title }} ({{ status_counts.get(option, 0) }})
         </button>
         {% endfor %}
@@ -212,19 +218,39 @@
         <table class="data-table schedule-payouts-table" id="payouts-table">
             <thead>
                 <tr>
-                    <th style="width: 40px; text-align: center;">
+                    <th data-column-key="select" class="column-select" scope="col" data-draggable="false">
                         <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" title="Select All">
                     </th>
-                    <th onclick="sortTable(1)" data-sortable="true" style="cursor: pointer; user-select: none;">Pay Date ▼</th>
-                    <th onclick="sortTable(2)" data-sortable="true" style="cursor: pointer; user-select: none;">Code ▼</th>
-                    <th onclick="sortTable(3)" data-sortable="true" style="cursor: pointer; user-select: none;">Working Name ▼</th>
-                    <th onclick="sortTable(4)" data-sortable="true" style="cursor: pointer; user-select: none;">Method ▼</th>
-                    <th onclick="sortTable(5)" data-sortable="true" style="cursor: pointer; user-select: none;">Frequency ▼</th>
-                    <th onclick="sortTable(6)" data-sortable="true" style="cursor: pointer; user-select: none;">Amount ▼</th>
-                    <th onclick="sortTable(7)" data-sortable="true" style="cursor: pointer; user-select: none; text-align: center;">Deductions ▼</th>
-                    <th onclick="sortTable(8)" data-sortable="true" style="cursor: pointer; user-select: none; text-align: center;">Status ▼</th>
-                    <th onclick="sortTable(9)" data-sortable="true" style="cursor: pointer; user-select: none; min-width: 200px;">Notes ▼</th>
-                    <th style="min-width: 120px;">Quick Actions</th>
+                    <th data-column-key="pay_date" class="column-pay_date" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('pay_date')">
+                        <span class="column-label">Pay Date</span>
+                    </th>
+                    <th data-column-key="code" class="column-code" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('code')">
+                        <span class="column-label">Code</span>
+                    </th>
+                    <th data-column-key="working_name" class="column-working_name" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('working_name')">
+                        <span class="column-label">Working Name</span>
+                    </th>
+                    <th data-column-key="payment_method" class="column-payment_method" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('payment_method')">
+                        <span class="column-label">Method</span>
+                    </th>
+                    <th data-column-key="frequency" class="column-frequency" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('frequency')">
+                        <span class="column-label">Frequency</span>
+                    </th>
+                    <th data-column-key="amount" class="column-amount" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('amount')">
+                        <span class="column-label">Amount</span>
+                    </th>
+                    <th data-column-key="deductions" class="column-deductions" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('deductions')">
+                        <span class="column-label">Deductions</span>
+                    </th>
+                    <th data-column-key="status" class="column-status" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('status')">
+                        <span class="column-label">Status</span>
+                    </th>
+                    <th data-column-key="notes" class="column-notes" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('notes')">
+                        <span class="column-label">Notes</span>
+                    </th>
+                    <th data-column-key="actions" class="column-actions" data-draggable="true" draggable="true">
+                        <span class="column-label">Quick Actions</span>
+                    </th>
                 </tr>
             </thead>
             <tbody>
@@ -237,29 +263,29 @@
                     data-status="{{ payout.status }}"
                     data-is-overdue="{{ 'true' if is_overdue else 'false' }}"
                     data-amount="{{ payout.amount or 0 }}">
-                    <td style="text-align: center;">
+                    <td data-column-key="select" class="column-select" style="text-align: center;">
                         <input type="checkbox" class="payout-checkbox" value="{{ payout.id }}" onchange="updateBulkSection()" title="Select payout {{ payout.code }}">
                     </td>
-                    <td style="white-space: nowrap;">
+                    <td data-column-key="pay_date" class="column-pay_date" style="white-space: nowrap;">
                         <strong>{{ payout.pay_date|display_date }}</strong>
                         {% if is_overdue %}
                         <span class="overdue-badge" title="Payment is overdue">🚨</span>
                         {% endif %}
                     </td>
-                    <td>
+                    <td data-column-key="code" class="column-code">
                         <span style="font-weight: 600; color: #60a5fa;">{{ payout.code }}</span>
                     </td>
-                    <td>{{ payout.working_name or '—' }}</td>
-                    <td>{{ payout.payment_method or '—' }}</td>
-                    <td>
+                    <td data-column-key="working_name" class="column-working_name">{{ payout.working_name or '—' }}</td>
+                    <td data-column-key="payment_method" class="column-payment_method">{{ payout.payment_method or '—' }}</td>
+                    <td data-column-key="frequency" class="column-frequency">
                         <span class="frequency-badge frequency-badge--{{ payout.payment_frequency }}">
                             {{ payout.payment_frequency|title if payout.payment_frequency else '—' }}
                         </span>
                     </td>
-                    <td>
+                    <td data-column-key="amount" class="column-amount">
                         <strong style="font-size: 15px;">{{ run.currency }} {{ payout.amount|money }}</strong>
                     </td>
-                    <td style="text-align: center;">
+                    <td data-column-key="deductions" class="column-deductions" style="text-align: center;">
                         {% set deduction = advance_allocations.get(payout.id, 0) %}
                         {% if deduction > 0 %}
                         <span title="Cash advance deduction for this payout" style="color: #ef4444; font-weight: 600;">
@@ -269,7 +295,7 @@
                         <span style="color: #475569;">—</span>
                         {% endif %}
                     </td>
-                    <td style="text-align: center;">
+                    <td data-column-key="status" class="column-status" style="text-align: center;">
                         {% set variant = (
                             'success' if payout.status == 'paid' else (
                             'info' if payout.status == 'approved' else (
@@ -282,14 +308,14 @@
                         <span class="overdue-label">OVERDUE</span>
                         {% endif %}
                     </td>
-                    <td class="payout-note-cell">
+                    <td data-column-key="notes" class="column-notes payout-note-cell">
                         {% if payout.notes %}
                         <span class="payout-note-text" title="{{ payout.notes }}">{{ payout.notes|replace('\n', ' ') }}</span>
                         {% else %}
                         <span class="payout-note-text payout-note-text--empty">—</span>
                         {% endif %}
                     </td>
-                    <td>
+                    <td data-column-key="actions" class="column-actions">
                         <div style="display: flex; gap: 6px; align-items: center;">
                             {% if payout.status != 'paid' %}
                 <button class="action-button action-button--success js-quick-update" 
@@ -340,10 +366,11 @@
                 </tr>
                 <!-- Expandable Notes Row -->
                 <tr class="notes-row" id="notes-row-{{ payout.id }}" style="display: none;">
-                    <td colspan="9" style="padding: 0; background: rgba(15, 23, 42, 0.95);">
+                    <td colspan="11" style="padding: 0; background: rgba(15, 23, 42, 0.95);">
                         <div style="padding: 16px; border-top: 1px solid rgba(148, 163, 184, 0.1);">
-                            <form method="post" action="/schedules/{{ run.id }}/payouts/{{ payout.id }}/note" 
-                                                                    style="display: flex; gap: 12px; align-items: flex-start;">
+                                <form method="post" action="/schedules/{{ run.id }}/payouts/{{ payout.id }}/note" 
+                                    class="notes-edit-form" data-payout-id="{{ payout.id }}"
+                                    style="display: flex; gap: 12px; align-items: flex-start;">
                                                                 <input type="hidden" name="redirect_to" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
                                 <div style="flex: 0 0 180px;">
                                     <label style="display: block; margin-bottom: 6px; color: #cbd5e1; font-weight: 600; font-size: 13px;">Payment Status</label>
@@ -378,18 +405,16 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td class="empty-state" colspan="8">No payouts match the current filters.</td>
+                    <td class="empty-state" colspan="11">No payouts match the current filters.</td>
                 </tr>
                 {% endfor %}
             </tbody>
-            <tfoot>
-                <tr style="background: rgba(59, 130, 246, 0.05); font-weight: 600;">
-                    <th colspan="6" style="text-align: right; padding: 16px;">Cycle Total</th>
-                    <th style="font-size: 16px; color: #3b82f6;">{{ run.currency }} <span id="visible-total">{{ payout_total|money }}</span></th>
-                    <th colspan="4"></th>
-                </tr>
-            </tfoot>
         </table>
+    </div>
+
+    <div class="table-summary-row">
+        <div class="table-summary-label">Cycle Total</div>
+        <div class="table-summary-value">{{ run.currency }} <span id="visible-total">{{ payout_total|money }}</span></div>
     </div>
     
     <!-- Sticky Bulk Actions Bar -->
@@ -543,7 +568,7 @@ function quickUpdateStatus(payoutId, status) {
                 row.classList.remove('payout-row--overdue');
             }
             // Toggle OVERDUE label inside status cell
-            const statusCell = row.cells[8];
+            const statusCell = row.querySelector('[data-column-key="status"]');
             if (statusCell) {
                 let label = statusCell.querySelector('.overdue-label');
                 if (isOverdue && !label) {
@@ -683,8 +708,26 @@ function toggleValidation() {
     }
 }
 
-// Filter by status (chip buttons) - client-side, no reload
+function syncStatusDropdown(status) {
+    const statusSelect = document.getElementById('filter-status');
+    if (!statusSelect) return false;
+
+    const hasOption = Array.from(statusSelect.options).some(option => option.value === (status || ''));
+    if (!hasOption) {
+        return false;
+    }
+
+    statusSelect.value = status || '';
+    return true;
+}
+
+// Filter by status (chip buttons). Keep dropdown selection mirrored, then filter locally.
 function filterByStatus(status) {
+    syncStatusDropdown(status);
+    applyStatusFilterLocally(status);
+}
+
+function applyStatusFilterLocally(status) {
     const tableBody = document.querySelector('#payouts-table tbody');
     if (!tableBody) return;
 
@@ -713,7 +756,6 @@ function filterByStatus(status) {
     const visibleCountEl = document.getElementById('visible-count');
     if (visibleCountEl) visibleCountEl.textContent = visibleCount;
 
-    // Update URL without reload so it's shareable
     const url = new URL(window.location.href);
     if (status) url.searchParams.set('status', status);
     else url.searchParams.delete('status');
@@ -726,6 +768,8 @@ function filterByStatus(status) {
 
 // Filter by overdue (client-side)
 function filterByOverdue() {
+    syncStatusDropdown('overdue');
+
     const searchInput = document.getElementById('quick-search');
     if (searchInput) {
         searchInput.value = '';
@@ -832,59 +876,70 @@ function filterPayoutTable() {
     recomputeVisibleTotal();
 }
 
-// Table sorting
+// Column order + sorting state
+const DEFAULT_COLUMN_ORDER = [
+    'select',
+    'pay_date',
+    'code',
+    'working_name',
+    'payment_method',
+    'frequency',
+    'amount',
+    'deductions',
+    'status',
+    'notes',
+    'actions',
+];
+const COLUMN_STORAGE_KEY = `schedule_columns_run_{{ run.id }}`;
+let columnOrderState = [...DEFAULT_COLUMN_ORDER];
+let draggingColumnKey = null;
 let sortDirection = {};
 
-function sortTable(columnIndex) {
+function sortTable(columnKey) {
     const table = document.querySelector('#payouts-table');
-    if (!table) {
-        return;
-    }
+    if (!table) return;
     const tbody = table.querySelector('tbody');
-    if (!tbody) {
-        return;
-    }
-    let rows = Array.from(tbody.querySelectorAll('tr.payout-row'));
+    if (!tbody) return;
 
-    if (rows.length === 0) {
-        return;
-    }
+    const rows = Array.from(tbody.querySelectorAll('tr.payout-row'));
+    if (!rows.length) return;
 
-    // Toggle sort direction
-    const prev = sortDirection[columnIndex] === true;
-    const isAscending = !prev;
-    sortDirection = {};
-    sortDirection[columnIndex] = isAscending;
+    const isAscending = sortDirection[columnKey] !== true;
+    sortDirection = { [columnKey]: isAscending };
 
-    // Sort rows
+    const parseDate = (value) => {
+        const parts = value.split('/');
+        if (parts.length === 3) {
+            return new Date(`${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`);
+        }
+        return new Date(value);
+    };
+
     rows.sort((rowA, rowB) => {
-        const cellA = (rowA.cells[columnIndex] && rowA.cells[columnIndex].textContent || '').trim();
-        const cellB = (rowB.cells[columnIndex] && rowB.cells[columnIndex].textContent || '').trim();
+        const cellA = rowA.querySelector(`[data-column-key="${columnKey}"]`);
+        const cellB = rowB.querySelector(`[data-column-key="${columnKey}"]`);
+        const valueA = (cellA ? cellA.textContent : '').trim();
+        const valueB = (cellB ? cellB.textContent : '').trim();
 
-        // Date sort (handles display format)
-        if (columnIndex === 0) {
-            const parse = s => {
-                const parts = s.split('/');
-                if (parts.length === 3) return new Date(`${parts[2]}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`);
-                return new Date(s);
-            };
-            const dateA = parse(cellA);
-            const dateB = parse(cellB);
+        if (columnKey === 'pay_date') {
+            const dateA = parseDate(valueA);
+            const dateB = parseDate(valueB);
             return isAscending ? dateA - dateB : dateB - dateA;
         }
 
-        // Numeric sort (Amount column)
-        const numA = parseFloat(cellA.replace(/[^\d.-]/g, ''));
-        const numB = parseFloat(cellB.replace(/[^\d.-]/g, ''));
-        if (!isNaN(numA) && !isNaN(numB)) {
-            return isAscending ? numA - numB : numB - numA;
+        if (columnKey === 'amount' || columnKey === 'deductions') {
+            const numA = parseFloat(valueA.replace(/[^\d.-]/g, ''));
+            const numB = parseFloat(valueB.replace(/[^\d.-]/g, ''));
+            if (!isNaN(numA) && !isNaN(numB)) {
+                return isAscending ? numA - numB : numB - numA;
+            }
         }
 
-        // String sort
-        return isAscending ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA);
+        const textA = valueA.toLowerCase();
+        const textB = valueB.toLowerCase();
+        return isAscending ? textA.localeCompare(textB) : textB.localeCompare(textA);
     });
 
-    // Reappend sorted rows (with their notes rows)
     rows.forEach(row => {
         tbody.appendChild(row);
         const payoutId = row.getAttribute('data-payout-id');
@@ -894,18 +949,141 @@ function sortTable(columnIndex) {
         }
     });
 
-    // Update header indicators
-    document.querySelectorAll('#payouts-table thead th').forEach((th, idx) => {
-        if (th.dataset.sortable !== 'true') {
-            return;
-        }
-        const base = th.textContent.replace(/\s*[▲▼]\s*$/, '').trim();
-        if (idx === columnIndex) {
-            th.textContent = base + (isAscending ? ' ▲' : ' ▼');
+    document.querySelectorAll('#payouts-table thead th[data-sortable="true"]').forEach(th => {
+        if (th.dataset.columnKey === columnKey) {
+            th.dataset.sortDirection = isAscending ? 'asc' : 'desc';
         } else {
-            th.textContent = base + ' ▼';
+            th.dataset.sortDirection = '';
         }
     });
+}
+
+function initializeColumnOrder() {
+    columnOrderState = loadColumnOrder();
+    applyColumnOrder(columnOrderState);
+
+    const headerCells = document.querySelectorAll('#payouts-table thead th[data-draggable="true"]');
+    headerCells.forEach(cell => {
+        cell.addEventListener('dragstart', handleColumnDragStart);
+        cell.addEventListener('dragover', handleColumnDragOver);
+        cell.addEventListener('dragleave', handleColumnDragLeave);
+        cell.addEventListener('drop', handleColumnDrop);
+        cell.addEventListener('dragend', handleColumnDragEnd);
+    });
+}
+
+function loadColumnOrder() {
+    try {
+        const stored = localStorage.getItem(COLUMN_STORAGE_KEY);
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed) && parsed.length) {
+                return normalizeColumnOrder(parsed);
+            }
+        }
+    } catch (err) {
+        console.warn('Unable to load column order', err);
+    }
+    return [...DEFAULT_COLUMN_ORDER];
+}
+
+function saveColumnOrder(order) {
+    try {
+        localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(order));
+    } catch (err) {
+        console.warn('Unable to persist column order', err);
+    }
+}
+
+function normalizeColumnOrder(order) {
+    const cleaned = order.filter(key => DEFAULT_COLUMN_ORDER.includes(key));
+    DEFAULT_COLUMN_ORDER.forEach(key => {
+        if (!cleaned.includes(key)) {
+            cleaned.push(key);
+        }
+    });
+    return cleaned;
+}
+
+function applyColumnOrder(order) {
+    const normalized = normalizeColumnOrder(order);
+    columnOrderState = normalized;
+    const table = document.getElementById('payouts-table');
+    if (!table) return;
+
+    const headerRow = table.querySelector('thead tr');
+    if (headerRow) reorderRowCells(headerRow, normalized);
+
+    table.querySelectorAll('tbody tr.payout-row').forEach(row => reorderRowCells(row, normalized));
+    const footerRows = table.querySelectorAll('tfoot tr');
+    footerRows.forEach(row => reorderRowCells(row, normalized));
+}
+
+function reorderRowCells(row, order) {
+    const cells = Array.from(row.children);
+    if (!cells.length) return;
+    const fragment = document.createDocumentFragment();
+    order.forEach(key => {
+        const cell = cells.find(c => c.dataset && c.dataset.columnKey === key);
+        if (cell) {
+            fragment.appendChild(cell);
+        }
+    });
+    row.appendChild(fragment);
+}
+
+function handleColumnDragStart(event) {
+    const target = event.currentTarget;
+    draggingColumnKey = target.dataset.columnKey;
+    if (!draggingColumnKey) return;
+    target.dataset.dragging = 'true';
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', draggingColumnKey);
+}
+
+function handleColumnDragOver(event) {
+    if (!draggingColumnKey) return;
+    const target = event.currentTarget;
+    const targetKey = target.dataset.columnKey;
+    if (!targetKey || targetKey === draggingColumnKey) return;
+    event.preventDefault();
+    document.querySelectorAll('#payouts-table thead th[data-drop-target="true"]').forEach(th => th.removeAttribute('data-drop-target'));
+    target.dataset.dropTarget = 'true';
+}
+
+function handleColumnDragLeave(event) {
+    event.currentTarget.removeAttribute('data-drop-target');
+}
+
+function handleColumnDrop(event) {
+    if (!draggingColumnKey) return;
+    event.preventDefault();
+    const targetKey = event.currentTarget.dataset.columnKey;
+    if (!targetKey || targetKey === draggingColumnKey) return;
+
+    const newOrder = moveColumnKey(columnOrderState, draggingColumnKey, targetKey);
+    columnOrderState = newOrder;
+    saveColumnOrder(columnOrderState);
+    applyColumnOrder(columnOrderState);
+}
+
+function handleColumnDragEnd() {
+    draggingColumnKey = null;
+    document.querySelectorAll('#payouts-table thead th').forEach(th => {
+        th.removeAttribute('data-drop-target');
+        th.removeAttribute('data-dragging');
+    });
+}
+
+function moveColumnKey(order, fromKey, toKey) {
+    const normalized = normalizeColumnOrder(order);
+    const fromIndex = normalized.indexOf(fromKey);
+    const toIndex = normalized.indexOf(toKey);
+    if (fromIndex === -1 || toIndex === -1) {
+        return normalized;
+    }
+    normalized.splice(toIndex, 0, normalized.splice(fromIndex, 1)[0]);
+    return normalized;
 }
 
 // Auto-filter on page load if URL parameter is present
@@ -945,6 +1123,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
+    initializeColumnOrder();
 });
 
 // Money formatting helper (US style, 2 decimals)
@@ -999,6 +1179,16 @@ document.addEventListener('click', function (e) {
 
 // Intercept bulk form submit for in-place updates
 document.addEventListener('submit', function (e) {
+    const notesForm = e.target.closest('.notes-edit-form');
+    if (notesForm) {
+        if (notesForm.dataset.ajaxFallback === '1') {
+            return;
+        }
+        e.preventDefault();
+        submitNotesFormAjax(notesForm);
+        return;
+    }
+
     const form = e.target.closest('#bulk-form');
     if (!form) return;
     e.preventDefault();
@@ -1020,11 +1210,11 @@ document.addEventListener('submit', function (e) {
         .then((data) => {
             if (!data || !data.ok) throw new Error('Update failed');
             const updatedIds = data.updated_ids || [];
-            const overdueFlags = data.overdue_flags || {};
+            const overdue_flags = data.overdue_flags || {};
             const newStatus = String(data.new_status || '').toLowerCase();
 
             updatedIds.forEach((pid) => {
-                applyRowStatusUpdate(String(pid), newStatus, !!overdueFlags[pid]);
+                applyRowStatusUpdate(String(pid), newStatus, !!overdue_flags[pid]);
             });
 
             // Clear selection and hide bulk bar
@@ -1039,6 +1229,58 @@ document.addEventListener('submit', function (e) {
         });
 });
 
+function submitNotesFormAjax(form) {
+    const payoutId = form.getAttribute('data-payout-id');
+    if (!payoutId) {
+        form.dataset.ajaxFallback = '1';
+        form.submit();
+        return;
+    }
+
+    const formData = new FormData(form);
+    formData.set('redirect_to', window.location.pathname + window.location.search);
+
+    fetch(form.action, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'fetch' } })
+        .then(async (res) => {
+            if (!res.ok) throw new Error('Bad response');
+            return res.json();
+        })
+        .then((data) => {
+            if (!data || !data.ok) throw new Error('Update failed');
+            updateNoteDisplay(payoutId, data.note || '');
+            if (typeof applyRowStatusUpdate === 'function' && data.status) {
+                try {
+                    applyRowStatusUpdate(String(payoutId), String(data.status).toLowerCase(), !!data.is_overdue);
+                } catch (_) {
+                    // no-op if helper unavailable
+                }
+            }
+            toggleNotesRow(payoutId);
+        })
+        .catch(() => {
+            form.dataset.ajaxFallback = '1';
+            form.submit();
+        });
+}
+
+function updateNoteDisplay(payoutId, noteText) {
+    const row = document.querySelector(`tr.payout-row[data-payout-id="${payoutId}"]`);
+    if (!row) return;
+    const noteEl = row.querySelector('.payout-note-text');
+    if (!noteEl) return;
+
+    const trimmed = (noteText || '').trim();
+    if (trimmed) {
+        noteEl.textContent = trimmed;
+        noteEl.title = trimmed;
+        noteEl.classList.remove('payout-note-text--empty');
+    } else {
+        noteEl.textContent = '—';
+        noteEl.title = 'No notes yet';
+        noteEl.classList.add('payout-note-text--empty');
+    }
+}
+
 // Helper to apply DOM updates after a status change
 function applyRowStatusUpdate(payoutId, newStatus, isOverdue) {
     const row = document.querySelector(`tr.payout-row[data-payout-id="${payoutId}"]`);
@@ -1048,7 +1290,7 @@ function applyRowStatusUpdate(payoutId, newStatus, isOverdue) {
     if (isOverdue) row.classList.add('payout-row--overdue');
     else row.classList.remove('payout-row--overdue');
 
-    const statusCell = row.cells[8];
+    const statusCell = row.querySelector('[data-column-key="status"]');
     if (statusCell) {
         let label = statusCell.querySelector('.overdue-label');
         if (isOverdue && !label) {
@@ -1109,54 +1351,95 @@ function applyRowStatusUpdate(payoutId, newStatus, isOverdue) {
 <style>
 /* Schedule payouts table header and column sizing */
 .data-table.schedule-payouts-table {
-    table-layout: auto; /* allow natural column resize to fit headers */
+    table-layout: auto;
 }
+
 .data-table.schedule-payouts-table thead th {
-    white-space: nowrap;        /* keep header text on one line */
-    overflow: hidden;           /* prevent wrapping overflow */
-    text-overflow: ellipsis;    /* show ellipsis if constrained */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     vertical-align: bottom;
+    position: relative;
+    user-select: none;
 }
-/* Column widths tuned to keep headers inline without wrapping */
-.data-table.schedule-payouts-table th:nth-child(1),
-.data-table.schedule-payouts-table td:nth-child(1) { /* Pay Date */
-    width: 120px;
+
+.column-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }
-.data-table.schedule-payouts-table th:nth-child(2),
-.data-table.schedule-payouts-table td:nth-child(2) { /* Code */
-    width: 110px;
+
+th[data-sortable="true"] {
+    cursor: pointer;
 }
-.data-table.schedule-payouts-table th:nth-child(3),
-.data-table.schedule-payouts-table td:nth-child(3) { /* Working Name */
-    width: auto;
+
+th[data-sortable="true"] .column-label::after {
+    content: '';
+    margin-left: 4px;
+    font-size: 12px;
+    color: #94a3b8;
 }
-.data-table.schedule-payouts-table th:nth-child(4),
-.data-table.schedule-payouts-table td:nth-child(4) { /* Method */
-    width: 140px;
+
+th[data-sort-direction="asc"] .column-label::after {
+    content: '▲';
 }
-.data-table.schedule-payouts-table th:nth-child(5),
-.data-table.schedule-payouts-table td:nth-child(5) { /* Frequency */
-    width: 130px;
+
+th[data-sort-direction="desc"] .column-label::after {
+    content: '▼';
 }
-.data-table.schedule-payouts-table th:nth-child(6),
-.data-table.schedule-payouts-table td:nth-child(6) { /* Amount */
-    width: 140px;
+
+th[data-draggable="true"] {
+    cursor: grab;
 }
-.data-table.schedule-payouts-table th:nth-child(7),
-.data-table.schedule-payouts-table td:nth-child(7) { /* Deductions */
-    width: 130px;
+
+th[data-dragging="true"] {
+    opacity: 0.6;
 }
-.data-table.schedule-payouts-table th:nth-child(8),
-.data-table.schedule-payouts-table td:nth-child(8) { /* Status */
-    width: 130px;
+
+th[data-drop-target="true"]::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: -4px;
+    width: 4px;
+    height: 100%;
+    background: rgba(59, 130, 246, 0.6);
 }
-.data-table.schedule-payouts-table th:nth-child(9),
-.data-table.schedule-payouts-table td:nth-child(9) { /* Notes */
-    width: 240px;
+
+.column-select { width: 60px; }
+.column-pay_date { width: 140px; }
+.column-code { width: 120px; }
+.column-payment_method { width: 150px; }
+.column-frequency { width: 140px; }
+.column-amount { width: 150px; }
+.column-deductions { width: 140px; text-align: center; }
+.column-status { width: 140px; text-align: center; }
+.column-notes { width: 260px; }
+.column-actions { width: 160px; }
+
+.table-summary-row {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 16px;
+    margin-top: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.1);
+    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.85);
 }
-.data-table.schedule-payouts-table th:nth-child(10),
-.data-table.schedule-payouts-table td:nth-child(10) { /* Quick Actions */
-    width: 140px;
+
+.table-summary-label {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 13px;
+    color: #94a3b8;
+}
+
+.table-summary-value {
+    font-size: 18px;
+    font-weight: 600;
+    color: #3b82f6;
 }
 
 /* Schedule Metrics Dashboard */

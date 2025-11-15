@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 from datetime import date, datetime
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 from typing import Generator
 
 from sqlalchemy import create_engine, inspect, text
@@ -13,6 +14,23 @@ DEFAULT_SQLITE_PATH = Path("data/payroll.db")
 DEFAULT_SQLITE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 DATABASE_URL = os.getenv("PAYROLL_DATABASE_URL", f"sqlite:///{DEFAULT_SQLITE_PATH}")
+
+
+def _mask_db_url(url: str) -> str:
+    """Redact credentials when logging database URLs."""
+    try:
+        parts = urlsplit(url)
+        netloc = parts.netloc
+        if "@" not in netloc:
+            return url
+        creds, _, host_part = netloc.partition("@")
+        if ":" not in creds:
+            return url
+        username = creds.split(":", 1)[0]
+        masked_netloc = f"{username}:****@{host_part}"
+        return urlunsplit((parts.scheme, masked_netloc, parts.path, parts.query, parts.fragment))
+    except Exception:
+        return url
 
 
 def _create_engine(url: str):
@@ -25,7 +43,8 @@ def _create_engine(url: str):
 # environments, if the configured database (commonly PostgreSQL) is unreachable
 # we fall back to the SQLite file so developers can run the app without a
 # running Postgres instance. In production we re-raise the exception.
-print(f"[database] ENVIRONMENT={os.getenv('ENVIRONMENT', 'unset')} | PAYROLL_DATABASE_URL={'sqlite:///*' if DATABASE_URL.startswith('sqlite') else DATABASE_URL}")
+masked_url = 'sqlite:///*' if DATABASE_URL.startswith('sqlite') else _mask_db_url(DATABASE_URL)
+print(f"[database] ENVIRONMENT={os.getenv('ENVIRONMENT', 'unset')} | PAYROLL_DATABASE_URL={masked_url}")
 
 try:
     engine = _create_engine(DATABASE_URL)
@@ -34,7 +53,8 @@ try:
         pass
 except Exception as e:  # pragma: no cover - environment dependent
     env = os.getenv("ENVIRONMENT", "production").lower()
-    allow_dev_fallback = os.getenv("LOCAL_DEV_SQLITE_FALLBACK", "false").lower() in ("1", "true", "yes")
+    default_fallback_flag = "true" if env in ("development", "dev", "local") else "false"
+    allow_dev_fallback = os.getenv("LOCAL_DEV_SQLITE_FALLBACK", default_fallback_flag).lower() in ("1", "true", "yes")
     print(f"[database] Could not connect to database at {DATABASE_URL!r}: {e}")
     if env in ("development", "dev", "local") and allow_dev_fallback:
         # Use local SQLite for development if Postgres is not available and fallback is explicitly enabled
