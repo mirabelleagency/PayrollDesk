@@ -2,6 +2,128 @@
 {% block title %}Payroll Cycle {{ run.id }} · Payroll Desk{% endblock %}
 {% block content %}
 
+<script>
+document.documentElement.classList.add('js-metrics');
+</script>
+
+<style>
+.schedule-metrics-dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin: 24px 0;
+}
+
+.js-metrics .schedule-metrics-dashboard {
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.24s ease, transform 0.24s ease;
+}
+
+.schedule-metrics-dashboard.is-ready {
+    opacity: 1;
+    transform: none;
+}
+
+.schedule-metric {
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(148, 163, 184, 0.08);
+    border-radius: 12px;
+    padding: 20px;
+    transition: all 0.2s ease;
+    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.35);
+}
+
+.schedule-metric:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.5);
+}
+
+.schedule-metric--primary {
+    border-left: 4px solid #3b82f6;
+    background: linear-gradient(145deg, rgba(59, 130, 246, 0.15), rgba(15, 23, 42, 0.9));
+}
+
+.schedule-metric--success {
+    border-left: 4px solid #22c55e;
+    background: linear-gradient(145deg, rgba(34, 197, 94, 0.15), rgba(15, 23, 42, 0.9));
+}
+
+.schedule-metric--warning {
+    border-left: 4px solid #eab308;
+    background: linear-gradient(145deg, rgba(234, 179, 8, 0.15), rgba(15, 23, 42, 0.9));
+}
+
+.schedule-metric--neutral {
+    border-left: 4px solid #94a3b8;
+}
+
+.schedule-metric--danger {
+    border-left: 4px solid #ef4444;
+    background: linear-gradient(145deg, rgba(239, 68, 68, 0.15), rgba(15, 23, 42, 0.9));
+}
+
+.schedule-metric--alert {
+    animation: pulse-alert 2s ease-in-out infinite;
+}
+
+@keyframes pulse-alert {
+    0%, 100% {
+        box-shadow: 0 20px 60px rgba(239, 68, 68, 0.3);
+    }
+    50% {
+        box-shadow: 0 20px 60px rgba(239, 68, 68, 0.6);
+    }
+}
+
+.schedule-metric__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.schedule-metric__icon {
+    font-size: 20px;
+}
+
+.schedule-metric__label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.schedule-metric__value {
+    font-size: 32px;
+    font-weight: 700;
+    color: #f8fafc;
+    margin-bottom: 8px;
+}
+
+.schedule-metric__value--compact {
+    font-size: 28px;
+}
+
+.schedule-metric__breakdown {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #94a3b8;
+    flex-wrap: wrap;
+}
+
+.schedule-metric__item {
+    color: #cbd5e1;
+}
+
+.schedule-metric__divider {
+    color: #475569;
+}
+</style>
+
 <!-- Page Header -->
 <section class="page-header" style="margin-bottom: 24px;">
     <div>
@@ -44,40 +166,40 @@
 
 <!-- Hero Metrics Dashboard -->
 <section class="schedule-metrics-dashboard">
-    <div class="schedule-metric schedule-metric--primary">
+    <div class="schedule-metric schedule-metric--primary" id="card-paid">
         <div class="schedule-metric__header">
             <span class="schedule-metric__icon">✅</span>
             <span class="schedule-metric__label">Paid This Cycle</span>
         </div>
-        <div class="schedule-metric__value">{{ run.currency }} {{ summary.paid_total|money }}</div>
+        <div class="schedule-metric__value">{{ run.currency }} <span id="card-paid-total">{{ summary.paid_total|money }}</span></div>
         <div class="schedule-metric__breakdown">
-            <span class="schedule-metric__item">{{ summary.paid_models }} models</span>
+            <span class="schedule-metric__item"><span id="card-paid-models">{{ summary.paid_models }}</span> models</span>
             <span class="schedule-metric__divider">·</span>
-            <span class="schedule-metric__item">{{ status_counts.get('paid', 0) }} payments</span>
+            <span class="schedule-metric__item"><span id="card-paid-count">{{ status_counts.get('paid', 0) }}</span> payments</span>
         </div>
     </div>
 
-    <div class="schedule-metric schedule-metric--warning">
+    <div class="schedule-metric schedule-metric--warning" id="card-unpaid">
         <div class="schedule-metric__header">
             <span class="schedule-metric__icon">⏳</span>
             <span class="schedule-metric__label">Unpaid This Cycle</span>
         </div>
-        <div class="schedule-metric__value">{{ run.currency }} {{ summary.unpaid_total|money }}</div>
+        <div class="schedule-metric__value">{{ run.currency }} <span id="card-unpaid-total">{{ summary.unpaid_total|money }}</span></div>
         <div class="schedule-metric__breakdown">
-            <span class="schedule-metric__item">{{ status_counts.get('not_paid', 0) }} pending</span>
+            <span class="schedule-metric__item"><span id="card-unpaid-pending">{{ status_counts.get('not_paid', 0) }}</span> pending</span>
             <span class="schedule-metric__divider">·</span>
-            <span class="schedule-metric__item">{{ status_counts.get('on_hold', 0) }} on hold</span>
+            <span class="schedule-metric__item"><span id="card-unpaid-hold">{{ status_counts.get('on_hold', 0) }}</span> on hold</span>
         </div>
     </div>
 
-    <div class="schedule-metric schedule-metric--danger {% if overdue_count > 0 %}schedule-metric--alert{% endif %}">
+    <div class="schedule-metric schedule-metric--danger {% if overdue_count > 0 %}schedule-metric--alert{% endif %}" id="card-overdue">
         <div class="schedule-metric__header">
             <span class="schedule-metric__icon">🚨</span>
             <span class="schedule-metric__label">Overdue</span>
         </div>
-        <div class="schedule-metric__value">{{ overdue_count }}</div>
+        <div class="schedule-metric__value"><span id="card-overdue-count">{{ overdue_count }}</span></div>
         <div class="schedule-metric__breakdown">
-            <span class="schedule-metric__item">{{ run.currency }} {{ overdue_amount|money }}</span>
+            <span class="schedule-metric__item">{{ run.currency }} <span id="card-overdue-amount">{{ overdue_amount|money }}</span></span>
             {% if overdue_count > 0 %}
             <span class="schedule-metric__divider">·</span>
             <span class="schedule-metric__item" style="color: #ef4444;">Action needed</span>
@@ -188,20 +310,18 @@
 
     <!-- Status Filter Chips -->
     <div class="status-filter-chips" style="margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap;">
-        <button class="status-chip-filter {% if not filters.status %}status-chip-filter--active{% endif %}" 
+        <button class="status-chip-filter {% if not filters.status %}status-chip-filter--active{% endif %}"
             onclick="filterByStatus('')" type="button" data-status-value="">
-            All ({{ payouts|length }})
+            All (<span id="chip-count-all">{{ payouts|length }}</span>)
         </button>
-        {% if overdue_count > 0 %}
-        <button class="status-chip-filter status-chip-filter--overdue" 
-            onclick="filterByOverdue()" type="button" data-status-value="overdue">
-            🚨 Overdue ({{ overdue_count }})
+        <button id="chip-overdue" class="status-chip-filter status-chip-filter--overdue {% if filters.status == 'overdue' %}status-chip-filter--active{% endif %}"
+            onclick="filterByOverdue()" type="button" data-status-value="overdue" {% if overdue_count == 0 and filters.status != 'overdue' %}style="display: none;"{% endif %}>
+            🚨 Overdue (<span id="chip-count-overdue">{{ overdue_count }}</span>)
         </button>
-        {% endif %}
         {% for option in status_options %}
         <button class="status-chip-filter status-chip-filter--{{ option }} {% if filters.status == option %}status-chip-filter--active{% endif %}" 
             onclick="filterByStatus('{{ option }}')" type="button" data-status-value="{{ option }}">
-            {{ option.replace('_', ' ')|title }} ({{ status_counts.get(option, 0) }})
+            {{ option.replace('_', ' ')|title }} (<span id="chip-count-{{ option }}">{{ status_counts.get(option, 0) }}</span>)
         </button>
         {% endfor %}
     </div>
@@ -259,6 +379,7 @@
                     data-name="{{ (payout.working_name or '')|lower }}"
                     data-status="{{ payout.status }}"
                     data-is-overdue="{{ 'true' if is_overdue else 'false' }}"
+                    data-pay-date="{{ payout.pay_date.isoformat() if payout.pay_date else '' }}"
                     data-amount="{{ payout.amount or 0 }}">
                     <td data-column-key="select" class="column-select" style="text-align: center;">
                         <input type="checkbox" class="payout-checkbox" value="{{ payout.id }}" onchange="updateBulkSection()" title="Select payout {{ payout.code }}">
@@ -487,7 +608,9 @@
 </section>
 {% endif %}
 
+<script id="status-options-json" type="application/json">{{ status_options | tojson }}</script>
 <script>
+const STATUS_OPTIONS = JSON.parse(document.getElementById('status-options-json')?.textContent || '[]');
 // Toggle select all checkboxes
 function toggleSelectAll(checkbox) {
     const checkboxes = document.querySelectorAll('.payout-checkbox');
@@ -554,29 +677,11 @@ function quickUpdateStatus(payoutId, status) {
 
             // Update data-status
             const newStatus = String(data.new_status || '').toLowerCase();
+            const serverOverdue = typeof data.is_overdue === 'boolean' ? data.is_overdue : null;
+            const computedOverdue = computeRowOverdue(row, newStatus);
+            const isOverdue = serverOverdue === null ? computedOverdue : (serverOverdue || computedOverdue);
             row.setAttribute('data-status', newStatus);
-
-            // Update overdue class/label
-            const wasOverdue = row.classList.contains('payout-row--overdue');
-            const isOverdue = !!data.is_overdue;
-            if (isOverdue) {
-                row.classList.add('payout-row--overdue');
-            } else {
-                row.classList.remove('payout-row--overdue');
-            }
-            // Toggle OVERDUE label inside status cell
-            const statusCell = row.querySelector('[data-column-key="status"]');
-            if (statusCell) {
-                let label = statusCell.querySelector('.overdue-label');
-                if (isOverdue && !label) {
-                    label = document.createElement('span');
-                    label.className = 'overdue-label';
-                    label.textContent = 'OVERDUE';
-                    statusCell.appendChild(label);
-                } else if (!isOverdue && label) {
-                    label.remove();
-                }
-            }
+            updateOverdueIndicators(row, isOverdue);
 
             // Update status chip text and variant
             const chip = row.querySelector('.status-chip');
@@ -646,6 +751,8 @@ function quickUpdateStatus(payoutId, status) {
             if (typeof recomputeVisibleTotal === 'function') {
                 try { recomputeVisibleTotal(); } catch (_) { }
             }
+            queueSummaryRefresh();
+            refreshActiveStatusFilter();
         })
         .catch(() => {
             // Fallback to original form submit behavior to preserve functionality
@@ -705,6 +812,77 @@ function toggleValidation() {
     }
 }
 
+let currentStatusFilter = (new URL(window.location.href).searchParams.get('status') || '').toLowerCase();
+
+function setCurrentStatusFilter(status) {
+    currentStatusFilter = (status || '').toLowerCase();
+}
+
+function refreshActiveStatusFilter() {
+    if (!currentStatusFilter) {
+        return;
+    }
+    if (currentStatusFilter === 'overdue') {
+        filterByOverdue({ updateUrl: false, resetSearch: false });
+    } else {
+        applyStatusFilterLocally(currentStatusFilter, { updateUrl: false });
+    }
+}
+
+function computeRowOverdue(row, status) {
+    if (!row) return false;
+    const normalizedStatus = (status || '').toLowerCase();
+    if (normalizedStatus !== 'not_paid' && normalizedStatus !== 'on_hold') {
+        return false;
+    }
+    const payDateValue = row.getAttribute('data-pay-date');
+    if (!payDateValue) {
+        return false;
+    }
+    const payDate = new Date(`${payDateValue}T00:00:00`);
+    if (Number.isNaN(payDate.getTime())) {
+        return false;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return payDate < today;
+}
+
+function updateOverdueIndicators(row, isOverdue) {
+    if (!row) return;
+    row.setAttribute('data-is-overdue', isOverdue ? 'true' : 'false');
+
+    if (isOverdue) row.classList.add('payout-row--overdue');
+    else row.classList.remove('payout-row--overdue');
+
+    const payDateCell = row.querySelector('[data-column-key="pay_date"]');
+    if (payDateCell) {
+        let badge = payDateCell.querySelector('.overdue-badge');
+        if (isOverdue && !badge) {
+            badge = document.createElement('span');
+            badge.className = 'overdue-badge';
+            badge.title = 'Payment is overdue';
+            badge.textContent = '🚨';
+            payDateCell.appendChild(badge);
+        } else if (!isOverdue && badge) {
+            badge.remove();
+        }
+    }
+
+    const statusCell = row.querySelector('[data-column-key="status"]');
+    if (statusCell) {
+        let label = statusCell.querySelector('.overdue-label');
+        if (isOverdue && !label) {
+            label = document.createElement('span');
+            label.className = 'overdue-label';
+            label.textContent = 'OVERDUE';
+            statusCell.appendChild(label);
+        } else if (!isOverdue && label) {
+            label.remove();
+        }
+    }
+}
+
 function syncStatusDropdown(status) {
     const statusSelect = document.getElementById('filter-status');
     if (!statusSelect) return false;
@@ -721,11 +899,13 @@ function syncStatusDropdown(status) {
 
 // Filter by status (chip buttons). Keep dropdown selection mirrored, then filter locally.
 function filterByStatus(status) {
+    setCurrentStatusFilter(status);
     syncStatusDropdown(status);
     applyStatusFilterLocally(status);
 }
 
-function applyStatusFilterLocally(status) {
+function applyStatusFilterLocally(status, options = {}) {
+    const { updateUrl = true } = options;
     const tableBody = document.querySelector('#payouts-table tbody');
     if (!tableBody) return;
 
@@ -754,10 +934,12 @@ function applyStatusFilterLocally(status) {
     const visibleCountEl = document.getElementById('visible-count');
     if (visibleCountEl) visibleCountEl.textContent = visibleCount;
 
-    const url = new URL(window.location.href);
-    if (status) url.searchParams.set('status', status);
-    else url.searchParams.delete('status');
-    history.replaceState(null, '', url.toString());
+    if (updateUrl) {
+        const url = new URL(window.location.href);
+        if (status) url.searchParams.set('status', status);
+        else url.searchParams.delete('status');
+        history.replaceState(null, '', url.toString());
+    }
 
     if (typeof recomputeVisibleTotal === 'function') {
         try { recomputeVisibleTotal(); } catch (_) { }
@@ -765,12 +947,14 @@ function applyStatusFilterLocally(status) {
 }
 
 // Filter by overdue (client-side)
-function filterByOverdue() {
+function filterByOverdue(options = {}) {
+    const { updateUrl = true, resetSearch = true } = options;
+    setCurrentStatusFilter('overdue');
     syncStatusDropdown('overdue');
     updateExportExcelHref('overdue');
 
     const searchInput = document.getElementById('quick-search');
-    if (searchInput) {
+    if (resetSearch && searchInput) {
         searchInput.value = '';
     }
     
@@ -807,13 +991,22 @@ function filterByOverdue() {
     if (visibleCountEl) {
         visibleCountEl.textContent = visibleCount;
     }
-    // Clear quick search and persist removal
-    const hiddenQ = document.getElementById('filter-q-hidden');
-    if (searchInput) searchInput.value = '';
-    if (hiddenQ) hiddenQ.value = '';
-    const url = new URL(window.location.href);
-    url.searchParams.delete('q');
-    history.replaceState(null, '', url.toString());
+    if (resetSearch) {
+        const hiddenQ = document.getElementById('filter-q-hidden');
+        if (hiddenQ) hiddenQ.value = '';
+        const urlQ = new URL(window.location.href);
+        urlQ.searchParams.delete('q');
+        if (updateUrl) {
+            history.replaceState(null, '', urlQ.toString());
+        }
+    }
+
+    if (updateUrl) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('status', 'overdue');
+        history.replaceState(null, '', url.toString());
+    }
+
     recomputeVisibleTotal();
 }
 
@@ -845,6 +1038,19 @@ document.addEventListener('DOMContentLoaded', () => {
     updateExportExcelHref();
     const statusSelect = document.getElementById('filter-status');
     if (statusSelect) statusSelect.addEventListener('change', () => updateExportExcelHref());
+
+    const metricsDashboard = document.querySelector('.schedule-metrics-dashboard');
+    const finalizeMetrics = () => {
+        if (metricsDashboard) {
+            metricsDashboard.classList.add('is-ready');
+        }
+        document.documentElement.classList.remove('js-metrics');
+    };
+    if (window.requestAnimationFrame) {
+        requestAnimationFrame(finalizeMetrics);
+    } else {
+        setTimeout(finalizeMetrics, 0);
+    }
 });
 
 // Client-side quick search filter
@@ -1154,6 +1360,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     initializeColumnOrder();
+    queueSummaryRefresh();
 });
 
 // Money formatting helper (US style, 2 decimals)
@@ -1164,6 +1371,110 @@ function formatMoney(value) {
         const n = Math.round((Number(value) || 0) * 100) / 100;
         return n.toFixed(2);
     }
+}
+
+let scheduleSummaryRefreshHandle = null;
+function queueSummaryRefresh() {
+    if (scheduleSummaryRefreshHandle !== null) {
+        return;
+    }
+    const scheduler = (window && window.requestAnimationFrame) ? window.requestAnimationFrame.bind(window) : (cb) => setTimeout(cb, 16);
+    scheduleSummaryRefreshHandle = scheduler(() => {
+        scheduleSummaryRefreshHandle = null;
+        try {
+            recomputeSummaryCards();
+        } catch (_) {
+            // ignore
+        }
+    });
+}
+
+function setChipCount(key, value) {
+    const chipValue = document.getElementById(`chip-count-${key}`);
+    if (chipValue) chipValue.textContent = value;
+    if (key === 'overdue') {
+        const overdueChip = document.getElementById('chip-overdue');
+        if (overdueChip) {
+            if (value > 0 || currentStatusFilter === 'overdue') {
+                overdueChip.style.display = '';
+            } else {
+                overdueChip.style.display = 'none';
+            }
+        }
+    }
+}
+
+function recomputeSummaryCards() {
+    const rows = Array.from(document.querySelectorAll('#payouts-table tbody tr.payout-row'));
+    if (!rows.length) {
+        setChipCount('all', 0);
+        setChipCount('overdue', 0);
+        if (Array.isArray(STATUS_OPTIONS)) {
+            STATUS_OPTIONS.forEach(status => setChipCount(status, 0));
+        }
+        return;
+    }
+
+    let paidTotal = 0;
+    let paidCount = 0;
+    let unpaidTotal = 0;
+    let pendingCount = 0;
+    let holdCount = 0;
+    let overdueCount = 0;
+    let overdueAmount = 0;
+    const statusCounts = {};
+
+    rows.forEach(row => {
+        const status = (row.getAttribute('data-status') || '').toLowerCase();
+        const amount = parseFloat(row.getAttribute('data-amount') || '0') || 0;
+        const isOverdue = row.getAttribute('data-is-overdue') === 'true';
+
+        statusCounts[status] = (statusCounts[status] || 0) + 1;
+
+        if (status === 'paid') {
+            paidTotal += amount;
+            paidCount++;
+        } else if (status === 'not_paid') {
+            unpaidTotal += amount;
+            pendingCount++;
+        } else if (status === 'on_hold') {
+            unpaidTotal += amount;
+            holdCount++;
+        }
+
+        if (isOverdue && (status === 'not_paid' || status === 'on_hold')) {
+            overdueCount++;
+            overdueAmount += amount;
+        }
+    });
+
+    const setText = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    };
+
+    setText('card-paid-total', formatMoney(paidTotal));
+    setText('card-paid-count', paidCount);
+    setText('card-paid-models', paidCount);
+
+    setText('card-unpaid-total', formatMoney(unpaidTotal));
+    setText('card-unpaid-pending', pendingCount);
+    setText('card-unpaid-hold', holdCount);
+
+    setText('card-overdue-count', overdueCount);
+    setText('card-overdue-amount', formatMoney(overdueAmount));
+
+    const overdueCard = document.getElementById('card-overdue');
+    if (overdueCard) {
+        if (overdueCount > 0) overdueCard.classList.add('schedule-metric--alert');
+        else overdueCard.classList.remove('schedule-metric--alert');
+    }
+
+    setChipCount('all', rows.length);
+    if (Array.isArray(STATUS_OPTIONS)) {
+        STATUS_OPTIONS.forEach(status => setChipCount(status, statusCounts[status] || 0));
+    }
+    setChipCount('overdue', overdueCount);
 }
 
 // Recompute visible total based on currently visible rows
@@ -1251,6 +1562,7 @@ document.addEventListener('submit', function (e) {
             if (typeof recomputeVisibleTotal === 'function') {
                 try { recomputeVisibleTotal(); } catch (_) { }
             }
+            queueSummaryRefresh();
         })
         .catch(() => {
             // Fallback to regular submit if fetch fails
@@ -1315,22 +1627,7 @@ function applyRowStatusUpdate(payoutId, newStatus, isOverdue) {
     const row = document.querySelector(`tr.payout-row[data-payout-id="${payoutId}"]`);
     if (!row) return;
     row.setAttribute('data-status', newStatus);
-
-    if (isOverdue) row.classList.add('payout-row--overdue');
-    else row.classList.remove('payout-row--overdue');
-
-    const statusCell = row.querySelector('[data-column-key="status"]');
-    if (statusCell) {
-        let label = statusCell.querySelector('.overdue-label');
-        if (isOverdue && !label) {
-            label = document.createElement('span');
-            label.className = 'overdue-label';
-            label.textContent = 'OVERDUE';
-            statusCell.appendChild(label);
-        } else if (!isOverdue && label) {
-            label.remove();
-        }
-    }
+    updateOverdueIndicators(row, isOverdue);
 
     const chip = row.querySelector('.status-chip');
     if (chip) {
@@ -1374,6 +1671,9 @@ function applyRowStatusUpdate(payoutId, newStatus, isOverdue) {
             holdBtn.textContent = '⏸';
         }
     }
+
+    queueSummaryRefresh();
+    refreshActiveStatusFilter();
 }
 </script>
 
@@ -1469,112 +1769,6 @@ th[data-drop-target="true"]::after {
     font-size: 18px;
     font-weight: 600;
     color: #3b82f6;
-}
-
-/* Schedule Metrics Dashboard */
-.schedule-metrics-dashboard {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 20px;
-    margin: 24px 0;
-}
-
-.schedule-metric {
-    background: rgba(15, 23, 42, 0.9);
-    border: 1px solid rgba(148, 163, 184, 0.08);
-    border-radius: 12px;
-    padding: 20px;
-    transition: all 0.2s ease;
-    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.35);
-}
-
-.schedule-metric:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.5);
-}
-
-.schedule-metric--primary {
-    border-left: 4px solid #3b82f6;
-    background: linear-gradient(145deg, rgba(59, 130, 246, 0.15), rgba(15, 23, 42, 0.9));
-}
-
-.schedule-metric--success {
-    border-left: 4px solid #22c55e;
-    background: linear-gradient(145deg, rgba(34, 197, 94, 0.15), rgba(15, 23, 42, 0.9));
-}
-
-.schedule-metric--warning {
-    border-left: 4px solid #eab308;
-    background: linear-gradient(145deg, rgba(234, 179, 8, 0.15), rgba(15, 23, 42, 0.9));
-}
-
-.schedule-metric--neutral {
-    border-left: 4px solid #94a3b8;
-}
-
-.schedule-metric--danger {
-    border-left: 4px solid #ef4444;
-    background: linear-gradient(145deg, rgba(239, 68, 68, 0.15), rgba(15, 23, 42, 0.9));
-}
-
-.schedule-metric--alert {
-    animation: pulse-alert 2s ease-in-out infinite;
-}
-
-@keyframes pulse-alert {
-    0%, 100% {
-        box-shadow: 0 20px 60px rgba(239, 68, 68, 0.3);
-    }
-    50% {
-        box-shadow: 0 20px 60px rgba(239, 68, 68, 0.6);
-    }
-}
-
-.schedule-metric__header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 12px;
-}
-
-.schedule-metric__icon {
-    font-size: 20px;
-}
-
-.schedule-metric__label {
-    font-size: 13px;
-    font-weight: 500;
-    color: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.schedule-metric__value {
-    font-size: 32px;
-    font-weight: 700;
-    color: #f8fafc;
-    margin-bottom: 8px;
-}
-
-.schedule-metric__value--compact {
-    font-size: 28px;
-}
-
-.schedule-metric__breakdown {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    color: #94a3b8;
-    flex-wrap: wrap;
-}
-
-.schedule-metric__item {
-    color: #cbd5e1;
-}
-
-.schedule-metric__divider {
-    color: #475569;
 }
 
 /* Alert Banner */
