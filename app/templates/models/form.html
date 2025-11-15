@@ -1,11 +1,19 @@
 {% extends "base.html" %}
 {% block title %}{{ 'Edit Model' if action == 'edit' else 'Add Model' }} · Payroll Desk{% endblock %}
+{% set referrable_models = referrable_models if referrable_models is defined else [] %}
+{% set model_display_name = (model.working_name or model.real_name or model.code) if model else 'This model' %}
+{% set referrer_display_name = (model.referred_by.working_name or model.referred_by.real_name or model.referred_by.code) if model and model.referred_by else None %}
 {% block content %}
-<section class="page-header">
+<section class="page-header" style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
     <div>
         <h1 class="page-title">{{ 'Edit Model' if action == 'edit' else 'Add Model' }}</h1>
         <p>Capture roster information used for automated payroll scheduling.</p>
     </div>
+    {% if action == 'edit' and model %}
+    <div style="display: flex; gap: 12px;">
+        <a class="button secondary" href="/models/{{ model.id }}" target="_blank" rel="noopener">View Model Profile</a>
+    </div>
+    {% endif %}
 </section>
 
 <section class="card card--form">
@@ -121,6 +129,125 @@
                 </div>
             </div>
         </details>
+
+        {% set commission_frequency_labels = {
+            'monthly': 'Monthly · 1st',
+            'mid_month': 'Mid-Month · 14th',
+            'dual': '1st & 14th'
+        } %}
+
+        <div style="margin: 32px 0; border: 1px solid rgba(148,163,184,0.25); border-radius: 12px; padding: 24px; background: rgba(15,23,42,0.4);" data-commission-card>
+            <div style="display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 24px;">
+                <div>
+                    <h2 style="margin: 0 0 8px 0; font-size: 20px; font-weight: 600; color: #f8fafc;">Referral Source</h2>
+                    <p class="form-hint" style="margin: 0; max-width: 520px;">
+                        Select which model (if any) referred {{ model_display_name }} into the roster. Changing this keeps both sides of the relationship in sync.
+                    </p>
+                </div>
+            </div>
+            <div style="background: rgba(30,41,59,0.45); border: 1px solid rgba(148,163,184,0.2); border-radius: 10px; padding: 20px; margin-bottom: 24px;">
+                <div class="form-row" style="margin: 0;">
+                    <label for="referred_by_model_id">Referred By</label>
+                    <select id="referred_by_model_id" name="referred_by_model_id">
+                        <option value="">None / self-sourced</option>
+                        {% for option in referrable_models %}
+                            <option value="{{ option.id }}" {% if model and model.referred_by_model_id == option.id %}selected{% endif %}>
+                                {{ option.label }}{% if option.status != 'Active' %} · {{ option.status }}{% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <p class="form-hint">This link is only editable here on the referee's profile.</p>
+                </div>
+            </div>
+
+            {% if action == 'edit' %}
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px;">
+                <div style="background: rgba(30,41,59,0.45); border: 1px solid rgba(148,163,184,0.2); border-radius: 10px; padding: 20px;">
+                    <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #f8fafc;">Referred Models</h3>
+                    {% if model and model.referrals %}
+                    <p class="form-hint" style="margin: 0 0 12px 0;">Any model listed here was referred by {{ model_display_name }} and will use this profile's commission settings.</p>
+                    <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px;">
+                        {% for referral in model.referrals %}
+                        <li style="padding: 10px 12px; border: 1px solid rgba(148,163,184,0.2); border-radius: 8px; background: rgba(15,23,42,0.4); display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+                            <div>
+                                <strong style="color: #f8fafc;">{{ referral.working_name or referral.real_name }}</strong>
+                                <span style="display: block; font-size: 12px; color: #94a3b8;">Code {{ referral.code }}</span>
+                            </div>
+                            <a class="button tertiary" href="/models/{{ referral.id }}" target="_blank" rel="noopener">View</a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="form-hint" style="margin: 0;">No linked referrals yet. When {{ model_display_name }} refers someone, they will show up here automatically.</p>
+                    {% endif %}
+                </div>
+                <div style="background: rgba(30,41,59,0.45); border: 1px solid rgba(148,163,184,0.2); border-radius: 10px; padding: 20px;" data-commission-panel>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">
+                        <div>
+                            <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #f8fafc;">Referral Program</h3>
+                            <p class="form-hint" style="margin: 0;">Configure payouts {{ model_display_name }} earns whenever they bring in another model.</p>
+                        </div>
+                        <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #f8fafc;">
+                            <input id="commission_active" name="commission_active" type="checkbox" value="on" {% if model and model.commission_active %}checked{% endif %} />
+                            Active
+                        </label>
+                    </div>
+                    <div data-commission-lock {% if not (model and model.referred_by_model_id) %}hidden{% endif %} style="margin-top: 16px; padding: 12px 16px; border-radius: 8px; background: rgba(15,23,42,0.55); border: 1px dashed rgba(248,250,252,0.2);">
+                        <p style="margin: 0; font-size: 13px; color: #94a3b8;">
+                            {{ model_display_name }} was referred by {{ referrer_display_name or 'their recruiter' }}, so commission terms are managed on {{ referrer_display_name or 'the referrer' }}'s profile.
+                        </p>
+                    </div>
+                    <div data-commission-fields>
+                        <div class="form-row" style="margin-top: 16px;">
+                            <label for="commission_per_referral">Commission Per Accepted Referral</label>
+                            <input id="commission_per_referral" name="commission_per_referral" type="number" step="0.01" min="0" value="{% if model and model.commission_per_referral is not none %}{{ '%.2f'|format(model.commission_per_referral) }}{% endif %}" />
+                            <p class="form-hint">Amount in USD this model receives each time their schedule hits.</p>
+                        </div>
+                        <div class="form-row">
+                            <label for="commission_payout_frequency">Commission Payout Frequency</label>
+                            <select id="commission_payout_frequency" name="commission_payout_frequency">
+                                {% for option in commission_frequency_options %}
+                                    {% set selected = (model and model.commission_payout_frequency == option) or (not model and option == 'dual') %}
+                                    <option value="{{ option }}" {% if selected %}selected{% endif %}>{{ commission_frequency_labels.get(option, option|replace('_', ' ')|title) }}</option>
+                                {% endfor %}
+                            </select>
+                            <p class="form-hint">Choose whether payouts occur on the 1st, 14th, or both each month.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div style="background: rgba(30,41,59,0.45); border: 1px solid rgba(148,163,184,0.2); border-radius: 10px; padding: 20px;" data-commission-panel>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">
+                    <div>
+                        <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #f8fafc;">Referral Program</h3>
+                        <p class="form-hint" style="margin: 0;">Configure payouts {{ model_display_name }} earns whenever they bring in another model.</p>
+                    </div>
+                    <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #f8fafc;">
+                        <input id="commission_active" name="commission_active" type="checkbox" value="on" {% if model and model.commission_active %}checked{% endif %} />
+                        Active
+                    </label>
+                </div>
+                <div data-commission-fields>
+                    <div class="form-row" style="margin-top: 16px;">
+                        <label for="commission_per_referral">Commission Per Accepted Referral</label>
+                        <input id="commission_per_referral" name="commission_per_referral" type="number" step="0.01" min="0" value="{% if model and model.commission_per_referral is not none %}{{ '%.2f'|format(model.commission_per_referral) }}{% endif %}" />
+                        <p class="form-hint">Amount in USD this model receives each time their schedule hits.</p>
+                    </div>
+                    <div class="form-row">
+                        <label for="commission_payout_frequency">Commission Payout Frequency</label>
+                        <select id="commission_payout_frequency" name="commission_payout_frequency">
+                            {% for option in commission_frequency_options %}
+                                {% set selected = (model and model.commission_payout_frequency == option) or (not model and option == 'dual') %}
+                                <option value="{{ option }}" {% if selected %}selected{% endif %}>{{ commission_frequency_labels.get(option, option|replace('_', ' ')|title) }}</option>
+                            {% endfor %}
+                        </select>
+                        <p class="form-hint">Choose whether payouts occur on the 1st, 14th, or both each month.</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
 
         <div class="form-row">
             <label for="crypto_wallet">Crypto Wallet Address (Optional)</label>
@@ -243,6 +370,82 @@ document.addEventListener('DOMContentLoaded', function () {
     container.addEventListener('input', updateSummary);
 
     syncRemoveButtons();
+
+    const referrerSelect = document.getElementById('referred_by_model_id');
+    const commissionToggle = document.getElementById('commission_active');
+    const commissionAmount = document.getElementById('commission_per_referral');
+    const commissionFrequency = document.getElementById('commission_payout_frequency');
+    const commissionPanel = document.querySelector('[data-commission-panel]');
+    const commissionFields = document.querySelector('[data-commission-fields]');
+    const commissionLock = document.querySelector('[data-commission-lock]');
+
+    const setCommissionFieldsState = (enabled, reason = 'toggle') => {
+        if (commissionAmount) {
+            commissionAmount.disabled = !enabled;
+            if (!enabled) {
+                commissionAmount.placeholder = reason === 'locked' ? 'Locked while referred' : 'Enable commission to edit amount';
+            } else {
+                commissionAmount.placeholder = '';
+            }
+        }
+        if (commissionFrequency) {
+            commissionFrequency.disabled = !enabled;
+        }
+        if (commissionPanel) {
+            commissionPanel.style.opacity = enabled ? '' : '0.75';
+        }
+    };
+
+    const syncCommissionState = () => {
+        const hasReferrer = Boolean(referrerSelect && referrerSelect.value);
+        if (hasReferrer) {
+            if (commissionToggle) {
+                commissionToggle.checked = false;
+                commissionToggle.disabled = true;
+            }
+            setCommissionFieldsState(false, 'locked');
+            if (commissionFields) {
+                commissionFields.hidden = true;
+            }
+            if (commissionLock) {
+                commissionLock.hidden = false;
+            }
+            if (commissionPanel) {
+                commissionPanel.classList.add('is-locked');
+            }
+        } else {
+            if (commissionToggle) {
+                commissionToggle.disabled = false;
+            }
+            const enabled = commissionToggle ? commissionToggle.checked : false;
+            setCommissionFieldsState(enabled, 'toggle');
+            if (commissionFields) {
+                commissionFields.hidden = false;
+            }
+            if (commissionLock) {
+                commissionLock.hidden = true;
+            }
+            if (commissionPanel) {
+                commissionPanel.classList.remove('is-locked');
+            }
+        }
+    };
+
+    const handleCommissionToggle = () => {
+        if (referrerSelect && referrerSelect.value) {
+            return;
+        }
+        const enabled = commissionToggle ? commissionToggle.checked : false;
+        setCommissionFieldsState(enabled, 'toggle');
+    };
+
+    if (commissionToggle) {
+        commissionToggle.addEventListener('change', handleCommissionToggle);
+    }
+    if (referrerSelect) {
+        referrerSelect.addEventListener('change', syncCommissionState);
+    }
+    syncCommissionState();
 });
 </script>
 {% endblock %}

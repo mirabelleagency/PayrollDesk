@@ -168,7 +168,6 @@
 <section class="card" style="margin-top: 24px;">
     <div class="filter-toolbar">
         <form class="filter-toolbar__filters" method="get">
-            <input type="hidden" name="page" value="1">
             <div class="filter-group filter-group--compact filter-group--search">
                 <label for="quick-search">Search</label>
                 <input type="text" id="quick-search" placeholder="🔍 Quick search by code, name, or wallet..." 
@@ -205,15 +204,6 @@
                 </select>
             </div>
 
-            <div class="filter-group filter-group--compact">
-                <label for="page_size">Rows per page</label>
-                <select id="page_size" name="page_size" onchange="this.form.submit()">
-                    {% for size in page_sizes %}
-                        <option value="{{ size }}" {% if pagination.page_size == size %}selected{% endif %}>{{ size }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            
             {% if filters.code or filters.status or filters.frequency or filters.payment_method %}
             <div class="filter-group filter-group--compact filter-group--clear">
                 <label for="filter-clear">&nbsp;</label>
@@ -230,9 +220,6 @@
         <span>
             Showing <strong id="visible-count">{{ pagination.page_count }}</strong> of
             <strong id="total-count">{{ pagination.total_count }}</strong> models
-            {% if pagination.total_count %}
-                (rows {{ pagination.start_index }}-{{ pagination.end_index }})
-            {% endif %}
         </span>
     </div>
 </section>
@@ -337,33 +324,6 @@
         </table>
     </div>
 
-    {% if pagination.total_pages > 1 %}
-    <nav class="pagination-nav" aria-label="Models pagination" style="margin-top: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
-        <div>
-            {% if pagination.has_previous %}
-                <a class="button secondary button--compact" href="{{ pagination.previous_url }}">← Previous</a>
-            {% else %}
-                <span class="button secondary button--compact" style="opacity: 0.5; pointer-events: none;">← Previous</span>
-            {% endif %}
-        </div>
-        <div style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;">
-            {% for link in pagination.page_links %}
-                {% if link.is_current %}
-                    <span class="button button--compact" style="pointer-events: none;">{{ link.number }}</span>
-                {% else %}
-                    <a class="button secondary button--compact" href="{{ link.url }}">{{ link.number }}</a>
-                {% endif %}
-            {% endfor %}
-        </div>
-        <div>
-            {% if pagination.has_next %}
-                <a class="button secondary button--compact" href="{{ pagination.next_url }}">Next →</a>
-            {% else %}
-                <span class="button secondary button--compact" style="opacity: 0.5; pointer-events: none;">Next →</span>
-            {% endif %}
-        </div>
-    </nav>
-    {% endif %}
 </section>
 
 {% if user.role == 'admin' %}

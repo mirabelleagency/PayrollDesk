@@ -199,6 +199,10 @@ def ensure_schema_updates() -> None:
             column_statements.append(
                 "ALTER TABLE models ADD COLUMN commission_per_referral NUMERIC(12, 2)"
             )
+        if "commission_payout_frequency" not in models_columns:
+            column_statements.append(
+                "ALTER TABLE models ADD COLUMN commission_payout_frequency VARCHAR(20) NOT NULL DEFAULT 'dual'"
+            )
 
         if column_statements:
             print("[ensure_schema_updates] Adding referral/commission columns to models table")

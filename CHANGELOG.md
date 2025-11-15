@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.23.0 - 2025-11-16
+
+### Added
+- core(commissions): allow each referrer to choose a payout cadence (1st, 14th, or both) and generate schedules/estimates accordingly.
+- ui(models): expose commission frequency selector, disable it when payouts are off, and display the schedule on the profile card (which now spans the full row).
+- ui(commissions): surface schedule mix in the KPI card, show each referrer's frequency in the detail table, and align stats with the new cadence logic.
+
+### Changed
+- infra(nav): fully retire the legacy analytics router/import to eliminate startup import errors.
+
+## v2.22.0 - 2025-11-16
+
+### Added
+- ui(commissions): introduce dedicated Commissions dashboard with stat cards, payout timeline, and referral-level schedule table.
+- core(commissions): generate referral payout schedules on the 1st and 14th after acceptance to power the dashboard and projections.
+- ui(css): add timeline card styles to keep the new schedule grid consistent with existing design language.
+
+### Changed
+- ui(models): remove roster pagination so filtered results always show in a single view while keeping aggregate counters accurate.
+- nav(sidebar): swap the retired Analytics shortcut for a Commissions link so the new dashboard is a first-class surface.
+
 ## v2.19.0 - 2025-11-08
 
 ### Added

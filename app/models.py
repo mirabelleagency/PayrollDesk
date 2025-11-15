@@ -26,6 +26,7 @@ STATUS_ENUM = ("Active", "Inactive")
 FREQUENCY_ENUM = ("weekly", "biweekly", "monthly")
 PAYOUT_STATUS_ENUM = ("paid", "approved", "on_hold", "not_paid")
 ADHOC_PAYMENT_STATUS_ENUM = ("pending", "paid", "cancelled")
+COMMISSION_PAYOUT_FREQUENCY_ENUM = ("monthly", "mid_month", "dual")
 
 
 class Model(Base):
@@ -54,6 +55,7 @@ class Model(Base):
     )
     commission_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     commission_per_referral: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    commission_payout_frequency: Mapped[str] = mapped_column(String(20), nullable=False, default="dual")
 
     payouts: Mapped[list["Payout"]] = relationship(back_populates="model", cascade="all, delete-orphan")
     validations: Mapped[list["ValidationIssue"]] = relationship(

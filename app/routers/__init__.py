@@ -1,11 +1,11 @@
 """Router package exports."""
-from . import admin, analytics, auth, changelog, dashboard, models, profile, schedules
+from . import admin, auth, changelog, commissions, dashboard, models, profile, schedules
 
 __all__ = [
 	"admin",
-	"analytics",
 	"auth",
 	"changelog",
+	"commissions",
 	"dashboard",
 	"models",
 	"profile",

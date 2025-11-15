@@ -124,6 +124,10 @@
     padding: 24px;
 }
 
+.model-view-card--full {
+    grid-column: 1 / -1;
+}
+
 .model-view-card__header {
     display: flex;
     align-items: center;
@@ -424,6 +428,16 @@ details[open] > .collapsible-summary::after {
                     <span class="model-view-info-label">Monthly Rate</span>
                     <span class="model-view-info-value model-view-info-value--success">${{ model.amount_monthly|money }}</span>
                 </div>
+                {% if referrer_model %}
+                <div class="model-view-info-row">
+                    <span class="model-view-info-label">Referred By</span>
+                    <span class="model-view-info-value">
+                        <a href="/models/{{ referrer_model.id }}" style="color: #60a5fa; text-decoration: none;">
+                            {{ referrer_model.working_name or referrer_model.real_name }}
+                        </a>
+                    </span>
+                </div>
+                {% endif %}
             </div>
         </div>
 
@@ -458,55 +472,90 @@ details[open] > .collapsible-summary::after {
         </div>
 
         <!-- Commission Overview (kept independent from payroll runs) -->
-        <div class="model-view-card">
+        {% set commission_frequency_labels = {
+            'monthly': 'Monthly · 1st',
+            'mid_month': 'Mid-Month · 14th',
+            'dual': '1st & 14th'
+        } %}
+        <div class="model-view-card model-view-card--full">
             <div class="model-view-card__header">
                 <span class="model-view-card__icon">💼</span>
-                <h2 class="model-view-card__title">Commission</h2>
+                <h2 class="model-view-card__title">Referrals & Commission</h2>
             </div>
-            {% if commission_summary and commission_summary.commission_active %}
-            <div class="model-view-info-grid">
-                <div class="model-view-info-row">
-                    <span class="model-view-info-label">Referrals Accepted</span>
-                    <span class="model-view-info-value">{{ commission_summary.total_referrals }}</span>
-                </div>
-                <div class="model-view-info-row">
-                    <span class="model-view-info-label">Per Referral</span>
-                    <span class="model-view-info-value model-view-info-value--success">${{ commission_summary.commission_per_referral|money }}</span>
-                </div>
-                <div class="model-view-info-row">
-                    <span class="model-view-info-label">Est. Monthly Commission</span>
-                    <span class="model-view-info-value model-view-info-value--success">${{ commission_summary.estimated_monthly_commission|money }}</span>
-                </div>
-            </div>
-            {% else %}
-            <p style="margin: 0; font-size: 14px; color: #94a3b8;">No commission is configured for this model yet.</p>
-            {% endif %}
+            <div style="display: grid; gap: 24px;">
+                <section style="background: rgba(15,23,42,0.35); border: 1px solid rgba(148,163,184,0.2); border-radius: 10px; padding: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                        <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #f8fafc;">Referred Models</h3>
+                        {% if not referrer_model and commission_summary and commission_summary.commission_active %}
+                        <span class="model-view-table-count" style="background: rgba(34,197,94,0.15); color: #4ade80;">
+                            Program Active
+                        </span>
+                        {% endif %}
+                    </div>
+                    {% if not referrer_model and commission_summary and commission_summary.commission_active %}
+                    <div class="model-view-info-grid" style="margin: 16px 0;">
+                        <div class="model-view-info-row">
+                            <span class="model-view-info-label">Referrals Accepted</span>
+                            <span class="model-view-info-value">{{ commission_summary.total_referrals }}</span>
+                        </div>
+                        <div class="model-view-info-row">
+                            <span class="model-view-info-label">Per Referral</span>
+                            <span class="model-view-info-value model-view-info-value--success">${{ commission_summary.commission_per_referral|money }}</span>
+                        </div>
+                        <div class="model-view-info-row">
+                            <span class="model-view-info-label">Payout Schedule</span>
+                            <span class="model-view-info-value">{{ commission_frequency_labels.get(commission_summary.payout_frequency, commission_summary.payout_frequency|replace('_', ' ')|title) }}</span>
+                        </div>
+                        <div class="model-view-info-row">
+                            <span class="model-view-info-label">Est. Monthly Commission</span>
+                            <span class="model-view-info-value model-view-info-value--success">${{ commission_summary.estimated_monthly_commission|money }}</span>
+                        </div>
+                    </div>
+                    {% elif not commission_referrals %}
+                    <p style="margin: 12px 0; font-size: 14px; color: #94a3b8;">Enable a referral program and add referral sources to models to populate this section.</p>
+                    {% endif %}
+                    {% if commission_referrals %}
+                    <p style="margin: 0 0 8px 0; font-size: 13px; color: #94a3b8;">Every model below will use this profile's referral program for payouts.</p>
+                    <table class="model-view-table">
+                        <thead>
+                            <tr>
+                                <th>Code</th>
+                                <th>Name</th>
+                                <th>Status</th>
+                                <th>Start Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for referred in commission_referrals %}
+                            <tr>
+                                <td>{{ referred.code }}</td>
+                                <td>{{ referred.working_name or referred.real_name }}</td>
+                                <td>{{ referred.status }}</td>
+                                <td>{{ referred.start_date|display_date }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p style="margin: 0; font-size: 14px; color: #94a3b8;">No referred models recorded yet.</p>
+                    {% endif %}
+                </section>
 
-            {% if commission_referrals %}
-            <div style="margin-top: 16px;">
-                <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #cbd5e1;">Referred Models</h3>
-                <table class="model-view-table">
-                    <thead>
-                        <tr>
-                            <th>Code</th>
-                            <th>Name</th>
-                            <th>Status</th>
-                            <th>Start Date</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for referred in commission_referrals %}
-                        <tr>
-                            <td>{{ referred.code }}</td>
-                            <td>{{ referred.working_name or referred.real_name }}</td>
-                            <td>{{ referred.status }}</td>
-                            <td>{{ referred.start_date|display_date }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                <section style="background: rgba(15,23,42,0.35); border: 1px solid rgba(148,163,184,0.2); border-radius: 10px; padding: 20px;">
+                    <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #f8fafc;">Referral Source</h3>
+                    {% if referrer_model %}
+                    <p style="margin: 0; font-size: 14px; color: #94a3b8;">This model was referred by</p>
+                    <p style="margin: 4px 0 0 0; font-size: 16px; font-weight: 600;">
+                        <a href="/models/{{ referrer_model.id }}" style="color: #60a5fa; text-decoration: none;">
+                            {{ referrer_model.working_name or referrer_model.real_name }}
+                        </a>
+                    </p>
+                    <p style="margin: 8px 0 0 0; font-size: 13px; color: #94a3b8;">Edit the referred model to change this relationship.</p>
+                    {% else %}
+                    <p style="margin: 0; font-size: 14px; color: #94a3b8;">No referrer linked yet. Set one from the edit form if this model was sourced by another talent.</p>
+                    {% endif %}
+                </section>
             </div>
-            {% endif %}
         </div>
     </div>
 

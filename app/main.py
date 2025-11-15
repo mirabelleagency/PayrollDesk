@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.database import init_db
 from app import __version__
-from app.routers import admin, analytics, auth, changelog, dashboard, models, profile, schedules
+from app.routers import admin, auth, changelog, commissions, dashboard, models, profile, schedules
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -24,7 +24,7 @@ app = FastAPI(title="Payroll Desk", version=__version__, lifespan=lifespan)
 
 app.include_router(auth.router)
 app.include_router(profile.router)
-app.include_router(analytics.router)
+app.include_router(commissions.router)
 app.include_router(admin.router)
 app.include_router(changelog.router)
 app.include_router(dashboard.router)

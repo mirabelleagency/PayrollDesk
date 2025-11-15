@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Referral Commissions · Payroll Desk{% endblock %}
+{% block content %}
+<section class="page-header">
+    <div>
+        <h1 class="page-title">💼 Referral Commissions</h1>
+        <p>Monitor scheduled payouts and referral performance over the next {{ horizon_months }} month{% if horizon_months != 1 %}s{% endif %}.</p>
+    </div>
+</section>
+
+{% set commission_frequency_labels = {
+    'monthly': 'Monthly · 1st',
+    'mid_month': 'Mid-Month · 14th',
+    'dual': '1st & 14th'
+} %}
+
+<section class="model-metrics-dashboard">
+    <div class="model-metric model-metric--primary">
+        <div class="model-metric__header">
+            <span class="model-metric__icon">🤝</span>
+            <span class="model-metric__label">Active Referrers</span>
+        </div>
+        <div class="model-metric__value">{{ stats.unique_referrers }}</div>
+        <div class="model-metric__breakdown">
+            <span class="model-metric__item">{{ stats.unique_referrals }} referred models</span>
+            <span class="model-metric__divider">·</span>
+            <span class="model-metric__item">Dual {{ stats.frequency_counts.get('dual', 0) }}, Monthly {{ stats.frequency_counts.get('monthly', 0) }}, Mid {{ stats.frequency_counts.get('mid_month', 0) }}</span>
+        </div>
+    </div>
+
+    <div class="model-metric model-metric--info">
+        <div class="model-metric__header">
+            <span class="model-metric__icon">🗓️</span>
+            <span class="model-metric__label">Upcoming Payouts</span>
+        </div>
+        <div class="model-metric__value">{{ stats.upcoming_events }}</div>
+        <div class="model-metric__breakdown">
+            <span class="model-metric__item">1st: {{ stats.monthly_slots }}</span>
+            <span class="model-metric__divider">·</span>
+            <span class="model-metric__item">14th: {{ stats.mid_month_slots }}</span>
+        </div>
+    </div>
+
+    <div class="model-metric model-metric--financial">
+        <div class="model-metric__header">
+            <span class="model-metric__icon">💰</span>
+            <span class="model-metric__label">Projected Value</span>
+        </div>
+        <div class="model-metric__value">USD {{ stats.projected_total|money }}</div>
+        <div class="model-metric__breakdown">
+            <span class="model-metric__item">Next {{ horizon_months }} month window</span>
+        </div>
+    </div>
+
+    <div class="model-metric model-metric--neutral">
+        <div class="model-metric__header">
+            <span class="model-metric__icon">⏭️</span>
+            <span class="model-metric__label">Next Pay Date</span>
+        </div>
+        <div class="model-metric__value">
+            {% if stats.next_pay_date %}
+                {{ stats.next_pay_date|display_date }}
+            {% else %}
+                —
+            {% endif %}
+        </div>
+        <div class="model-metric__breakdown">
+            <span class="model-metric__item">Automatically generated schedule</span>
+        </div>
+    </div>
+</section>
+
+<section class="card" style="margin-top: 24px;">
+    <div class="section-heading">
+        <div>
+            <h2><span class="section-icon">📅</span> Payout Timeline</h2>
+            <p>Aggregated referral payouts grouped by settlement date.</p>
+        </div>
+    </div>
+    {% if grouped_schedule %}
+    <div class="timeline-grid">
+        {% for bucket in grouped_schedule %}
+        <div class="timeline-card">
+            <div class="timeline-card__date">{{ bucket.date|display_date }}</div>
+            <div class="timeline-card__stats">
+                <span><strong>{{ bucket.count }}</strong> payouts</span>
+                <span><strong>{{ bucket.referrer_count }}</strong> referrers</span>
+            </div>
+            <div class="timeline-card__amount">USD {{ bucket.total|money }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>No upcoming referral payouts yet. Enable commissions on a model to populate this view.</p>
+    </div>
+    {% endif %}
+</section>
+
+<section class="card" style="margin-top: 24px;">
+    <div class="section-heading">
+        <div>
+            <h2><span class="section-icon">📋</span> Referral-Level Schedule</h2>
+            <p>Detailed view of each planned payout with acceptance context.</p>
+        </div>
+    </div>
+    <div class="data-table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Pay Date</th>
+                    <th>Referrer</th>
+                    <th>Frequency</th>
+                    <th>Referral</th>
+                    <th>Accepted</th>
+                    <th>Window</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if entries %}
+                    {% for entry in entries %}
+                    <tr>
+                        <td><strong>{{ entry.pay_date|display_date }}</strong></td>
+                        <td>{{ entry.referrer_name }}</td>
+                        <td>{{ commission_frequency_labels.get(entry.referrer_frequency, entry.referrer_frequency|replace('_', ' ')|title) }}</td>
+                        <td>{{ entry.referral_name }}</td>
+                        <td>{{ entry.accepted_on|display_date }}</td>
+                        <td>
+                            {% if entry.schedule_type == 'monthly' %}
+                                <span class="status-chip status-chip--info">Monthly · 1st</span>
+                            {% else %}
+                                <span class="status-chip status-chip--neutral">Mid-Month · 14th</span>
+                            {% endif %}
+                        </td>
+                        <td><strong>USD {{ entry.amount|money }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td class="empty-state" colspan="7">No referral payouts scheduled.</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
