@@ -1690,12 +1690,24 @@ function applyRowStatusUpdate(payoutId, newStatus, isOverdue) {
     vertical-align: bottom;
     position: relative;
     user-select: none;
+    text-align: center;
+}
+
+.data-table.schedule-payouts-table tbody td {
+    text-align: center;
+    vertical-align: middle;
+}
+
+.data-table.schedule-payouts-table tbody td.column-actions > div {
+    justify-content: center;
 }
 
 .column-label {
     display: inline-flex;
     align-items: center;
     gap: 4px;
+    justify-content: center;
+    width: 100%;
 }
 
 th[data-sortable="true"] {
