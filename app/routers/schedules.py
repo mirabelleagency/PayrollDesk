@@ -2108,7 +2108,8 @@ def download_export(
     export_dir = Path(run.export_path)
 
     status_filter = status.strip().lower() if status else None
-    if status_filter and status_filter not in PAYOUT_STATUS_ENUM:
+    # Accept a client-side only 'overdue' pseudo-status for exports. It's not a real payout status.
+    if status_filter and status_filter not in PAYOUT_STATUS_ENUM and status_filter != 'overdue':
         raise HTTPException(status_code=400, detail="Invalid status filter")
 
     # For schedule_csv, generate from database payouts to include status
@@ -2161,11 +2162,17 @@ def download_export(
         )
 
     if file_type == "schedule_excel":
-        payouts = crud.list_payouts_for_run(
-            db,
-            run_id,
-            status=status_filter,
-        )
+        # Support the 'overdue' pseudo-status -- filter server-side if requested
+        if status_filter == 'overdue':
+            all_payouts = crud.list_payouts_for_run(db, run_id)
+            today = date.today()
+            payouts = [p for p in all_payouts if p.pay_date and p.pay_date < today and p.status in ('not_paid', 'on_hold')]
+        else:
+            payouts = crud.list_payouts_for_run(
+                db,
+                run_id,
+                status=status_filter,
+            )
 
         rows = []
         for payout in payouts:

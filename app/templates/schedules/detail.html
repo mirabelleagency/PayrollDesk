@@ -19,11 +19,8 @@
             <span>← Back to Cycles</span>
         </a>
         <div class="export-controls" style="display: flex; gap: 8px;">
-            <a class="button secondary" href="/schedules/{{ run.id }}/download/schedule_csv">
-                <span>⬇️</span>
-                <span>Export CSV</span>
-            </a>
-            <a class="button button--primary" href="/schedules/{{ run.id }}/download/schedule_excel">
+            {# CSV export removed — Excel will export the current status filter #}
+            <a id="export-excel" data-base-href="/schedules/{{ run.id }}/download/schedule_excel" class="button button--primary" href="/schedules/{{ run.id }}/download/schedule_excel{% if filters.status %}?status={{ filters.status }}{% endif %}">
                 <span>📥</span>
                 <span>Export Excel</span>
             </a>
@@ -718,6 +715,7 @@ function syncStatusDropdown(status) {
     }
 
     statusSelect.value = status || '';
+    updateExportExcelHref(status);
     return true;
 }
 
@@ -769,6 +767,7 @@ function applyStatusFilterLocally(status) {
 // Filter by overdue (client-side)
 function filterByOverdue() {
     syncStatusDropdown('overdue');
+    updateExportExcelHref('overdue');
 
     const searchInput = document.getElementById('quick-search');
     if (searchInput) {
@@ -817,6 +816,36 @@ function filterByOverdue() {
     history.replaceState(null, '', url.toString());
     recomputeVisibleTotal();
 }
+
+function updateExportExcelHref(status) {
+    const excelLink = document.getElementById('export-excel');
+    if (!excelLink) return;
+
+    const base = excelLink.getAttribute('data-base-href') || excelLink.href.split('?')[0];
+    const url = new URL(base, window.location.origin);
+
+    // If caller provided an explicit status, prefer it; otherwise fall back to dropdown value
+    let newStatus = status;
+    if (!newStatus) {
+        const statusSelect = document.getElementById('filter-status');
+        newStatus = statusSelect ? statusSelect.value : '';
+    }
+
+    url.searchParams.delete('status');
+    if (newStatus) {
+        url.searchParams.set('status', newStatus);
+    }
+
+    // Keep existing path and query params - update only to new status
+    excelLink.href = url.pathname + url.search;
+}
+
+// Ensure export link is correct on load and whenever select changes
+document.addEventListener('DOMContentLoaded', () => {
+    updateExportExcelHref();
+    const statusSelect = document.getElementById('filter-status');
+    if (statusSelect) statusSelect.addEventListener('change', () => updateExportExcelHref());
+});
 
 // Client-side quick search filter
 function filterPayoutTable() {
