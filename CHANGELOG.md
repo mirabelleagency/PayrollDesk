@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.23.1 - 2025-11-16
+
+### Changed
+- ui(models/form): remove the manual commission duration field from the referral picker; duration is now handled automatically.
+- ux(models/edit): keep the edit form open after saving so admins can make successive changes without being bounced to the roster list.
+
 ## v2.23.0 - 2025-11-16
 
 ### Added

@@ -68,6 +68,11 @@
             </div>
         </div>
 
+        <div class="form-row">
+            <label for="crypto_wallet">Crypto Wallet Address (Optional)</label>
+            <input id="crypto_wallet" name="crypto_wallet" type="text" value="{{ model.crypto_wallet if model else '' }}" placeholder="e.g., 0x742d35Cc6634C0532925a3b844Bc9e7595f42e" />
+        </div>
+
         {% set adjustments = model.compensation_adjustments if model and model.compensation_adjustments else [] %}
         {% set adjustments_count = adjustments|length %}
         {% set latest_adjustment = adjustments[-1] if adjustments_count else None %}
@@ -153,7 +158,6 @@
             </div>
             <div style="background: rgba(30,41,59,0.45); border: 1px solid rgba(148,163,184,0.2); border-radius: 10px; padding: 20px; margin-bottom: 24px;"
                 data-referrer-picker
-                data-default-duration="{{ default_commission_duration }}"
                 data-selected-id="{{ model.referred_by_model_id if model and model.referred_by_model_id else '' }}">
                 <div style="display: flex; flex-direction: column; gap: 16px;">
                     <div style="display: flex; flex-direction: column; gap: 8px;">
@@ -188,35 +192,10 @@
                         <a data-referrer-view-btn class="{{ referrer_view_btn_classes }}" href="{% if model and model.referred_by_model_id %}/models/{{ model.referred_by_model_id }}{% else %}#{% endif %}" target="_blank" rel="noopener">View Model</a>
                     </div>
                 </div>
-                <div class="form-row" style="margin-top: 16px;" data-duration-field>
-                    <label for="commission_duration_months">Commission Duration (months)</label>
-                    <input id="commission_duration_months" name="commission_duration_months" type="number" min="1" max="36" step="1" value="{{ model.commission_duration_months if model and model.commission_duration_months else default_commission_duration }}" {% if not (model and model.referred_by_model_id) %}disabled{% endif %} />
-                    <p class="form-hint">How many months the referrer earns commission for this specific referral.</p>
-                </div>
             </div>
 
             {% if action == 'edit' %}
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px;">
-                <div style="background: rgba(30,41,59,0.45); border: 1px solid rgba(148,163,184,0.2); border-radius: 10px; padding: 20px;">
-                    <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #f8fafc;">Referred Models</h3>
-                    {% if model and model.referrals %}
-                    <p class="form-hint" style="margin: 0 0 12px 0;">Any model listed here was referred by {{ model_display_name }}.</p>
-                    <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px;">
-                        {% for referral in model.referrals %}
-                        <li style="padding: 10px 12px; border: 1px solid rgba(148,163,184,0.2); border-radius: 8px; background: rgba(15,23,42,0.4); display: flex; justify-content: space-between; align-items: center; gap: 12px;">
-                            <div>
-                                <strong style="color: #f8fafc;">{{ referral.working_name or referral.real_name }}</strong>
-                                <span style="display: block; font-size: 12px; color: #94a3b8;">Code {{ referral.code }}</span>
-                            </div>
-                            <a class="button tertiary" href="/models/{{ referral.id }}" target="_blank" rel="noopener">View</a>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                    {% else %}
-                    <p class="form-hint" style="margin: 0;">No linked referrals yet. When {{ model_display_name }} refers someone, they will show up here automatically.</p>
-                    {% endif %}
-                </div>
-                <div style="background: rgba(30,41,59,0.45); border: 1px solid rgba(148,163,184,0.2); border-radius: 10px; padding: 20px;" data-commission-panel>
+            <div style="background: rgba(30,41,59,0.45); border: 1px solid rgba(148,163,184,0.2); border-radius: 10px; padding: 20px;" data-commission-panel>
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">
                         <div>
                             <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #f8fafc;">Per-Referral Terms</h3>
@@ -242,19 +221,19 @@
                             {% set term_duration = term.commission_duration_months if term and term.commission_duration_months else (model.commission_duration_months if model and model.commission_duration_months else default_commission_duration) %}
                             {% set term_active = term.is_active if term is not none else True %}
                             <div class="referral-term-card {% if not term_active %}referral-term-card--inactive{% endif %}" data-referral-term-card>
-                                <div class="referral-term-card__header">
-                                    <div>
-                                        <p style="margin: 0; font-weight: 600; color: #f8fafc;">{{ referral.working_name or referral.real_name }}</p>
-                                        <span style="font-size: 12px; color: #94a3b8;">Code {{ referral.code }}</span>
+                                <div class="referral-term-card__header" style="display: flex; justify-content: space-between; align-items: center; gap: 16px;">
+                                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                        <strong style="font-size: 18px; color: #f8fafc;">{{ referral.working_name or referral.real_name }}</strong>
+                                        <span style="font-family: monospace; font-size: 14px; color: #94a3b8; border: 1px solid rgba(148,163,184,0.3); padding: 2px 8px; border-radius: 6px;">{{ referral.code }}</span>
+                                        <span class="referral-term-status" data-referral-term-status>{% if term_active %}Active{% else %}Inactive{% endif %}</span>
                                     </div>
-                                    <span class="referral-term-status" data-referral-term-status>{% if term_active %}Active{% else %}Inactive{% endif %}</span>
+                                    <a class="button tertiary" href="/models/{{ referral.id }}/edit" target="_blank" rel="noopener" style="margin: 0; white-space: nowrap;">Edit Model</a>
                                 </div>
                                 <div class="referral-term-card__controls">
                                     <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #f8fafc;">
                                         <input type="checkbox" data-referral-active-toggle {% if term_active %}checked{% endif %} />
-                                        Active
+                                        Commission Active
                                     </label>
-                                    <a class="button tertiary" href="/models/{{ referral.id }}" target="_blank" rel="noopener" style="margin: 0;">Open Profile</a>
                                 </div>
                                 <input type="hidden" name="referral_term_referral_ids" value="{{ referral.id }}" />
                                 <input type="hidden" name="referral_term_actives" value="{% if term_active %}1{% else %}0{% endif %}" data-referral-active-value />
@@ -286,7 +265,6 @@
                         <p class="form-hint" style="margin: 0;">No referrals yet. Once {{ model_display_name }} brings talent, customize their terms here.</p>
                         {% endif %}
                     </div>
-                </div>
             </div>
             {% else %}
             <div style="background: rgba(30,41,59,0.45); border: 1px solid rgba(148,163,184,0.2); border-radius: 10px; padding: 20px;">
@@ -301,10 +279,6 @@
             {% endif %}
         </div>
 
-        <div class="form-row">
-            <label for="crypto_wallet">Crypto Wallet Address (Optional)</label>
-            <input id="crypto_wallet" name="crypto_wallet" type="text" value="{{ model.crypto_wallet if model else '' }}" placeholder="e.g., 0x742d35Cc6634C0532925a3b844Bc9e7595f42e" />
-        </div>
         <div class="form-actions form-actions--end">
             <button class="button" type="submit">Save</button>
             <a class="button secondary" href="/models">Cancel</a>
@@ -434,9 +408,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const commissionPanel = document.querySelector('[data-commission-panel]');
     const commissionFields = document.querySelector('[data-commission-fields]');
     const commissionLock = document.querySelector('[data-commission-lock]');
-    const durationRow = referrerPicker ? referrerPicker.querySelector('[data-duration-field]') : null;
-    const commissionDurationInput = document.getElementById('commission_duration_months');
-    const defaultDuration = parseInt(referrerPicker ? referrerPicker.dataset.defaultDuration || '12' : '12', 10);
     const datalist = document.getElementById('referrer-search-options');
     const syncCommissionState = () => {
         const hasReferrer = Boolean(referrerSelect && referrerSelect.value);
@@ -450,15 +421,6 @@ document.addEventListener('DOMContentLoaded', function () {
             if (commissionPanel) {
                 commissionPanel.classList.add('is-locked');
             }
-            if (commissionDurationInput) {
-                commissionDurationInput.disabled = false;
-                if (!commissionDurationInput.value) {
-                    commissionDurationInput.value = Number.isFinite(defaultDuration) ? defaultDuration : 12;
-                }
-            }
-            if (durationRow) {
-                durationRow.style.display = '';
-            }
         } else {
             if (commissionFields) {
                 commissionFields.hidden = false;
@@ -468,13 +430,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             if (commissionPanel) {
                 commissionPanel.classList.remove('is-locked');
-            }
-            if (commissionDurationInput) {
-                commissionDurationInput.value = '';
-                commissionDurationInput.disabled = true;
-            }
-            if (durationRow) {
-                durationRow.style.display = 'none';
             }
         }
     };
