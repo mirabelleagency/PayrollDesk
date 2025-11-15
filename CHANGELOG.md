@@ -1985,3 +1985,7 @@ All notable changes to this project will be documented in this file.
 - Refactor: replace 'run(s)' with 'cycle(s)' and make schedules export respect year/range filters
 - Initial commit
 
+## v2.24.1 - 2025-11-16
+
+- Internal changes
+
