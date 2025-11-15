@@ -456,6 +456,58 @@ details[open] > .collapsible-summary::after {
                 </div>
             </div>
         </div>
+
+        <!-- Commission Overview (kept independent from payroll runs) -->
+        <div class="model-view-card">
+            <div class="model-view-card__header">
+                <span class="model-view-card__icon">💼</span>
+                <h2 class="model-view-card__title">Commission</h2>
+            </div>
+            {% if commission_summary and commission_summary.commission_active %}
+            <div class="model-view-info-grid">
+                <div class="model-view-info-row">
+                    <span class="model-view-info-label">Referrals Accepted</span>
+                    <span class="model-view-info-value">{{ commission_summary.total_referrals }}</span>
+                </div>
+                <div class="model-view-info-row">
+                    <span class="model-view-info-label">Per Referral</span>
+                    <span class="model-view-info-value model-view-info-value--success">${{ commission_summary.commission_per_referral|money }}</span>
+                </div>
+                <div class="model-view-info-row">
+                    <span class="model-view-info-label">Est. Monthly Commission</span>
+                    <span class="model-view-info-value model-view-info-value--success">${{ commission_summary.estimated_monthly_commission|money }}</span>
+                </div>
+            </div>
+            {% else %}
+            <p style="margin: 0; font-size: 14px; color: #94a3b8;">No commission is configured for this model yet.</p>
+            {% endif %}
+
+            {% if commission_referrals %}
+            <div style="margin-top: 16px;">
+                <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #cbd5e1;">Referred Models</h3>
+                <table class="model-view-table">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Name</th>
+                            <th>Status</th>
+                            <th>Start Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for referred in commission_referrals %}
+                        <tr>
+                            <td>{{ referred.code }}</td>
+                            <td>{{ referred.working_name or referred.real_name }}</td>
+                            <td>{{ referred.status }}</td>
+                            <td>{{ referred.start_date|display_date }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
     </div>
 
     {% set adjustments = model.compensation_adjustments or [] %}

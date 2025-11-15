@@ -21,6 +21,7 @@ from app.database import get_session
 from app.dependencies import templates
 from app.core.formatting import format_display_date
 from app.models import FREQUENCY_ENUM, STATUS_ENUM, Payout, ScheduleRun
+from app.commission import build_commission_summary, get_eligible_referrals
 from app.routers.auth import get_current_user, get_admin_user
 from app.schemas import AdhocPaymentCreate, AdhocPaymentUpdate, ModelCreate, ModelUpdate
 from app.importers.excel_importer import ImportOptions, RunOptions, import_from_excel
@@ -752,6 +753,10 @@ def view_model(model_id: int, request: Request, db: Session = Depends(get_sessio
     advances = crud.list_advances_for_model(db, model.id)
     advances_outstanding = crud.outstanding_advance_total(db, model.id)
 
+    # Commission snapshot (kept independent from payroll runs)
+    commission_summary = build_commission_summary(db, model)
+    commission_referrals = get_eligible_referrals(db, model)
+
     return templates.TemplateResponse(
         "models/view.html",
         {
@@ -763,6 +768,8 @@ def view_model(model_id: int, request: Request, db: Session = Depends(get_sessio
             "adhoc_payments": adhoc_payments,
             "advances": advances,
             "advances_outstanding": advances_outstanding,
+            "commission_summary": commission_summary,
+            "commission_referrals": commission_referrals,
             "error_message": error_message,
             "success_message": success_message,
         },

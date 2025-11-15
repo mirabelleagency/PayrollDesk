@@ -183,6 +183,31 @@ def ensure_schema_updates() -> None:
                 print("[ensure_schema_updates] Successfully added crypto_wallet column to models table")
     except Exception as e:
         print(f"[ensure_schema_updates] Error updating models table: {e}")
+
+    # Ensure models table has referral & commission columns (dev SQLite safety)
+    try:
+        models_columns = {column["name"] for column in inspector.get_columns("models")}
+        column_statements: list[str] = []
+
+        if "referred_by_model_id" not in models_columns:
+            column_statements.append("ALTER TABLE models ADD COLUMN referred_by_model_id INTEGER")
+        if "commission_active" not in models_columns:
+            column_statements.append(
+                "ALTER TABLE models ADD COLUMN commission_active BOOLEAN NOT NULL DEFAULT false"
+            )
+        if "commission_per_referral" not in models_columns:
+            column_statements.append(
+                "ALTER TABLE models ADD COLUMN commission_per_referral NUMERIC(12, 2)"
+            )
+
+        if column_statements:
+            print("[ensure_schema_updates] Adding referral/commission columns to models table")
+            with engine.begin() as connection:
+                for statement in column_statements:
+                    connection.execute(text(statement))
+            print("[ensure_schema_updates] Referral/commission columns added successfully")
+    except Exception as e:
+        print(f"[ensure_schema_updates] Error updating model referral/commission columns: {e}")
     
     # Ensure users table has security fields
     try:

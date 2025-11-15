@@ -46,6 +46,15 @@ class Model(Base):
         DateTime, default=datetime.now, onupdate=datetime.now, nullable=False
     )
 
+    # Referral & commission configuration (independent of core payroll)
+    referred_by_model_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("models.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    commission_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    commission_per_referral: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+
     payouts: Mapped[list["Payout"]] = relationship(back_populates="model", cascade="all, delete-orphan")
     validations: Mapped[list["ValidationIssue"]] = relationship(
         back_populates="model", cascade="all, delete-orphan"
@@ -272,4 +281,17 @@ class PayoutAdvanceAllocation(Base):
 # Back-populate relationships added after class definitions
 Model.advances = relationship(
     "ModelAdvance", back_populates="model", cascade="all, delete-orphan"
+)
+
+# Self-referential referral relationships for commission feature
+Model.referred_by = relationship(
+    "Model",
+    remote_side=[Model.id],
+    back_populates="referrals",
+    uselist=False,
+)
+Model.referrals = relationship(
+    "Model",
+    back_populates="referred_by",
+    foreign_keys=[Model.referred_by_model_id],
 )
