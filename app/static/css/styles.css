@@ -1,3 +1,37 @@
+.timeline-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+}
+
+.timeline-card {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.timeline-card__date {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #f8fafc;
+}
+
+.timeline-card__stats {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: #94a3b8;
+}
+
+.timeline-card__amount {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #22c55e;
+}
 body {
     font-family: "Segoe UI", Tahoma, sans-serif;
     margin: 0;
@@ -2745,6 +2779,48 @@ section {
     justify-content: flex-end;
 }
 
+.referral-term-card {
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 12px;
+    padding: 16px;
+    background: rgba(15, 23, 42, 0.5);
+    transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.referral-term-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+.referral-term-card__controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.referral-term-status {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+}
+.referral-term-card--inactive {
+    border-color: rgba(248, 250, 252, 0.12);
+    background: rgba(15, 23, 42, 0.35);
+    opacity: 0.85;
+}
+.referral-term-card--inactive .referral-term-status {
+    background: rgba(248, 250, 252, 0.08);
+    color: #cbd5e1;
+}
 .card-actions--stack {
     border-top: 1px solid rgba(148, 163, 184, 0.12);
     padding-top: 16px;
@@ -5377,6 +5453,20 @@ section {
     .empty-state-content h2 {
         font-size: 1.25rem;
     }
+}
+
+
+
+
+.referrer-view-btn {
+    margin: 0;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+}
+
+.referrer-view-btn--disabled {
+    pointer-events: none;
+    opacity: 0.4;
 }
 
 

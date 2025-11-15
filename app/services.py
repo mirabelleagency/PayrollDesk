@@ -103,7 +103,7 @@ class PayrollService:
         payout_records = schedule_df.to_dict(orient="records")
         for payout in payout_records:
             pay_date_value = payout.get("Pay Date")
-            if hasattr(pay_date_value, "date"):
+            if pay_date_value is not None and hasattr(pay_date_value, "date"):
                 payout["Pay Date"] = pay_date_value.date()
             amount_value = payout.get(amount_column)
             if amount_value is not None:

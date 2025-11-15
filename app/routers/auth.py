@@ -23,7 +23,11 @@ router = APIRouter(tags=["Auth"])
 def login_page(request: Request):
     """Render login page, optionally preserving a next destination."""
     next_param = request.query_params.get("next")
-    return templates.TemplateResponse("auth/login.html", {"request": request, "next": next_param})
+    return templates.TemplateResponse(
+        request,
+        "auth/login.html",
+        {"request": request, "next": next_param},
+    )
 
 
 @router.post("/login")
@@ -44,6 +48,7 @@ def login(
     if locked:
         record_login_attempt(db, username, False, client_ip, user_agent)
         return templates.TemplateResponse(
+            request,
             "auth/login.html",
             {
                 "request": request,
@@ -72,6 +77,7 @@ def login(
         
         # Return login page with error and attempt count
         return templates.TemplateResponse(
+            request,
             "auth/login.html",
             {
                 "request": request,

@@ -984,6 +984,7 @@ def list_runs(
             })
 
     return templates.TemplateResponse(
+        request,
         "schedules/list.html",
         {
             "request": request,
@@ -1231,6 +1232,7 @@ def view_adhoc_payments(
     quick_range_options = QUICK_RANGE_OPTIONS
 
     return templates.TemplateResponse(
+        request,
         "schedules/adhoc.html",
         {
             "request": request,
@@ -1616,6 +1618,7 @@ def list_runs_all(
         )
 
     return templates.TemplateResponse(
+        request,
         "schedules/all.html",
         {
             "request": request,
@@ -1753,6 +1756,7 @@ def list_runs_all_table(
         run.month_year_label = date(run.target_year, run.target_month, 1).strftime("%b %Y")
 
     return templates.TemplateResponse(
+        request,
         "schedules/all_table.html",
         {
             "request": request,
@@ -1884,6 +1888,7 @@ def new_schedule_form(request: Request, user: User = Depends(get_admin_user)):
     today = date.today()
     default_month = f"{today.year:04d}-{today.month:02d}"
     return templates.TemplateResponse(
+        request,
         "schedules/form.html",
         {
             "request": request,
@@ -2050,6 +2055,7 @@ def view_schedule(
             overdue_amount += payout.amount or Decimal("0")
 
     return templates.TemplateResponse(
+        request,
         "schedules/detail.html",
         {
             "request": request,

@@ -26,6 +26,9 @@ STATUS_ENUM = ("Active", "Inactive")
 FREQUENCY_ENUM = ("weekly", "biweekly", "monthly")
 PAYOUT_STATUS_ENUM = ("paid", "approved", "on_hold", "not_paid")
 ADHOC_PAYMENT_STATUS_ENUM = ("pending", "paid", "cancelled")
+COMMISSION_PAYOUT_FREQUENCY_ENUM = ("monthly", "mid_month", "dual")
+COMMISSION_STATUS_ENUM = ("unpaid", "paid")
+COMMISSION_PAYOUT_STATUS_ENUM = ("unpaid", "paid")
 
 
 class Model(Base):
@@ -46,6 +49,18 @@ class Model(Base):
         DateTime, default=datetime.now, onupdate=datetime.now, nullable=False
     )
 
+    # Referral & commission configuration (independent of core payroll)
+    referred_by_model_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("models.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    commission_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    commission_per_referral: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    commission_payout_frequency: Mapped[str] = mapped_column(String(20), nullable=False, default="dual")
+    commission_duration_months: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    commission_status: Mapped[str] = mapped_column(String(20), nullable=False, default="unpaid")
+
     payouts: Mapped[list["Payout"]] = relationship(back_populates="model", cascade="all, delete-orphan")
     validations: Mapped[list["ValidationIssue"]] = relationship(
         back_populates="model", cascade="all, delete-orphan"
@@ -62,6 +77,8 @@ class Model(Base):
 
     __table_args__ = (
         CheckConstraint("amount_monthly > 0", name="ck_models_amount_positive"),
+        CheckConstraint("commission_status IN ('paid', 'unpaid')", name="ck_models_commission_status_valid"),
+        CheckConstraint("commission_duration_months IS NULL OR commission_duration_months > 0", name="ck_models_commission_duration_positive"),
     )
 
 
@@ -273,3 +290,101 @@ class PayoutAdvanceAllocation(Base):
 Model.advances = relationship(
     "ModelAdvance", back_populates="model", cascade="all, delete-orphan"
 )
+
+# Self-referential referral relationships for commission feature
+Model.referred_by = relationship(
+    "Model",
+    remote_side=[Model.id],
+    back_populates="referrals",
+    uselist=False,
+)
+Model.referrals = relationship(
+    "Model",
+    back_populates="referred_by",
+    foreign_keys=[Model.referred_by_model_id],
+)
+
+class ModelReferralTerm(Base):
+    __tablename__ = "model_referral_terms"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    referrer_model_id: Mapped[int] = mapped_column(
+        ForeignKey("models.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    referral_model_id: Mapped[int] = mapped_column(
+        ForeignKey("models.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    commission_per_referral: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=Decimal("0"))
+    commission_payout_frequency: Mapped[str] = mapped_column(String(20), nullable=False, default="dual")
+    commission_duration_months: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    referrer: Mapped[Model] = relationship(
+        "Model", foreign_keys=[referrer_model_id], back_populates="referral_terms"
+    )
+    referral: Mapped[Model] = relationship(
+        "Model", foreign_keys=[referral_model_id], back_populates="referral_term_config"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("referrer_model_id", "referral_model_id", name="uq_model_referral_terms_pair"),
+        CheckConstraint("commission_per_referral >= 0", name="ck_referral_terms_amount_nonnegative"),
+        CheckConstraint(
+            "commission_duration_months IS NULL OR commission_duration_months > 0",
+            name="ck_referral_terms_duration_positive",
+        ),
+    )
+
+
+Model.referral_terms = relationship(
+    "ModelReferralTerm",
+    foreign_keys="ModelReferralTerm.referrer_model_id",
+    back_populates="referrer",
+    cascade="all, delete-orphan",
+)
+Model.referral_term_config = relationship(
+    "ModelReferralTerm",
+    foreign_keys="ModelReferralTerm.referral_model_id",
+    back_populates="referral",
+    uselist=False,
+)
+
+
+class CommissionPayout(Base):
+    """Tracks individual commission payout status for referrals."""
+    __tablename__ = "commission_payouts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    referrer_model_id: Mapped[int] = mapped_column(
+        ForeignKey("models.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    referral_model_id: Mapped[int] = mapped_column(
+        ForeignKey("models.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    pay_date: Mapped[date] = mapped_column(Date, nullable=False)
+    schedule_type: Mapped[str] = mapped_column(String(20), nullable=False)  # monthly or mid-month
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="unpaid")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now, onupdate=datetime.now, nullable=False
+    )
+
+    referrer: Mapped[Model] = relationship("Model", foreign_keys=[referrer_model_id])
+    referral: Mapped[Model] = relationship("Model", foreign_keys=[referral_model_id])
+
+    __table_args__ = (
+        UniqueConstraint(
+            "referrer_model_id", "referral_model_id", "pay_date", "schedule_type",
+            name="uq_commission_payout_schedule"
+        ),
+        CheckConstraint("amount >= 0", name="ck_commission_payout_amount_nonnegative"),
+        CheckConstraint(
+            "status IN ('unpaid', 'paid')",
+            name="ck_commission_payout_status_valid"
+        ),
+        CheckConstraint(
+            "schedule_type IN ('monthly', 'mid-month')",
+            name="ck_commission_payout_schedule_type_valid"
+        ),
+    )

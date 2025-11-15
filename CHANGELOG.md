@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.23.1 - 2025-11-16
+
+### Changed
+- ui(models/form): remove the manual commission duration field from the referral picker; duration is now handled automatically.
+- ux(models/edit): keep the edit form open after saving so admins can make successive changes without being bounced to the roster list.
+
+## v2.23.0 - 2025-11-16
+
+### Added
+- core(commissions): allow each referrer to choose a payout cadence (1st, 14th, or both) and generate schedules/estimates accordingly.
+- ui(models): expose commission frequency selector, disable it when payouts are off, and display the schedule on the profile card (which now spans the full row).
+- ui(commissions): surface schedule mix in the KPI card, show each referrer's frequency in the detail table, and align stats with the new cadence logic.
+
+### Changed
+- infra(nav): fully retire the legacy analytics router/import to eliminate startup import errors.
+
+## v2.22.0 - 2025-11-16
+
+### Added
+- ui(commissions): introduce dedicated Commissions dashboard with stat cards, payout timeline, and referral-level schedule table.
+- core(commissions): generate referral payout schedules on the 1st and 14th after acceptance to power the dashboard and projections.
+- ui(css): add timeline card styles to keep the new schedule grid consistent with existing design language.
+
+### Changed
+- ui(models): remove roster pagination so filtered results always show in a single view while keeping aggregate counters accurate.
+- nav(sidebar): swap the retired Analytics shortcut for a Commissions link so the new dashboard is a first-class surface.
+
 ## v2.19.0 - 2025-11-08
 
 ### Added
@@ -1843,8 +1870,12 @@ All notable changes to this project will be documented in this file.
 - Refactor: replace 'run(s)' with 'cycle(s)' and make schedules export respect year/range filters
 - Initial commit
 
-## v2.22.0 - 2025-11-15
+## v2.24.0 - 2025-11-16
 
+- fix(models): keep edit form open and simplify referral fields
+- refactor(commission): per-referral terms + active flag; update UI and view
+- Redesign referral/commission UI: split Referral Source & Referred Models, lock commission for referees; add View Model button; show referrer names; fix optional pay_date handling
+- Feature: commission  model referral fields, standalone commission service, and profile UI
 - UI: center align table rows to match headers (schedule payouts)
 - Merge feature/filtered-export into staging: overdue badge + metrics FOUC fix
 - Fix: instant overdue badge update & prevent FOUC in metrics cards
@@ -1954,3 +1985,6 @@ All notable changes to this project will be documented in this file.
 - Refactor: replace 'run(s)' with 'cycle(s)' and make schedules export respect year/range filters
 - Initial commit
 
+## v2.24.1 - 2025-11-16
+
+- Internal changes

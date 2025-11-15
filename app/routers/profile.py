@@ -21,6 +21,7 @@ def view_profile(
 ):
     """View current user profile."""
     return templates.TemplateResponse(
+        request,
         "profile/profile.html",
         {
             "request": request,
@@ -42,6 +43,7 @@ def change_password(
     # Verify current password
     if not user.verify_password(current_password):
         return templates.TemplateResponse(
+            request,
             "profile/profile.html",
             {
                 "request": request,
@@ -54,6 +56,7 @@ def change_password(
     # Verify new password matches confirmation
     if new_password != confirm_password:
         return templates.TemplateResponse(
+            request,
             "profile/profile.html",
             {
                 "request": request,
@@ -67,6 +70,7 @@ def change_password(
     is_valid, error_msg = PasswordValidator.validate(new_password)
     if not is_valid:
         return templates.TemplateResponse(
+            request,
             "profile/profile.html",
             {
                 "request": request,
@@ -81,6 +85,7 @@ def change_password(
     db.commit()
     
     return templates.TemplateResponse(
+        request,
         "profile/profile.html",
         {
             "request": request,

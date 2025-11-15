@@ -96,6 +96,7 @@ def dashboard(request: Request, db: Session = Depends(get_session), user: User =
     current_month_run_id = current_month_run.id if current_month_run else None
 
     return templates.TemplateResponse(
+        request,
         "dashboard/index.html",
         {
             "request": request,
