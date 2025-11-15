@@ -2093,7 +2093,13 @@ def delete_schedule_run(run_id: int, db: Session = Depends(get_session), user: U
 
 
 @router.get("/{run_id}/download/{file_type}")
-def download_export(run_id: int, file_type: str, db: Session = Depends(get_session), user: User = Depends(get_current_user)):
+def download_export(
+    run_id: int,
+    file_type: str,
+    status: str | None = Query(None, description="Filter payouts by status before exporting"),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
     run = crud.get_schedule_run(db, run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Schedule run not found")
@@ -2101,10 +2107,18 @@ def download_export(run_id: int, file_type: str, db: Session = Depends(get_sessi
     base_filename = f"pay_schedule_{run.target_year:04d}_{run.target_month:02d}_run{run.id}"
     export_dir = Path(run.export_path)
 
+    status_filter = status.strip().lower() if status else None
+    # Accept a client-side only 'overdue' pseudo-status for exports. It's not a real payout status.
+    if status_filter and status_filter not in PAYOUT_STATUS_ENUM and status_filter != 'overdue':
+        raise HTTPException(status_code=400, detail="Invalid status filter")
+
     # For schedule_csv, generate from database payouts to include status
     if file_type == "schedule_csv":
-        # Build CSV from payouts in database (includes status)
-        payouts = sorted(run.payouts, key=lambda p: (p.pay_date, p.code))
+        payouts = crud.list_payouts_for_run(
+            db,
+            run_id,
+            status=status_filter,
+        )
         
         output = io.StringIO()
         writer = csv.writer(output)
@@ -2129,7 +2143,7 @@ def download_export(run_id: int, file_type: str, db: Session = Depends(get_sessi
                 model_wallet = payout.model.crypto_wallet
 
             writer.writerow([
-                format_display_date(payout.pay_date),
+                format_display_date(payout.pay_date) if payout.pay_date else "",
                 payout.code or "",
                 payout.working_name or "",
                 payout.payment_method or "",
@@ -2144,7 +2158,68 @@ def download_export(run_id: int, file_type: str, db: Session = Depends(get_sessi
         return StreamingResponse(
             iter([output.getvalue()]),
             media_type="text/csv",
-            headers={"Content-Disposition": f"attachment; filename={base_filename}.csv"},
+            headers={"Content-Disposition": f"attachment; filename={base_filename}{f'_{status_filter}' if status_filter else ''}.csv"},
+        )
+
+    if file_type == "schedule_excel":
+        # Support the 'overdue' pseudo-status -- filter server-side if requested
+        if status_filter == 'overdue':
+            all_payouts = crud.list_payouts_for_run(db, run_id)
+            today = date.today()
+            payouts = [p for p in all_payouts if p.pay_date and p.pay_date < today and p.status in ('not_paid', 'on_hold')]
+        else:
+            payouts = crud.list_payouts_for_run(
+                db,
+                run_id,
+                status=status_filter,
+            )
+
+        rows = []
+        for payout in payouts:
+            model_wallet = ""
+            if payout.model and getattr(payout.model, "crypto_wallet", None):
+                model_wallet = payout.model.crypto_wallet
+
+            rows.append(
+                {
+                    "Pay Date": format_display_date(payout.pay_date) if payout.pay_date else "",
+                    "Code": payout.code or "",
+                    "Working Name": payout.working_name or "",
+                    "Method": payout.payment_method or "",
+                    "Frequency": payout.payment_frequency.title() if payout.payment_frequency else "",
+                    "Amount": float(payout.amount or Decimal("0")),
+                    "Status": payout.status.replace("_", " ").title() if payout.status else "",
+                    "Crypto Wallet": model_wallet,
+                    "Notes & Actions": payout.notes or "",
+                }
+            )
+
+        dataframe = pd.DataFrame(rows, columns=[
+            "Pay Date",
+            "Code",
+            "Working Name",
+            "Method",
+            "Frequency",
+            "Amount",
+            "Status",
+            "Crypto Wallet",
+            "Notes & Actions",
+        ])
+
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+            dataframe.to_excel(writer, sheet_name="Payouts", index=False)
+        buffer.seek(0)
+
+        filename_suffix = f"_{status_filter}" if status_filter else ""
+        return StreamingResponse(
+            buffer,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": (
+                    f"attachment; filename={base_filename}{filename_suffix}.xlsx"
+                )
+            },
         )
 
     # For other file types, use the pre-generated exports
@@ -2165,6 +2240,7 @@ def download_export(run_id: int, file_type: str, db: Session = Depends(get_sessi
 def update_payout_record(
     run_id: int,
     payout_id: int,
+    request: Request,
     notes: str = Form(""),
     status: str = Form("not_paid"),
     redirect_to: str | None = Form(None),
@@ -2181,6 +2257,24 @@ def update_payout_record(
 
     trimmed = notes.strip()
     crud.update_payout(db, payout, trimmed if trimmed else None, status_value)
+
+    wants_json = request.headers.get("x-requested-with", "").lower() == "fetch"
+    if wants_json:
+        today = date.today()
+        is_overdue = bool(
+            payout.pay_date
+            and payout.pay_date < today
+            and payout.status in ("not_paid", "on_hold", "approved")
+        )
+        return JSONResponse(
+            {
+                "ok": True,
+                "payout_id": payout.id,
+                "note": payout.notes or "",
+                "status": payout.status,
+                "is_overdue": is_overdue,
+            }
+        )
 
     target_url = redirect_to or f"/schedules/{run_id}"
     if not target_url.startswith("/schedules/"):
