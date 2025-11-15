@@ -33,6 +33,8 @@ class ReferralScheduleEntry:
     pay_date: date
     schedule_type: str  # "monthly" or "mid-month"
     amount: Decimal
+    status: str = "unpaid"  # "unpaid" or "paid"
+    commission_payout_id: int | None = None
 
 
 def get_eligible_referrals(db: Session, referrer: Model) -> List[Model]:
@@ -108,6 +110,7 @@ def generate_referral_schedule(
     today: date | None = None,
 ) -> list[ReferralScheduleEntry]:
     """Build upcoming referral commission payouts for all active referrers."""
+    from app.models import CommissionPayout
 
     today = today or date.today()
     if months_forward <= 0:
@@ -119,6 +122,13 @@ def generate_referral_schedule(
         .order_by(Model.code.asc())
         .all()
     )
+
+    # Load existing commission payout records to populate status
+    existing_payouts = db.query(CommissionPayout).all()
+    payout_map = {
+        (p.referrer_model_id, p.referral_model_id, p.pay_date, p.schedule_type): p
+        for p in existing_payouts
+    }
 
     entries: list[ReferralScheduleEntry] = []
     for referrer in referrers:
@@ -141,11 +151,13 @@ def generate_referral_schedule(
                 continue
             entries.extend(
                 _build_schedule_for_referral(
+                    db,
                     referrer,
                     referral,
                     amount,
                     windows,
                     frequency,
+                    payout_map=payout_map,
                     months_forward=months_forward,
                     today=today,
                 )
@@ -156,15 +168,19 @@ def generate_referral_schedule(
 
 
 def _build_schedule_for_referral(
+    db: Session,
     referrer: Model,
     referral: Model,
     per_referral: Decimal,
     windows: Iterable[str],
     frequency_label: str,
     *,
+    payout_map: dict,
     months_forward: int,
     today: date,
 ) -> list[ReferralScheduleEntry]:
+    from app.models import CommissionPayout
+
     schedule: list[ReferralScheduleEntry] = []
     referrer_name = _display_name(referrer)
     allowed = tuple(windows)
@@ -172,6 +188,29 @@ def _build_schedule_for_referral(
     accepted_on = referral.start_date
     referral_name = _display_name(referral)
     for pay_date, schedule_type in _iter_payment_dates(accepted_on, today, months_forward, allowed):
+        # Check if a payout record exists for this entry
+        payout_key = (referrer.id, referral.id, pay_date, schedule_type)
+        existing_payout = payout_map.get(payout_key)
+        
+        if existing_payout:
+            status = existing_payout.status
+            payout_id = existing_payout.id
+        else:
+            # Auto-create payout record for tracking
+            new_payout = CommissionPayout(
+                referrer_model_id=referrer.id or 0,
+                referral_model_id=referral.id or 0,
+                pay_date=pay_date,
+                schedule_type=schedule_type,
+                amount=per_referral,
+                status="unpaid",
+            )
+            db.add(new_payout)
+            db.flush()
+            status = "unpaid"
+            payout_id = new_payout.id
+            payout_map[payout_key] = new_payout
+
         schedule.append(
             ReferralScheduleEntry(
                 referrer_id=referrer.id or 0,
@@ -183,6 +222,8 @@ def _build_schedule_for_referral(
                 pay_date=pay_date,
                 schedule_type=schedule_type,
                 amount=per_referral,
+                status=status,
+                commission_payout_id=payout_id,
             )
         )
 

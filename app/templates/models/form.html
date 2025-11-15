@@ -189,7 +189,7 @@
                         {% if not (model and model.referred_by_model_id) %}
                             {% set referrer_view_btn_classes = referrer_view_btn_classes ~ ' referrer-view-btn--disabled' %}
                         {% endif %}
-                        <a data-referrer-view-btn class="{{ referrer_view_btn_classes }}" href="{% if model and model.referred_by_model_id %}/models/{{ model.referred_by_model_id }}{% else %}#{% endif %}" target="_blank" rel="noopener">View Model</a>
+                        <a data-referrer-view-btn class="{{ referrer_view_btn_classes }}" href="{% if model and model.referred_by_model_id %}/models/{{ model.referred_by_model_id }}/edit{% else %}#{% endif %}" target="_blank" rel="noopener">Edit Profile</a>
                     </div>
                 </div>
             </div>
@@ -207,10 +207,10 @@
                     </div>
                     <div data-commission-lock {% if not (model and model.referred_by_model_id) %}hidden{% endif %} style="margin-top: 16px; padding: 12px 16px; border-radius: 8px; background: rgba(15,23,42,0.55); border: 1px dashed rgba(248,250,252,0.2);">
                         <p style="margin: 0; font-size: 13px; color: #94a3b8;">
-                            {{ model_display_name }} was referred by {{ referrer_display_name or 'their recruiter' }}, so commission terms are managed on {{ referrer_display_name or 'the referrer' }}'s profile.
+                            Heads up: {{ model_display_name }} was referred by {{ referrer_display_name or 'their recruiter' }}, but you can still manage the terms for the models they refer below.
                         </p>
                     </div>
-                    <div data-commission-fields {% if model and model.referred_by_model_id %}hidden{% endif %}>
+                    <div data-commission-fields>
                         {% if model and model.referrals %}
                         <div style="display: flex; flex-direction: column; gap: 16px;" data-referral-terms-panel>
                             {% for referral in model.referrals %}
@@ -406,31 +406,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const referrerInputWrapper = referrerPicker ? referrerPicker.querySelector('[data-referrer-input-wrapper]') : null;
     const referrerSelect = document.getElementById('referred_by_model_id');
     const commissionPanel = document.querySelector('[data-commission-panel]');
-    const commissionFields = document.querySelector('[data-commission-fields]');
     const commissionLock = document.querySelector('[data-commission-lock]');
     const datalist = document.getElementById('referrer-search-options');
     const syncCommissionState = () => {
         const hasReferrer = Boolean(referrerSelect && referrerSelect.value);
-        if (hasReferrer) {
-            if (commissionFields) {
-                commissionFields.hidden = true;
-            }
-            if (commissionLock) {
-                commissionLock.hidden = false;
-            }
-            if (commissionPanel) {
-                commissionPanel.classList.add('is-locked');
-            }
-        } else {
-            if (commissionFields) {
-                commissionFields.hidden = false;
-            }
-            if (commissionLock) {
-                commissionLock.hidden = true;
-            }
-            if (commissionPanel) {
-                commissionPanel.classList.remove('is-locked');
-            }
+        if (commissionLock) {
+            commissionLock.hidden = !hasReferrer;
+        }
+        if (commissionPanel) {
+            commissionPanel.classList.toggle('is-locked', hasReferrer);
         }
     };
 
@@ -466,7 +450,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         if (referrerViewBtn) {
             if (refId) {
-                referrerViewBtn.href = `/models/${refId}`;
+                referrerViewBtn.href = `/models/${refId}/edit`;
                 referrerViewBtn.style.pointerEvents = '';
                 referrerViewBtn.style.opacity = '';
             } else {
@@ -495,10 +479,6 @@ document.addEventListener('DOMContentLoaded', function () {
         updateReferrerChip(labelForChip, id);
         syncCommissionState();
     };
-
-    if (referrerPicker) {
-        referrerPicker.dataset.defaultDuration = referrerPicker.dataset.defaultDuration || String(defaultDuration);
-    }
 
     if (referrerSearch) {
         referrerSearch.addEventListener('change', () => {

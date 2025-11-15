@@ -887,6 +887,12 @@ def view_model(model_id: int, request: Request, db: Session = Depends(get_sessio
     commission_referrals = get_eligible_referrals(db, model)
     referrer_model = model.referred_by
     referral_terms_map = {term.referral_model_id: term for term in crud.list_referral_terms(db, model.id)}
+    
+    # Commission payouts with status tracking
+    from app.models import CommissionPayout
+    commission_payouts = db.query(CommissionPayout).filter(
+        (CommissionPayout.referrer_model_id == model.id) | (CommissionPayout.referral_model_id == model.id)
+    ).order_by(CommissionPayout.pay_date.desc()).all()
 
     return templates.TemplateResponse(
         request,
@@ -904,6 +910,7 @@ def view_model(model_id: int, request: Request, db: Session = Depends(get_sessio
             "commission_referrals": commission_referrals,
             "referrer_model": referrer_model,
             "referral_terms_map": referral_terms_map,
+            "commission_payouts": commission_payouts,
             "error_message": error_message,
             "success_message": success_message,
         },
@@ -1300,16 +1307,15 @@ def update_model(
         commission_amount = None
         commission_payout_frequency = "dual"
 
-    referral_term_payloads: list[crud.ReferralTermPayload] = []
-    if referrer_id is None:
-        referral_term_payloads = _parse_referral_term_rows(
-            model,
-            referral_term_referral_ids,
-            referral_term_amounts,
-            referral_term_frequencies,
-            referral_term_durations,
-            referral_term_actives,
-        )
+    referral_term_payloads: list[crud.ReferralTermPayload] = _parse_referral_term_rows(
+        model,
+        referral_term_referral_ids,
+        referral_term_amounts,
+        referral_term_frequencies,
+        referral_term_durations,
+        referral_term_actives,
+    )
+    if referral_term_payloads:
         commission_enabled = any(term.is_active for term in referral_term_payloads)
 
     payload = ModelUpdate(
@@ -1355,12 +1361,11 @@ def update_model(
                 db.delete(adjustment)
         db.commit()
 
-    if payload.referred_by_model_id:
-        if updated_model.referral_terms:
-            crud.upsert_referral_terms(db, updated_model, [])
-            db.commit()
-    elif updated_model.referrals:
+    if updated_model.referrals:
         crud.upsert_referral_terms(db, updated_model, referral_term_payloads)
+        db.commit()
+    elif updated_model.referral_terms:
+        crud.upsert_referral_terms(db, updated_model, [])
         db.commit()
 
     return RedirectResponse(url=f"/models/{model_id}/edit", status_code=303)

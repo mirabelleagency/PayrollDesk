@@ -28,6 +28,7 @@ PAYOUT_STATUS_ENUM = ("paid", "approved", "on_hold", "not_paid")
 ADHOC_PAYMENT_STATUS_ENUM = ("pending", "paid", "cancelled")
 COMMISSION_PAYOUT_FREQUENCY_ENUM = ("monthly", "mid_month", "dual")
 COMMISSION_STATUS_ENUM = ("unpaid", "paid")
+COMMISSION_PAYOUT_STATUS_ENUM = ("unpaid", "paid")
 
 
 class Model(Base):
@@ -347,3 +348,43 @@ Model.referral_term_config = relationship(
     back_populates="referral",
     uselist=False,
 )
+
+
+class CommissionPayout(Base):
+    """Tracks individual commission payout status for referrals."""
+    __tablename__ = "commission_payouts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    referrer_model_id: Mapped[int] = mapped_column(
+        ForeignKey("models.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    referral_model_id: Mapped[int] = mapped_column(
+        ForeignKey("models.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    pay_date: Mapped[date] = mapped_column(Date, nullable=False)
+    schedule_type: Mapped[str] = mapped_column(String(20), nullable=False)  # monthly or mid-month
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="unpaid")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now, onupdate=datetime.now, nullable=False
+    )
+
+    referrer: Mapped[Model] = relationship("Model", foreign_keys=[referrer_model_id])
+    referral: Mapped[Model] = relationship("Model", foreign_keys=[referral_model_id])
+
+    __table_args__ = (
+        UniqueConstraint(
+            "referrer_model_id", "referral_model_id", "pay_date", "schedule_type",
+            name="uq_commission_payout_schedule"
+        ),
+        CheckConstraint("amount >= 0", name="ck_commission_payout_amount_nonnegative"),
+        CheckConstraint(
+            "status IN ('unpaid', 'paid')",
+            name="ck_commission_payout_status_valid"
+        ),
+        CheckConstraint(
+            "schedule_type IN ('monthly', 'mid-month')",
+            name="ck_commission_payout_schedule_type_valid"
+        ),
+    )

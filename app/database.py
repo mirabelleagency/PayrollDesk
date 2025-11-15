@@ -244,6 +244,17 @@ def ensure_schema_updates() -> None:
     except Exception as e:
         print(f"[ensure_schema_updates] Error updating users table: {e}")
 
+    # Ensure commission_payouts table exists
+    try:
+        tables = inspector.get_table_names()
+        if "commission_payouts" not in tables:
+            print("[ensure_schema_updates] Creating commission_payouts table")
+            from app.models import Base, CommissionPayout
+            CommissionPayout.__table__.create(engine, checkfirst=True)
+            print("[ensure_schema_updates] Successfully created commission_payouts table")
+    except Exception as e:
+        print(f"[ensure_schema_updates] Error creating commission_payouts table: {e}")
+
     # Ensure compensation adjustments table exists and is populated from existing models
     try:
         tables = inspector.get_table_names()
