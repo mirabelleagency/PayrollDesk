@@ -8,17 +8,16 @@ from typing import Iterable, List
 
 from sqlalchemy.orm import Session
 
-from app.models import Model
+from app.models import Model, ModelReferralTerm
 
 
 @dataclass
 class CommissionSummary:
     referrer_id: int
-    commission_active: bool
-    commission_per_referral: Decimal
     total_referrals: int
+    active_referrals: int
     estimated_monthly_commission: Decimal
-    payout_frequency: str
+    has_active_program: bool
 
 
 @dataclass
@@ -57,6 +56,17 @@ def get_eligible_referrals(db: Session, referrer: Model) -> List[Model]:
     )
 
 
+def _referral_term_map(db: Session, referrer_id: int) -> dict[int, ModelReferralTerm]:
+    if not referrer_id:
+        return {}
+    rows = (
+        db.query(ModelReferralTerm)
+        .filter(ModelReferralTerm.referrer_model_id == referrer_id)
+        .all()
+    )
+    return {row.referral_model_id: row for row in rows}
+
+
 def build_commission_summary(db: Session, referrer: Model) -> CommissionSummary:
     """Compute a simple commission snapshot for display on the profile page.
 
@@ -64,20 +74,30 @@ def build_commission_summary(db: Session, referrer: Model) -> CommissionSummary:
     create payouts or alter existing payroll runs.
     """
 
-    per_referral = referrer.commission_per_referral or Decimal("0")
     referrals = get_eligible_referrals(db, referrer)
-    total_referrals = len(referrals)
-    frequency = (referrer.commission_payout_frequency or "dual").strip().lower()
-    multiplier = Decimal(len(_frequency_windows(frequency))) or Decimal("1")
-    estimated = per_referral * Decimal(str(total_referrals)) * multiplier
+    term_map = _referral_term_map(db, referrer.id or 0)
+    estimated = Decimal("0")
+    active_referrals = 0
+
+    for referral in referrals:
+        term = term_map.get(referral.id or 0)
+        if not term or not term.is_active:
+            continue
+        amount = Decimal(term.commission_per_referral or Decimal("0"))
+        if amount <= 0:
+            continue
+        frequency = (term.commission_payout_frequency or "dual").strip().lower()
+        windows = _frequency_windows(frequency)
+        multiplier = Decimal(len(windows))
+        estimated += amount * multiplier
+        active_referrals += 1
 
     return CommissionSummary(
         referrer_id=referrer.id or 0,
-        commission_active=bool(referrer.commission_active),
-        commission_per_referral=per_referral,
-        total_referrals=total_referrals,
+        total_referrals=len(referrals),
+        active_referrals=active_referrals,
         estimated_monthly_commission=estimated,
-        payout_frequency=frequency,
+        has_active_program=active_referrals > 0,
     )
 
 
@@ -95,7 +115,7 @@ def generate_referral_schedule(
 
     referrers: Iterable[Model] = (
         db.query(Model)
-        .filter(Model.commission_active.is_(True))
+        .filter(Model.referral_terms.any(ModelReferralTerm.is_active.is_(True)))
         .order_by(Model.code.asc())
         .all()
     )
@@ -104,36 +124,43 @@ def generate_referral_schedule(
     for referrer in referrers:
         if not referrer.id:
             continue
-        per_referral = referrer.commission_per_referral or Decimal("0")
-        if per_referral <= 0:
-            continue
-        frequency = (referrer.commission_payout_frequency or "dual").strip().lower()
-        windows = _frequency_windows(frequency)
-        if not windows:
-            continue
         referrals = get_eligible_referrals(db, referrer)
         if not referrals:
             continue
-        entries.extend(
-            _build_schedule_for_referrals(
-                referrer,
-                referrals,
-                per_referral,
-                windows,
-                months_forward=months_forward,
-                today=today,
+        term_map = _referral_term_map(db, referrer.id)
+        for referral in referrals:
+            term = term_map.get(referral.id or 0)
+            if not term or not term.is_active:
+                continue
+            amount = Decimal(term.commission_per_referral or Decimal("0"))
+            if amount <= 0:
+                continue
+            frequency = (term.commission_payout_frequency or "dual").strip().lower()
+            windows = _frequency_windows(frequency)
+            if not windows:
+                continue
+            entries.extend(
+                _build_schedule_for_referral(
+                    referrer,
+                    referral,
+                    amount,
+                    windows,
+                    frequency,
+                    months_forward=months_forward,
+                    today=today,
+                )
             )
-        )
 
     entries.sort(key=lambda item: (item.pay_date, item.referrer_name.lower(), item.referral_name.lower()))
     return entries
 
 
-def _build_schedule_for_referrals(
+def _build_schedule_for_referral(
     referrer: Model,
-    referrals: Iterable[Model],
+    referral: Model,
     per_referral: Decimal,
     windows: Iterable[str],
+    frequency_label: str,
     *,
     months_forward: int,
     today: date,
@@ -142,23 +169,22 @@ def _build_schedule_for_referrals(
     referrer_name = _display_name(referrer)
     allowed = tuple(windows)
 
-    for referral in referrals:
-        accepted_on = referral.start_date
-        referral_name = _display_name(referral)
-        for pay_date, schedule_type in _iter_payment_dates(accepted_on, today, months_forward, allowed):
-            schedule.append(
-                ReferralScheduleEntry(
-                    referrer_id=referrer.id or 0,
-                    referrer_name=referrer_name,
-                    referrer_frequency=(referrer.commission_payout_frequency or "dual"),
-                    referral_id=referral.id or 0,
-                    referral_name=referral_name,
-                    accepted_on=accepted_on,
-                    pay_date=pay_date,
-                    schedule_type=schedule_type,
-                    amount=per_referral,
-                )
+    accepted_on = referral.start_date
+    referral_name = _display_name(referral)
+    for pay_date, schedule_type in _iter_payment_dates(accepted_on, today, months_forward, allowed):
+        schedule.append(
+            ReferralScheduleEntry(
+                referrer_id=referrer.id or 0,
+                referrer_name=referrer_name,
+                referrer_frequency=frequency_label,
+                referral_id=referral.id or 0,
+                referral_name=referral_name,
+                accepted_on=accepted_on,
+                pay_date=pay_date,
+                schedule_type=schedule_type,
+                amount=per_referral,
             )
+        )
 
     return schedule
 

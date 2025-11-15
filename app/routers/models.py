@@ -33,6 +33,7 @@ import os
 router = APIRouter(prefix="/models", tags=["Models"])
 
 _DECIMAL_PLACES = Decimal("0.01")
+_DEFAULT_REFERRAL_DURATION_MONTHS = 12
 
 
 def _normalize_filters(
@@ -259,6 +260,44 @@ def _parse_optional_decimal(value: str | None, field_label: str) -> Decimal | No
     return amount.quantize(_DECIMAL_PLACES)
 
 
+def _parse_required_decimal(value: str | None, field_label: str) -> Decimal:
+    amount = _parse_optional_decimal(value, field_label)
+    if amount is None:
+        raise HTTPException(status_code=400, detail=f"{field_label} is required.")
+    return amount
+
+
+def _parse_optional_positive_int(
+    value: str | None,
+    field_label: str,
+    *,
+    min_value: int = 1,
+    max_value: int | None = None,
+) -> int | None:
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    if not normalized:
+        return None
+    try:
+        parsed = int(normalized)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"{field_label} must be an integer.") from exc
+    if parsed < min_value:
+        raise HTTPException(status_code=400, detail=f"{field_label} must be at least {min_value}.")
+    if max_value is not None and parsed > max_value:
+        raise HTTPException(status_code=400, detail=f"{field_label} must be {max_value} or fewer.")
+    return parsed
+
+
+def _normalize_commission_frequency(value: str | None, field_label: str = "Commission payout frequency") -> str:
+    normalized = (value or "").strip().lower() or "dual"
+    if normalized not in COMMISSION_PAYOUT_FREQUENCY_ENUM:
+        allowed = ", ".join(COMMISSION_PAYOUT_FREQUENCY_ENUM)
+        raise HTTPException(status_code=400, detail=f"{field_label} must be one of: {allowed}.")
+    return normalized
+
+
 def _checkbox_to_bool(value: str | None) -> bool:
     if value is None:
         return False
@@ -304,6 +343,61 @@ def _referrable_model_options(db: Session, exclude_model_id: int | None = None) 
     return options
 
 
+def _parse_referral_term_rows(
+    model,
+    referral_ids: list[str],
+    amounts: list[str],
+    frequencies: list[str],
+    durations: list[str],
+    actives: list[str],
+) -> list[crud.ReferralTermPayload]:
+    if not referral_ids or not getattr(model, "referrals", None):
+        return []
+
+    referral_lookup = {referral.id: referral for referral in model.referrals if referral.id}
+    payloads: list[crud.ReferralTermPayload] = []
+
+    for index, raw_id in enumerate(referral_ids):
+        normalized_id = (raw_id or "").strip()
+        if not normalized_id:
+            continue
+        try:
+            referral_id = int(normalized_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid referral identifier in referral program section.") from exc
+        referral = referral_lookup.get(referral_id)
+        if not referral:
+            continue
+
+        amount_label = f"Commission amount for {referral.working_name or referral.code or 'referral'}"
+        amount_value = amounts[index] if index < len(amounts) else None
+        frequency_value = frequencies[index] if index < len(frequencies) else None
+        duration_value = durations[index] if index < len(durations) else None
+        active_value = actives[index] if index < len(actives) else "1"
+
+        amount = _parse_required_decimal(amount_value, amount_label)
+        frequency = _normalize_commission_frequency(frequency_value, f"Payout frequency for {referral.working_name or referral.code or 'referral'}")
+        duration = _parse_optional_positive_int(
+            duration_value,
+            f"Commission duration for {referral.working_name or referral.code or 'referral'}",
+            min_value=1,
+            max_value=36,
+        )
+        is_active = _checkbox_to_bool(active_value)
+
+        payloads.append(
+            crud.ReferralTermPayload(
+                referral_model_id=referral_id,
+                commission_per_referral=amount,
+                commission_payout_frequency=frequency,
+                commission_duration_months=duration,
+                is_active=is_active,
+            )
+        )
+
+    return payloads
+
+
 @router.get("/")
 def list_models(
     request: Request,
@@ -323,7 +417,7 @@ def list_models(
         frequency,
         payment_method,
     )
-    return templates.TemplateResponse("models/list.html", context)
+    return templates.TemplateResponse(request, "models/list.html", context)
 
 
 @router.get("/payments")
@@ -427,6 +521,7 @@ def list_all_model_payments(
     )
 
     return templates.TemplateResponse(
+        request,
         "models/payments.html",
         {
             "request": request,
@@ -465,6 +560,7 @@ def snapshot_models(
     models = crud.list_models(db)
     sorted_models = sorted(models, key=lambda item: ((item.working_name or "").lower(), item.code))
     return templates.TemplateResponse(
+        request,
         "models/snapshot.html",
         {
             "request": request,
@@ -673,6 +769,7 @@ def new_model_form(
     user: User = Depends(get_admin_user),
 ):
     return templates.TemplateResponse(
+        request,
         "models/form.html",
         {
             "request": request,
@@ -680,6 +777,7 @@ def new_model_form(
             "action": "create",
             "referrable_models": _referrable_model_options(db),
             "commission_frequency_options": COMMISSION_PAYOUT_FREQUENCY_ENUM,
+            "referral_terms": {},
         },
     )
 
@@ -700,6 +798,7 @@ def create_model(
     commission_active: str | None = Form(None),
     commission_per_referral: str | None = Form(None),
     commission_payout_frequency: str = Form("dual"),
+    commission_duration_months: str | None = Form(None),
     adjustment_effective_dates: list[str] = Form([]),
     adjustment_amounts: list[str] = Form([]),
     adjustment_notes: list[str] = Form([]),
@@ -708,7 +807,21 @@ def create_model(
 ):
     commission_enabled = _checkbox_to_bool(commission_active)
     commission_amount = _parse_optional_decimal(commission_per_referral, "Commission per referral")
+    commission_duration = _parse_optional_positive_int(
+        commission_duration_months,
+        "Commission duration",
+        min_value=1,
+        max_value=36,
+    )
     referrer_id = _resolve_referrer_id(db, referred_by_model_id)
+
+    if referrer_id is not None:
+        if commission_duration is None:
+            commission_duration = _DEFAULT_REFERRAL_DURATION_MONTHS
+        commission_status = "unpaid"
+    else:
+        commission_duration = None
+        commission_status = "unpaid"
 
     if referrer_id is not None:
         commission_enabled = False
@@ -729,6 +842,8 @@ def create_model(
         commission_active=commission_enabled,
         commission_per_referral=commission_amount,
         commission_payout_frequency=commission_payout_frequency,
+        commission_duration_months=commission_duration,
+        commission_status=commission_status,
     )
     if crud.get_model_by_code(db, payload.code):
         raise HTTPException(status_code=400, detail="Model code already exists.")
@@ -771,8 +886,10 @@ def view_model(model_id: int, request: Request, db: Session = Depends(get_sessio
     commission_summary = build_commission_summary(db, model)
     commission_referrals = get_eligible_referrals(db, model)
     referrer_model = model.referred_by
+    referral_terms_map = {term.referral_model_id: term for term in crud.list_referral_terms(db, model.id)}
 
     return templates.TemplateResponse(
+        request,
         "models/view.html",
         {
             "request": request,
@@ -786,6 +903,7 @@ def view_model(model_id: int, request: Request, db: Session = Depends(get_sessio
             "commission_summary": commission_summary,
             "commission_referrals": commission_referrals,
             "referrer_model": referrer_model,
+            "referral_terms_map": referral_terms_map,
             "error_message": error_message,
             "success_message": success_message,
         },
@@ -950,7 +1068,9 @@ def edit_model_form(model_id: int, request: Request, db: Session = Depends(get_s
     model = crud.get_model(db, model_id)
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
+    referral_terms = {term.referral_model_id: term for term in crud.list_referral_terms(db, model.id)}
     return templates.TemplateResponse(
+        request,
         "models/form.html",
         {
             "request": request,
@@ -959,6 +1079,7 @@ def edit_model_form(model_id: int, request: Request, db: Session = Depends(get_s
             "model": model,
             "referrable_models": _referrable_model_options(db, exclude_model_id=model.id),
             "commission_frequency_options": COMMISSION_PAYOUT_FREQUENCY_ENUM,
+            "referral_terms": referral_terms,
         },
     )
 
@@ -1134,9 +1255,15 @@ def update_model(
     commission_active: str | None = Form(None),
     commission_per_referral: str | None = Form(None),
     commission_payout_frequency: str = Form("dual"),
+    commission_duration_months: str | None = Form(None),
     adjustment_effective_dates: list[str] = Form([]),
     adjustment_amounts: list[str] = Form([]),
     adjustment_notes: list[str] = Form([]),
+    referral_term_referral_ids: list[str] = Form([]),
+    referral_term_amounts: list[str] = Form([]),
+    referral_term_frequencies: list[str] = Form([]),
+    referral_term_durations: list[str] = Form([]),
+    referral_term_actives: list[str] = Form([]),
     db: Session = Depends(get_session),
     user: User = Depends(get_admin_user),
 ):
@@ -1146,12 +1273,44 @@ def update_model(
 
     commission_enabled = _checkbox_to_bool(commission_active)
     commission_amount = _parse_optional_decimal(commission_per_referral, "Commission per referral")
+    commission_duration = _parse_optional_positive_int(
+        commission_duration_months,
+        "Commission duration",
+        min_value=1,
+        max_value=36,
+    )
+    previous_referrer_id = model.referred_by_model_id
     referrer_id = _resolve_referrer_id(db, referred_by_model_id, current_model_id=model.id)
+
+    if previous_referrer_id and previous_referrer_id != referrer_id:
+        crud.delete_referral_term_for_referral(db, model.id)
+
+    commission_status_value = (model.commission_status or "unpaid").strip().lower()
+    if referrer_id is not None:
+        if commission_duration is None:
+            commission_duration = model.commission_duration_months or _DEFAULT_REFERRAL_DURATION_MONTHS
+        if previous_referrer_id != referrer_id:
+            commission_status_value = "unpaid"
+    else:
+        commission_duration = None
+        commission_status_value = "unpaid"
 
     if referrer_id is not None:
         commission_enabled = False
         commission_amount = None
         commission_payout_frequency = "dual"
+
+    referral_term_payloads: list[crud.ReferralTermPayload] = []
+    if referrer_id is None:
+        referral_term_payloads = _parse_referral_term_rows(
+            model,
+            referral_term_referral_ids,
+            referral_term_amounts,
+            referral_term_frequencies,
+            referral_term_durations,
+            referral_term_actives,
+        )
+        commission_enabled = any(term.is_active for term in referral_term_payloads)
 
     payload = ModelUpdate(
         status=status,
@@ -1167,6 +1326,8 @@ def update_model(
         commission_active=commission_enabled,
         commission_per_referral=commission_amount,
         commission_payout_frequency=commission_payout_frequency,
+        commission_duration_months=commission_duration,
+        commission_status=commission_status_value,
     )
 
     existing = crud.get_model_by_code(db, payload.code)
@@ -1192,6 +1353,14 @@ def update_model(
         for effective_date, adjustment in existing_by_date.items():
             if effective_date not in keep_dates and effective_date > payload.start_date:
                 db.delete(adjustment)
+        db.commit()
+
+    if payload.referred_by_model_id:
+        if updated_model.referral_terms:
+            crud.upsert_referral_terms(db, updated_model, [])
+            db.commit()
+    elif updated_model.referrals:
+        crud.upsert_referral_terms(db, updated_model, referral_term_payloads)
         db.commit()
 
     return RedirectResponse(url="/models", status_code=303)
@@ -1420,5 +1589,5 @@ async def import_models_excel(
         None,
         extra=extra_context,
     )
-    return templates.TemplateResponse("models/list.html", context)
+    return templates.TemplateResponse(request, "models/list.html", context)
 

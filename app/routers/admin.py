@@ -27,6 +27,7 @@ def list_users(
     """List all users (admin only)."""
     users = db.query(User).all()
     return templates.TemplateResponse(
+        request,
         "admin/users.html",
         {
             "request": request,
@@ -43,6 +44,7 @@ def new_user_form(
 ):
     """Show new user creation form (admin only)."""
     return templates.TemplateResponse(
+        request,
         "admin/user_form.html",
         {
             "request": request,
@@ -66,6 +68,7 @@ def create_user(
     existing = db.query(User).filter(User.username == username).first()
     if existing:
         return templates.TemplateResponse(
+            request,
             "admin/user_form.html",
             {
                 "request": request,
@@ -79,6 +82,7 @@ def create_user(
     # Validate role
     if role not in ["admin", "user"]:
         return templates.TemplateResponse(
+            request,
             "admin/user_form.html",
             {
                 "request": request,
@@ -98,6 +102,7 @@ def create_user(
         # Handle unique constraint violation
         if "username" in str(e):
             return templates.TemplateResponse(
+                request,
                 "admin/user_form.html",
                 {
                     "request": request,
@@ -124,6 +129,7 @@ def edit_user_form(
         raise HTTPException(status_code=404, detail="User not found")
     
     return templates.TemplateResponse(
+        request,
         "admin/user_form.html",
         {
             "request": request,
@@ -150,6 +156,7 @@ def update_user(
     # Prevent admin from modifying their own role
     if user.id == admin.id:
         return templates.TemplateResponse(
+            request,
             "admin/user_form.html",
             {
                 "request": request,
@@ -163,6 +170,7 @@ def update_user(
     
     if role not in ["admin", "user"]:
         return templates.TemplateResponse(
+            request,
             "admin/user_form.html",
             {
                 "request": request,
@@ -249,6 +257,7 @@ def purge_model_preview(
     """Show a confirmation page with a dry-run summary before purging a model."""
     impact = crud.get_model_purge_impact(db, model_id)
     return templates.TemplateResponse(
+        request,
         "admin/purge_confirm.html",
         {
             "request": request,
@@ -294,6 +303,7 @@ def admin_settings(
     admin: User = Depends(get_admin_user),
 ):
     return templates.TemplateResponse(
+        request,
         "admin/settings.html",
         {"request": request, "user": admin, "message": message, "error": error},
     )

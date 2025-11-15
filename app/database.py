@@ -128,7 +128,7 @@ def init_db() -> None:
 
 def ensure_schema_updates() -> None:
     """Ensure all required columns exist in the database tables."""
-    from app.models import Model, ModelCompensationAdjustment
+    from app.models import Model, ModelCompensationAdjustment, ModelReferralTerm
 
     inspector = inspect(engine)
     
@@ -203,6 +203,12 @@ def ensure_schema_updates() -> None:
             column_statements.append(
                 "ALTER TABLE models ADD COLUMN commission_payout_frequency VARCHAR(20) NOT NULL DEFAULT 'dual'"
             )
+        if "commission_duration_months" not in models_columns:
+            column_statements.append("ALTER TABLE models ADD COLUMN commission_duration_months INTEGER")
+        if "commission_status" not in models_columns:
+            column_statements.append(
+                "ALTER TABLE models ADD COLUMN commission_status VARCHAR(20) NOT NULL DEFAULT 'unpaid'"
+            )
 
         if column_statements:
             print("[ensure_schema_updates] Adding referral/commission columns to models table")
@@ -238,45 +244,60 @@ def ensure_schema_updates() -> None:
     except Exception as e:
         print(f"[ensure_schema_updates] Error updating users table: {e}")
 
-        # Ensure compensation adjustments table exists and is populated from existing models
-        try:
-            tables = inspector.get_table_names()
-        except Exception as e:
-            print(f"[ensure_schema_updates] Error listing tables: {e}")
-            tables = []
+    # Ensure compensation adjustments table exists and is populated from existing models
+    try:
+        tables = inspector.get_table_names()
+    except Exception as e:
+        print(f"[ensure_schema_updates] Error listing tables: {e}")
+        tables = []
 
-        try:
-            if "model_compensation_adjustments" not in tables:
-                print("[ensure_schema_updates] Creating model_compensation_adjustments table")
-                ModelCompensationAdjustment.__table__.create(bind=engine, checkfirst=True)
-        except Exception as e:
-            print(f"[ensure_schema_updates] Error creating model_compensation_adjustments table: {e}")
+    try:
+        if "model_compensation_adjustments" not in tables:
+            print("[ensure_schema_updates] Creating model_compensation_adjustments table")
+            ModelCompensationAdjustment.__table__.create(bind=engine, checkfirst=True)
+    except Exception as e:
+        print(f"[ensure_schema_updates] Error creating model_compensation_adjustments table: {e}")
 
-        session = SessionLocal()
+    session = SessionLocal()
+    try:
+        for model in session.query(Model).all():
+            existing = (
+                session.query(ModelCompensationAdjustment)
+                .filter(ModelCompensationAdjustment.model_id == model.id)
+                .first()
+            )
+            if existing:
+                continue
+            effective_date = model.start_date or date.today()
+            adjustment = ModelCompensationAdjustment(
+                model_id=model.id,
+                effective_date=effective_date,
+                amount_monthly=model.amount_monthly,
+                notes="Seeded from existing model record",
+            )
+            session.add(adjustment)
+        session.commit()
+    except Exception as e:
+        print(f"[ensure_schema_updates] Error seeding compensation adjustments: {e}")
         try:
-            for model in session.query(Model).all():
-                existing = (
-                    session.query(ModelCompensationAdjustment)
-                    .filter(ModelCompensationAdjustment.model_id == model.id)
-                    .first()
+            session.rollback()
+        except Exception:
+            pass
+    finally:
+        session.close()
+
+    # Ensure referral term table exists for per-referral commission overrides
+    try:
+        if "model_referral_terms" not in tables:
+            print("[ensure_schema_updates] Creating model_referral_terms table")
+            ModelReferralTerm.__table__.create(bind=engine, checkfirst=True)
+        referral_term_columns = {column["name"] for column in inspector.get_columns("model_referral_terms")}
+        if "is_active" not in referral_term_columns:
+            print("[ensure_schema_updates] Adding is_active column to model_referral_terms table")
+            with engine.begin() as connection:
+                connection.execute(
+                    text("ALTER TABLE model_referral_terms ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT true")
                 )
-                if existing:
-                    continue
-                effective_date = model.start_date or date.today()
-                adjustment = ModelCompensationAdjustment(
-                    model_id=model.id,
-                    effective_date=effective_date,
-                    amount_monthly=model.amount_monthly,
-                    notes="Seeded from existing model record",
-                )
-                session.add(adjustment)
-            session.commit()
-        except Exception as e:
-            print(f"[ensure_schema_updates] Error seeding compensation adjustments: {e}")
-            try:
-                session.rollback()
-            except Exception:
-                pass
-        finally:
-            session.close()
+    except Exception as e:
+        print(f"[ensure_schema_updates] Error creating model_referral_terms table: {e}")
 

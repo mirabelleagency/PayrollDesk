@@ -38,7 +38,7 @@ def commissions_dashboard(
         "grouped_schedule": grouped_schedule,
         "horizon_months": _HORIZON_MONTHS,
     }
-    return templates.TemplateResponse("commissions/index.html", context)
+    return templates.TemplateResponse(request, "commissions/index.html", context)
 
 
 def _build_stats(entries: Iterable[ReferralScheduleEntry]) -> dict[str, Any]:

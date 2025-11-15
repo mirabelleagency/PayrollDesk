@@ -27,6 +27,7 @@ FREQUENCY_ENUM = ("weekly", "biweekly", "monthly")
 PAYOUT_STATUS_ENUM = ("paid", "approved", "on_hold", "not_paid")
 ADHOC_PAYMENT_STATUS_ENUM = ("pending", "paid", "cancelled")
 COMMISSION_PAYOUT_FREQUENCY_ENUM = ("monthly", "mid_month", "dual")
+COMMISSION_STATUS_ENUM = ("unpaid", "paid")
 
 
 class Model(Base):
@@ -56,6 +57,8 @@ class Model(Base):
     commission_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     commission_per_referral: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     commission_payout_frequency: Mapped[str] = mapped_column(String(20), nullable=False, default="dual")
+    commission_duration_months: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    commission_status: Mapped[str] = mapped_column(String(20), nullable=False, default="unpaid")
 
     payouts: Mapped[list["Payout"]] = relationship(back_populates="model", cascade="all, delete-orphan")
     validations: Mapped[list["ValidationIssue"]] = relationship(
@@ -73,6 +76,8 @@ class Model(Base):
 
     __table_args__ = (
         CheckConstraint("amount_monthly > 0", name="ck_models_amount_positive"),
+        CheckConstraint("commission_status IN ('paid', 'unpaid')", name="ck_models_commission_status_valid"),
+        CheckConstraint("commission_duration_months IS NULL OR commission_duration_months > 0", name="ck_models_commission_duration_positive"),
     )
 
 
@@ -296,4 +301,49 @@ Model.referrals = relationship(
     "Model",
     back_populates="referred_by",
     foreign_keys=[Model.referred_by_model_id],
+)
+
+class ModelReferralTerm(Base):
+    __tablename__ = "model_referral_terms"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    referrer_model_id: Mapped[int] = mapped_column(
+        ForeignKey("models.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    referral_model_id: Mapped[int] = mapped_column(
+        ForeignKey("models.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    commission_per_referral: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=Decimal("0"))
+    commission_payout_frequency: Mapped[str] = mapped_column(String(20), nullable=False, default="dual")
+    commission_duration_months: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    referrer: Mapped[Model] = relationship(
+        "Model", foreign_keys=[referrer_model_id], back_populates="referral_terms"
+    )
+    referral: Mapped[Model] = relationship(
+        "Model", foreign_keys=[referral_model_id], back_populates="referral_term_config"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("referrer_model_id", "referral_model_id", name="uq_model_referral_terms_pair"),
+        CheckConstraint("commission_per_referral >= 0", name="ck_referral_terms_amount_nonnegative"),
+        CheckConstraint(
+            "commission_duration_months IS NULL OR commission_duration_months > 0",
+            name="ck_referral_terms_duration_positive",
+        ),
+    )
+
+
+Model.referral_terms = relationship(
+    "ModelReferralTerm",
+    foreign_keys="ModelReferralTerm.referrer_model_id",
+    back_populates="referrer",
+    cascade="all, delete-orphan",
+)
+Model.referral_term_config = relationship(
+    "ModelReferralTerm",
+    foreign_keys="ModelReferralTerm.referral_model_id",
+    back_populates="referral",
+    uselist=False,
 )

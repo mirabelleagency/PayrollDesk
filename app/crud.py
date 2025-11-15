@@ -1,6 +1,7 @@
 """Database access helpers."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Iterable, Sequence, Dict
@@ -15,6 +16,7 @@ from app.models import (
     AdhocPayment,
     Model,
     ModelCompensationAdjustment,
+    ModelReferralTerm,
     Payout,
     ScheduleRun,
     ValidationIssue,
@@ -201,6 +203,67 @@ def update_model(db: Session, model: Model, payload: ModelUpdate) -> Model:
 def delete_model(db: Session, model: Model) -> None:
     db.delete(model)
     db.commit()
+
+
+@dataclass
+class ReferralTermPayload:
+    referral_model_id: int
+    commission_per_referral: Decimal
+    commission_payout_frequency: str
+    commission_duration_months: int | None
+    is_active: bool
+
+
+def list_referral_terms(db: Session, referrer_id: int) -> Sequence[ModelReferralTerm]:
+    return (
+        db.query(ModelReferralTerm)
+        .filter(ModelReferralTerm.referrer_model_id == referrer_id)
+        .order_by(ModelReferralTerm.referral_model_id.asc())
+        .all()
+    )
+
+
+def upsert_referral_terms(db: Session, referrer: Model, terms: Sequence[ReferralTermPayload]) -> None:
+    if not referrer.id:
+        return
+
+    existing = {
+        term.referral_model_id: term
+        for term in db.query(ModelReferralTerm).filter(ModelReferralTerm.referrer_model_id == referrer.id).all()
+    }
+    seen: set[int] = set()
+
+    for payload in terms:
+        seen.add(payload.referral_model_id)
+        record = existing.get(payload.referral_model_id)
+        if record:
+            record.commission_per_referral = payload.commission_per_referral
+            record.commission_payout_frequency = payload.commission_payout_frequency
+            record.commission_duration_months = payload.commission_duration_months
+            record.is_active = payload.is_active
+            db.add(record)
+        else:
+            db.add(
+                ModelReferralTerm(
+                    referrer_model_id=referrer.id,
+                    referral_model_id=payload.referral_model_id,
+                    commission_per_referral=payload.commission_per_referral,
+                    commission_payout_frequency=payload.commission_payout_frequency,
+                    commission_duration_months=payload.commission_duration_months,
+                    is_active=payload.is_active,
+                )
+            )
+
+    for referral_id, record in existing.items():
+        if referral_id not in seen:
+            db.delete(record)
+
+    db.flush()
+
+
+def delete_referral_term_for_referral(db: Session, referral_model_id: int) -> None:
+    db.query(ModelReferralTerm).filter(ModelReferralTerm.referral_model_id == referral_model_id).delete(synchronize_session=False)
+    db.flush()
 
 
 def get_effective_compensation_amount(db: Session, model: Model, target_date: date) -> Decimal:
