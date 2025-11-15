@@ -7,6 +7,7 @@ from pathlib import Path
 from fastapi.templating import Jinja2Templates
 
 from app.core.formatting import format_display_date, format_display_datetime
+from app import __version__
 from app.database import get_session
 
 TEMPLATES_PATH = Path(__file__).parent / "templates"
@@ -43,5 +44,9 @@ def _format_display_datetime(value) -> str:
 templates.env.filters["money"] = _format_money
 templates.env.filters["display_date"] = _format_display_date
 templates.env.filters["display_datetime"] = _format_display_datetime
+
+# Global template variables
+templates.env.globals["APP_VERSION"] = __version__
+templates.env.globals["APP_NAME"] = "Payroll Desk"
 
 get_db = get_session

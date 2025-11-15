@@ -50,6 +50,10 @@
                 <span class="nav-link__icon">📈</span>
                 <span class="nav-link__text">Analytics</span>
             </a>
+            <a class="nav-link {% if path.startswith('/changelog') %}active{% endif %}" href="/changelog">
+                <span class="nav-link__icon">📝</span>
+                <span class="nav-link__text">Changelog</span>
+            </a>
             {% if user %}
             <p class="sidebar__section-label">Account</p>
             <a class="nav-link {% if path.startswith('/profile') %}active{% endif %}" href="/profile">
@@ -96,6 +100,10 @@
         {% block content %}{% endblock %}
     </main>
 </div>
+
+<div style="position: fixed; bottom: 8px; right: 12px; font-size: 12px; color: #64748b; opacity: 0.85; user-select: none;">
+    v{{ APP_VERSION }}
+ </div>
 
 <script>
     // Sidebar collapse toggle functionality

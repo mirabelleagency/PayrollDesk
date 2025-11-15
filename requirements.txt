@@ -13,3 +13,4 @@ psycopg2-binary>=2.9.6
 gunicorn>=23.0.0
 bcrypt>=4.1.0
 httpx>=0.24.0
+markdown>=3.6

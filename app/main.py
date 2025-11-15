@@ -3,12 +3,16 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Response, Request
 from fastapi.responses import RedirectResponse
+from fastapi import status, HTTPException
+from fastapi.responses import JSONResponse
+from urllib.parse import quote
 from fastapi.staticfiles import StaticFiles
 
 from app.database import init_db
-from app.routers import admin, analytics, auth, dashboard, models, profile, schedules
+from app import __version__
+from app.routers import admin, analytics, auth, changelog, dashboard, models, profile, schedules
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -16,12 +20,13 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="Payroll Desk", version="2.0.0", lifespan=lifespan)
+app = FastAPI(title="Payroll Desk", version=__version__, lifespan=lifespan)
 
 app.include_router(auth.router)
 app.include_router(profile.router)
 app.include_router(analytics.router)
 app.include_router(admin.router)
+app.include_router(changelog.router)
 app.include_router(dashboard.router)
 app.include_router(models.router)
 app.include_router(schedules.router)
@@ -38,3 +43,28 @@ def root() -> RedirectResponse:
 def health() -> Response:
     """Simple health endpoint for load balancers and platform checks."""
     return Response(content='{"status":"ok"}', media_type="application/json")
+
+
+# Custom handler: redirect unauthenticated HTML requests to /login instead of JSON 401
+@app.exception_handler(HTTPException)
+async def http_exception_redirect_login(request: Request, exc: HTTPException):
+    """Redirect 401 HTML page requests to /login; preserve JSON for API calls.
+
+    Logic:
+    - If status != 401, fall back to normal JSON style.
+    - If 401 and client likely expects HTML (Accept header includes text/html or navigating via browser), issue 303 redirect.
+    - Otherwise return JSON (e.g. for fetch/XHR expecting application/json).
+    """
+    if exc.status_code != status.HTTP_401_UNAUTHORIZED:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+    accept = request.headers.get("accept", "")
+    wants_html = "text/html" in accept or "*/*" in accept  # browsers often send */*
+    if wants_html:
+        # Preserve original target so we can return after login
+        original = request.url.path
+        if request.url.query:
+            original = f"{original}?{request.url.query}"
+        login_url = f"/login?next={quote(original, safe='')}"
+        return RedirectResponse(url=login_url, status_code=status.HTTP_303_SEE_OTHER)
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})

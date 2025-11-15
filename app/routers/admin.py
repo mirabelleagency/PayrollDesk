@@ -5,10 +5,12 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, Query
 from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.engine.url import make_url
+import os
 
 from app import crud
 from app.auth import User
-from app.database import get_session
+from app.database import get_session, engine, DATABASE_URL
 from app.dependencies import templates
 from app.routers.auth import get_current_user, get_admin_user
 from app.security import unlock_account
@@ -287,12 +289,13 @@ def purge_model_execute(
 def admin_settings(
     request: Request,
     message: str | None = Query(default=None),
+    error: str | None = Query(default=None),
     db: Session = Depends(get_session),
     admin: User = Depends(get_admin_user),
 ):
     return templates.TemplateResponse(
         "admin/settings.html",
-        {"request": request, "user": admin, "message": message},
+        {"request": request, "user": admin, "message": message, "error": error},
     )
 
 
@@ -326,7 +329,120 @@ def maintenance_cleanup_orphans(
     return RedirectResponse(url=f"/admin/settings?message={msg}", status_code=303)
 
 
+@router.post("/maintenance/reset-application-data")
+def maintenance_reset_application_data(
+    request: Request,
+    confirm_text: str = Form(...),
+    db: Session = Depends(get_session),
+    admin: User = Depends(get_admin_user),
+):
+    """Reset all model and payout related data while retaining user accounts (admin only).
+
+    Requires a secondary confirmation text 'RESET' to proceed.
+    """
+    if (confirm_text or "").strip().upper() != "RESET":
+        return RedirectResponse(url="/admin/settings?error=Please+type+RESET+to+confirm", status_code=303)
+
+    result = crud.reset_application_data(db)
+    try:
+        crud.log_admin_action(db, admin.id, "reset_application_data", result)
+    except Exception:
+        pass
+
+    # Build a compact message
+    msg = (
+        f"Reset complete: models={result.get('models',0)}, runs={result.get('schedule_runs',0)}, "
+        f"payouts={result.get('payouts',0)}, validations={result.get('validations',0)}, "
+        f"adhoc={result.get('adhoc_payments',0)}, adjustments={result.get('adjustments',0)}, "
+        f"advances={result.get('model_advances',0)}, repayments={result.get('advance_repayments',0)}."
+    )
+    return RedirectResponse(url=f"/admin/settings?message={msg}", status_code=303)
+
+
 # --- JSON API variants ------------------------------------------------------
+
+@router.get("/diagnostics/db")
+def diagnostics_db(
+    db: Session = Depends(get_session),
+    admin: User = Depends(get_admin_user),
+):
+    """Return a sanitized snapshot of the current database backend (admin only).
+
+    This reveals only high-level details needed for SRE checks and avoids leaking
+    credentials. Use it to confirm whether production is connected to Postgres
+    or SQLite.
+    """
+    # Determine dialect in use by the live engine
+    dialect = engine.dialect.name  # e.g., 'postgresql' or 'sqlite'
+    driver = getattr(engine.dialect, "driver", None)
+
+    # Parse configured DATABASE_URL safely (masking any password)
+    try:
+        parsed = make_url(DATABASE_URL)
+        masked_url_obj = parsed.set(password="***") if getattr(parsed, "password", None) else parsed
+        masked_url = str(masked_url_obj)
+        db_name = parsed.database
+        host = parsed.host
+        port = parsed.port
+        username = parsed.username
+        scheme = parsed.drivername
+    except Exception:
+        masked_url = "(unparseable)"
+        db_name = None
+        host = None
+        port = None
+        username = None
+        scheme = None
+
+    is_sqlite = dialect == "sqlite"
+    is_postgres = dialect in ("postgresql", "postgres")
+
+    # Effective engine URL (password masked if present)
+    try:
+        eff_url = engine.url
+        eff_masked_url = eff_url.set(password="***") if getattr(eff_url, "password", None) else eff_url
+        effective_url = str(eff_masked_url)
+    except Exception:
+        effective_url = "(unavailable)"
+
+    # Effective engine URL (password masked if present)
+    try:
+        eff_url = engine.url
+        eff_masked_url = eff_url.set(password="***") if getattr(eff_url, "password", None) else eff_url
+        effective_url = str(eff_masked_url)
+    except Exception:
+        effective_url = "(unavailable)"
+
+    # Base payload
+    payload = {
+        "dialect": dialect,
+        "driver": driver,
+        "url_scheme": scheme,
+        "is_sqlite": is_sqlite,
+        "is_postgres": is_postgres,
+        # details field may be redacted in production
+    }
+
+    # Environment-aware redaction: in production, avoid exposing connection details
+    env = os.getenv("ENVIRONMENT", "production").lower()
+    if env in ("production", "prod", "live"):
+        payload.update({
+            "verbose": False,
+            "details": "redacted in production",
+        })
+    else:
+        payload.update({
+            "verbose": True,
+            "database": db_name,
+            "host": host,
+            "port": port,
+            "username": username,
+            "configured_url": masked_url,
+            # The effective URL bound to the engine (masked if it contains password)
+            "effective_url": effective_url,
+        })
+
+    return JSONResponse(payload)
 
 @router.get("/api/models/{model_id}/purge")
 def api_purge_model_preview(

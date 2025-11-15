@@ -167,6 +167,7 @@
 
                 <div class="inline-filter-actions--compact">
                     <button class="button button--compact" type="submit">Apply</button>
+                    <a class="button button--compact button--success" href="{{ current_month_url }}">Current Month</a>
                     {% if filter_active %}
                     <a class="button button--ghost button--compact" href="{{ clear_filter_url }}">Clear</a>
                     {% endif %}
@@ -188,8 +189,6 @@
         <table class="data-table">
             <thead>
                 <tr>
-                    <th>Cycle ID</th>
-                    <th>Created</th>
                     <th>Period</th>
                     <th>Currency</th>
                     <th>Models Paid</th>
@@ -202,8 +201,6 @@
             <tbody>
                 {% for run in current_year_runs %}
                 <tr>
-                    <td>#{{ run.id }}</td>
-                    <td>{{ run.created_at|display_date }}</td>
                     <td>{{ run.month_year_label }}</td>
                     <td>{{ run.currency or current_year_summary.currency }}</td>
                     <td>{{ run.summary_models_paid or 0 }}</td>
@@ -255,7 +252,7 @@
 
 <!-- Compliance Hold Detail View -->
 {% if show_filter == 'compliance' and compliance_payments %}
-<section class="card card--urgent" style="margin-top: 32px;">
+<section id="payments-on-hold" class="card card--urgent" style="margin-top: 32px;">
     <div class="section-heading">
         <div>
             <h2><span class="section-icon">🛡️</span> Compliance Holds (Overdue)</h2>
@@ -305,7 +302,7 @@
 
 <!-- Overdue Payments Detail View -->
 {% if show_filter == 'overdue' and overdue_payments %}
-<section class="card card--urgent" style="margin-top: 32px;">
+<section id="payments-overdue" class="card card--urgent" style="margin-top: 32px;">
     <div class="section-heading">
         <div>
             <h2><span class="section-icon">🚨</span> Overdue Payments</h2>
@@ -355,7 +352,7 @@
 
 <!-- On-Hold Payments Detail View -->
 {% if show_filter == 'on_hold' and on_hold_payments %}
-<section class="card card--warning" style="margin-top: 32px;">
+<section id="payments-on-hold" class="card card--warning" style="margin-top: 32px;">
     <div class="section-heading">
         <div>
             <h2><span class="section-icon">⏸️</span> On-Hold Payments</h2>
@@ -830,6 +827,20 @@
     background: rgba(239, 68, 68, 0.2);
     border-color: rgba(239, 68, 68, 0.6);
     color: #fca5a5;
+}
+
+/* Green success button variant */
+.button--success {
+    background: rgba(34, 197, 94, 0.12); /* emerald-500 */
+    border: 1px solid rgba(34, 197, 94, 0.4);
+    color: #86efac; /* emerald-300 */
+}
+
+.button--success:hover,
+.button--success:focus {
+    background: rgba(34, 197, 94, 0.2);
+    border-color: rgba(34, 197, 94, 0.6);
+    color: #bbf7d0; /* emerald-200 */
 }
 
 /* Cycle Cards Grid */
