@@ -611,21 +611,69 @@ document.documentElement.classList.add('js-metrics');
 <script id="status-options-json" type="application/json">{{ status_options | tojson }}</script>
 <script>
 const STATUS_OPTIONS = JSON.parse(document.getElementById('status-options-json')?.textContent || '[]');
-// Toggle select all checkboxes
+function isRowVisible(row) {
+    if (!row) {
+        return false;
+    }
+    if (row.style && row.style.display === 'none') {
+        return false;
+    }
+    return row.offsetParent !== null;
+}
+
+function sanitizeVisibleSelections() {
+    const selectAll = document.getElementById('select-all');
+    const visibleCheckboxes = [];
+    let checkedVisible = 0;
+
+    document.querySelectorAll('.payout-checkbox').forEach(cb => {
+        const row = cb.closest('tr');
+        if (!isRowVisible(row)) {
+            cb.checked = false;
+            return;
+        }
+        visibleCheckboxes.push(cb);
+        if (cb.checked) {
+            checkedVisible += 1;
+        }
+    });
+
+    if (selectAll) {
+        if (!visibleCheckboxes.length) {
+            selectAll.checked = false;
+            selectAll.indeterminate = false;
+        } else {
+            selectAll.checked = checkedVisible === visibleCheckboxes.length && checkedVisible > 0;
+            selectAll.indeterminate = checkedVisible > 0 && checkedVisible < visibleCheckboxes.length;
+        }
+    }
+
+    return { visibleCount: visibleCheckboxes.length, checkedVisible };
+}
+
+// Toggle select all checkboxes scoped to currently visible rows
 function toggleSelectAll(checkbox) {
-    const checkboxes = document.querySelectorAll('.payout-checkbox');
-    checkboxes.forEach(cb => cb.checked = checkbox.checked);
+    const shouldCheck = checkbox.checked;
+    document.querySelectorAll('.payout-checkbox').forEach(cb => {
+        const row = cb.closest('tr');
+        if (!isRowVisible(row)) {
+            cb.checked = false;
+            return;
+        }
+        cb.checked = shouldCheck;
+    });
     updateBulkSection();
 }
 
 // Update bulk actions bar visibility and count
 function updateBulkSection() {
-    const checkboxes = document.querySelectorAll('.payout-checkbox:checked');
+    const { checkedVisible } = sanitizeVisibleSelections();
+    const checkboxes = Array.from(document.querySelectorAll('.payout-checkbox:checked')).filter(cb => isRowVisible(cb.closest('tr')));
     const bulkBar = document.getElementById('bulk-actions-bar');
     if (!bulkBar) {
         return;
     }
-    const count = checkboxes.length;
+    const count = checkedVisible || checkboxes.length;
     
     if (count > 0) {
         bulkBar.style.display = 'block';
@@ -944,6 +992,8 @@ function applyStatusFilterLocally(status, options = {}) {
     if (typeof recomputeVisibleTotal === 'function') {
         try { recomputeVisibleTotal(); } catch (_) { }
     }
+
+    updateBulkSection();
 }
 
 // Filter by overdue (client-side)
@@ -1008,6 +1058,7 @@ function filterByOverdue(options = {}) {
     }
 
     recomputeVisibleTotal();
+    updateBulkSection();
 }
 
 function updateExportExcelHref(status) {
@@ -1109,6 +1160,7 @@ function filterPayoutTable() {
     }
     history.replaceState(null, '', url.toString());
     recomputeVisibleTotal();
+    updateBulkSection();
 }
 
 // Column order + sorting state

@@ -1368,7 +1368,7 @@ def update_model(
         crud.upsert_referral_terms(db, updated_model, [])
         db.commit()
 
-    return RedirectResponse(url=f"/models/{model_id}/edit", status_code=303)
+    return RedirectResponse(url=f"/models/{model_id}/edit?saved=1", status_code=303)
 
 
 # --- Cash Advances routes ---------------------------------------------------

@@ -10,6 +10,29 @@
     {% set referrer_picker_label = (model.referred_by.working_name or model.referred_by.real_name or model.referred_by.code) ~ ' (' ~ model.referred_by.code ~ ')' %}
 {% endif %}
 {% block content %}
+<style>
+.form-toast {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    padding: 12px 18px;
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.9);
+    color: #f8fafc;
+    font-weight: 600;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.35);
+    opacity: 0;
+    transform: translateY(-8px);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    pointer-events: none;
+    z-index: 1200;
+}
+
+.form-toast.toast--visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+</style>
 <section class="page-header" style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
     <div>
         <h1 class="page-title">{{ 'Edit Model' if action == 'edit' else 'Add Model' }}</h1>
@@ -280,11 +303,13 @@
         </div>
 
         <div class="form-actions form-actions--end">
+            <a class="button secondary" href="/models" data-back-button>Back to Models</a>
             <button class="button" type="submit">Save</button>
             <a class="button secondary" href="/models">Cancel</a>
         </div>
     </form>
 </section>
+<div class="form-toast" data-toast role="status" aria-live="polite"></div>
 <template id="adjustment-row-template">
     <div class="adjustment-row">
         <div class="form-row">
@@ -546,6 +571,33 @@ document.addEventListener('DOMContentLoaded', function () {
         checkbox.addEventListener('change', applyState);
         applyState();
     });
+
+    const toast = document.querySelector('[data-toast]');
+    let toastTimer;
+
+    const showToast = (message) => {
+        if (!toast) {
+            return;
+        }
+        toast.textContent = message;
+        toast.classList.add('toast--visible');
+        window.clearTimeout(toastTimer);
+        toastTimer = window.setTimeout(() => {
+            toast.classList.remove('toast--visible');
+        }, 3200);
+    };
+
+    const savedFlag = "{{ '1' if request.query_params.get('saved') else '' }}";
+    if (toast && savedFlag) {
+        showToast('Changes saved.');
+        try {
+            const nextUrl = new URL(window.location.href);
+            nextUrl.searchParams.delete('saved');
+            window.history.replaceState({}, document.title, nextUrl.toString());
+        } catch (err) {
+            console.warn('Unable to update URL after showing toast', err);
+        }
+    }
 
     syncCommissionState();
 });

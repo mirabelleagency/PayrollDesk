@@ -478,94 +478,16 @@ details[open] > .collapsible-summary::after {
             'dual': '1st & 14th'
         } %}
         {% set referral_terms_map = referral_terms_map if referral_terms_map is defined else {} %}
+        {% set commission_payouts = commission_payouts if commission_payouts is defined else [] %}
+        {% set commission_payouts_count = commission_payouts|length %}
+        {% set unpaid_count = commission_payouts|selectattr('status', 'equalto', 'unpaid')|list|length %}
+        {% set paid_count = commission_payouts|selectattr('status', 'equalto', 'paid')|list|length %}
         <div class="model-view-card model-view-card--full">
             <div class="model-view-card__header">
                 <span class="model-view-card__icon">💼</span>
                 <h2 class="model-view-card__title">Referrals & Commission</h2>
             </div>
             <div style="display: grid; gap: 24px;">
-                <section style="background: rgba(15,23,42,0.35); border: 1px solid rgba(148,163,184,0.2); border-radius: 10px; padding: 20px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-                        <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #f8fafc;">Referred Models</h3>
-                        {% if commission_summary %}
-                        <span class="model-view-table-count" style="background: rgba(59,130,246,0.15); color: #93c5fd;">
-                            {{ commission_summary.active_referrals }} active · {{ commission_summary.total_referrals }} total
-                        </span>
-                        {% endif %}
-                    </div>
-                    {% if commission_summary %}
-                    <div class="model-view-info-grid" style="margin: 16px 0;">
-                        <div class="model-view-info-row">
-                            <span class="model-view-info-label">Referrals Accepted</span>
-                            <span class="model-view-info-value">{{ commission_summary.total_referrals }}</span>
-                        </div>
-                        <div class="model-view-info-row">
-                            <span class="model-view-info-label">Active Programs</span>
-                            <span class="model-view-info-value">{{ commission_summary.active_referrals }}</span>
-                        </div>
-                        <div class="model-view-info-row">
-                            <span class="model-view-info-label">Est. Monthly Commission</span>
-                            <span class="model-view-info-value model-view-info-value--success">${{ commission_summary.estimated_monthly_commission|money }}</span>
-                        </div>
-                    </div>
-                    {% endif %}
-                    {% if commission_referrals %}
-                    <p style="margin: 0 0 8px 0; font-size: 13px; color: #94a3b8;">Each referral has its own activation state and payout terms.</p>
-                    <table class="model-view-table">
-                        <thead>
-                            <tr>
-                                <th>Code</th>
-                                <th>Name</th>
-                                <th>Status</th>
-                                <th>Start Date</th>
-                                <th>Program</th>
-                                <th>Commission/Hit</th>
-                                <th>Payout Frequency</th>
-                                <th>Duration</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for referred in commission_referrals %}
-                            {% set term = referral_terms_map.get(referred.id) %}
-                            {% set amount_value = term.commission_per_referral if term and term.commission_per_referral is not none else None %}
-                            {% set frequency_value = term.commission_payout_frequency if term and term.commission_payout_frequency else None %}
-                            {% set duration_value = term.commission_duration_months if term and term.commission_duration_months else None %}
-                            <tr>
-                                <td>{{ referred.code }}</td>
-                                <td>{{ referred.working_name or referred.real_name }}</td>
-                                <td>{{ referred.status }}</td>
-                                <td>{{ referred.start_date|display_date }}</td>
-                                <td>
-                                    {% if term and term.is_active %}
-                                        <span class="status-chip status-chip--success">Active</span>
-                                    {% else %}
-                                        <span class="status-chip status-chip--neutral">Inactive</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if amount_value %}
-                                        <strong style="color: #34d399;">${{ amount_value|money }}</strong>
-                                    {% else %}
-                                        <span style="color: #94a3b8;">—</span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ commission_frequency_labels.get(frequency_value, frequency_value|replace('_',' ')|title) if frequency_value else '—' }}</td>
-                                <td>
-                                    {% if duration_value %}
-                                        {{ duration_value }} mo
-                                    {% else %}
-                                        <span style="color: #94a3b8;">—</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                    {% else %}
-                    <p style="margin: 0; font-size: 14px; color: #94a3b8;">No referred models recorded yet.</p>
-                    {% endif %}
-                </section>
-
                 <section style="background: rgba(15,23,42,0.35); border: 1px solid rgba(148,163,184,0.2); border-radius: 10px; padding: 20px;">
                     <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #f8fafc;">Referral Source</h3>
                     {% if referrer_model %}
@@ -580,9 +502,158 @@ details[open] > .collapsible-summary::after {
                     <p style="margin: 0; font-size: 14px; color: #94a3b8;">No referrer linked yet. Set one from the edit form if this model was sourced by another talent.</p>
                     {% endif %}
                 </section>
+
+                <section style="background: rgba(15,23,42,0.35); border: 1px solid rgba(148,163,184,0.2); border-radius: 10px; padding: 20px;">
+                    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 12px;">
+                        <div>
+                            <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #f8fafc;">Upcoming Referral Payouts</h3>
+                            <p style="margin: 4px 0 0 0; font-size: 13px; color: #94a3b8;">Statuses mirror the commissions dashboard.</p>
+                        </div>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <span class="model-view-table-count" style="background: rgba(15,23,42,0.6); border-color: rgba(148,163,184,0.3);">{{ commission_payouts_count }} total</span>
+                            <span class="model-view-table-count" style="background: rgba(234, 179, 8, 0.15); color: #eab308; border-color: rgba(234, 179, 8, 0.3);">{{ unpaid_count }} unpaid</span>
+                            <span class="model-view-table-count" style="background: rgba(34, 197, 94, 0.15); color: #22c55e; border-color: rgba(34, 197, 94, 0.3);">{{ paid_count }} paid</span>
+                        </div>
+                    </div>
+
+                    {% if commission_payouts_count %}
+                    {% set preview_rows = commission_payouts[:5] %}
+                    <div style="overflow-x: auto;">
+                        <table class="model-view-table" style="min-width: 100%;">
+                            <thead>
+                                <tr>
+                                    <th>Pay Date</th>
+                                    <th>Counterparty</th>
+                                    <th>Window</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for payout in preview_rows %}
+                                {% set is_referrer = payout.referrer_model_id == model.id %}
+                                {% set related_model = payout.referral_model if is_referrer else payout.referrer_model %}
+                                <tr>
+                                    <td style="white-space: nowrap;">{{ payout.pay_date|display_date }}</td>
+                                    <td style="white-space: nowrap;">
+                                        {% if related_model %}
+                                        <a href="/models/{{ related_model.id }}" style="color: #60a5fa; text-decoration: none;">
+                                            {{ related_model.working_name or related_model.real_name }}
+                                        </a>
+                                        {% else %}
+                                            <span style="color: #64748b;">—</span>
+                                        {% endif %}
+                                        <span style="display: block; font-size: 12px; color: #94a3b8;">
+                                            {% if is_referrer %}Referrer{% else %}Referred{% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if payout.schedule_type == 'monthly' %}
+                                            <span class="status-chip status-chip--info">Monthly · 1st</span>
+                                        {% else %}
+                                            <span class="status-chip status-chip--neutral">Mid-Month · 14th</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><strong style="color: #22c55e;">${{ payout.amount|money }}</strong></td>
+                                    <td>
+                                        {% if payout.status == 'paid' %}
+                                            <span class="status-chip status-chip--success">Paid</span>
+                                        {% else %}
+                                            <span class="status-chip status-chip--warning">Unpaid</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if commission_payouts_count > preview_rows|length %}
+                    <p style="margin: 12px 0 0 0; font-size: 13px; color: #94a3b8;">Showing first {{ preview_rows|length }} payouts. Scroll down to view the full referral schedule.</p>
+                    {% endif %}
+                    {% else %}
+                    <div class="model-view-empty" style="min-height: 120px;">
+                        <div class="model-view-empty__icon">💸</div>
+                        <p class="model-view-empty__text" style="margin-bottom: 4px;">No referral payouts tracked yet.</p>
+                        <p class="model-view-empty__subtext">Add referral terms on the edit page to generate payouts.</p>
+                    </div>
+                    {% endif %}
+                </section>
             </div>
         </div>
     </div>
+
+    <!-- Commission Payouts (Detailed Schedule with Status) -->
+    {% if commission_payouts_count %}
+    <div class="model-view-table-card">
+        <div class="model-view-table-header">
+            <div class="model-view-table-title">
+                <span style="font-size: 24px;">💰</span>
+                <h2>Commission Payouts</h2>
+                <span class="model-view-table-count">{{ commission_payouts_count }} payout{{ 's' if commission_payouts_count != 1 else '' }}</span>
+                {% if unpaid_count > 0 %}
+                <span class="model-view-table-count" style="background: rgba(234, 179, 8, 0.15); color: #eab308; border-color: rgba(234, 179, 8, 0.3);">{{ unpaid_count }} unpaid</span>
+                {% endif %}
+                {% if paid_count > 0 %}
+                <span class="model-view-table-count" style="background: rgba(34, 197, 94, 0.15); color: #22c55e; border-color: rgba(34, 197, 94, 0.3);">{{ paid_count }} paid</span>
+                {% endif %}
+            </div>
+        </div>
+        <table class="model-view-table">
+            <thead>
+                <tr>
+                    <th>Pay Date</th>
+                    <th>Schedule Type</th>
+                    <th>Role</th>
+                    <th>Related Model</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for payout in commission_payouts %}
+                {% set is_referrer = payout.referrer_model_id == model.id %}
+                {% set related_model = payout.referral_model if is_referrer else payout.referrer_model %}
+                <tr>
+                    <td style="white-space: nowrap;">{{ payout.pay_date|display_date }}</td>
+                    <td>
+                        {% if payout.schedule_type == 'monthly' %}
+                            <span style="color: #94a3b8;">Monthly · 1st</span>
+                        {% elif payout.schedule_type == 'mid_month' %}
+                            <span style="color: #94a3b8;">Mid-Month · 14th</span>
+                        {% else %}
+                            <span style="color: #94a3b8;">{{ payout.schedule_type|title }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if is_referrer %}
+                            <span style="color: #60a5fa;">Referrer</span>
+                        {% else %}
+                            <span style="color: #a78bfa;">Referred</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if related_model %}
+                        <a href="/models/{{ related_model.id }}" style="color: #60a5fa; text-decoration: none;">
+                            {{ related_model.working_name or related_model.real_name }}
+                        </a>
+                        {% else %}
+                            <span style="color: #64748b;">—</span>
+                        {% endif %}
+                    </td>
+                    <td><strong style="color: #22c55e;">${{ payout.amount|money }}</strong></td>
+                    <td>
+                        {% if payout.status == 'paid' %}
+                            <span class="status-chip status-chip--success">Paid</span>
+                        {% else %}
+                            <span class="status-chip status-chip--warning">Unpaid</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
 
     {% set adjustments = model.compensation_adjustments or [] %}
     {% set adjustments_count = adjustments|length %}

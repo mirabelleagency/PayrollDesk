@@ -2779,15 +2779,30 @@ section {
     justify-content: flex-end;
 }
 
+.referral-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+}
+
+.referral-cards-grid--view {
+    margin-top: 8px;
+}
+
 .referral-term-card {
     border: 1px solid rgba(148, 163, 184, 0.25);
     border-radius: 12px;
     padding: 16px;
+    margin-bottom: 20px;
     background: rgba(15, 23, 42, 0.5);
     transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
     display: flex;
     flex-direction: column;
     gap: 12px;
+}
+
+.referral-term-card:last-child {
+    margin-bottom: 0;
 }
 .referral-term-card__header {
     display: flex;
@@ -2820,6 +2835,63 @@ section {
 .referral-term-card--inactive .referral-term-status {
     background: rgba(248, 250, 252, 0.08);
     color: #cbd5e1;
+}
+
+.referral-term-card--view {
+    gap: 18px;
+}
+
+.referral-term-card__title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.referral-term-card__code {
+    font-family: 'JetBrains Mono', 'Space Mono', Consolas, monospace;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    padding: 2px 8px;
+    border-radius: 6px;
+}
+
+.referral-term-card__body--view {
+    border-top: 1px solid rgba(148, 163, 184, 0.15);
+    padding-top: 16px;
+}
+
+.referral-term-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 16px;
+}
+
+.referral-term-metric {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.referral-term-metric__label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #94a3b8;
+}
+
+.referral-term-metric__value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #f8fafc;
+}
+
+.referral-term-notes {
+    margin: 16px 0 0 0;
+    font-size: 0.9rem;
+    color: #cbd5e1;
+    line-height: 1.4;
 }
 .card-actions--stack {
     border-top: 1px solid rgba(148, 163, 184, 0.12);
