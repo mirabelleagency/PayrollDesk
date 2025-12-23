@@ -23,6 +23,11 @@ from app.models import COMMISSION_PAYOUT_FREQUENCY_ENUM, FREQUENCY_ENUM, STATUS_
 from app.commission import build_commission_summary, get_eligible_referrals
 from app.routers.auth import get_current_user, get_admin_user
 from app.schemas import AdhocPaymentCreate, AdhocPaymentUpdate, ModelCreate, ModelUpdate
+from app.snapshots import (
+    SnapshotError,
+    capture_model_snapshot,
+    restore_latest_model_snapshot,
+)
 from app.importers.excel_importer import ImportOptions, RunOptions, import_from_excel
 import pandas as pd
 import tempfile
@@ -202,6 +207,15 @@ def _redirect_to_model(model_id: int, **params: str) -> RedirectResponse:
     filtered = {key: value for key, value in params.items() if value}
     query = urlencode(filtered)
     url = f"/models/{model_id}"
+    if query:
+        url = f"{url}?{query}"
+    return RedirectResponse(url=url, status_code=303)
+
+
+def _redirect_to_model_edit(model_id: int, **params: str) -> RedirectResponse:
+    filtered = {key: value for key, value in params.items() if value}
+    query = urlencode(filtered)
+    url = f"/models/{model_id}/edit"
     if query:
         url = f"{url}?{query}"
     return RedirectResponse(url=url, status_code=303)
@@ -1278,6 +1292,8 @@ def update_model(
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
 
+    capture_model_snapshot(db, model, actor=getattr(user, "username", None))
+
     commission_enabled = _checkbox_to_bool(commission_active)
     commission_amount = _parse_optional_decimal(commission_per_referral, "Commission per referral")
     commission_duration = _parse_optional_positive_int(
@@ -1368,7 +1384,25 @@ def update_model(
         crud.upsert_referral_terms(db, updated_model, [])
         db.commit()
 
-    return RedirectResponse(url=f"/models/{model_id}/edit?saved=1", status_code=303)
+    return _redirect_to_model_edit(model_id, saved="1")
+
+
+@router.post("/{model_id}/undo")
+def undo_model_update(
+    model_id: int,
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    model = crud.get_model(db, model_id)
+    if not model:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    try:
+        restore_latest_model_snapshot(db, model, actor=getattr(user, "username", None))
+    except SnapshotError as exc:
+        return _redirect_to_model_edit(model_id, undo_error=str(exc))
+
+    return _redirect_to_model_edit(model_id, undo_success="Restored the previous version.")
 
 
 # --- Cash Advances routes ---------------------------------------------------

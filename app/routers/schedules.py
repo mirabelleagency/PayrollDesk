@@ -24,6 +24,7 @@ from app.database import get_session
 from app.dependencies import templates
 from app.core.formatting import format_display_date
 from app.models import AdhocPayment, PAYOUT_STATUS_ENUM, Payout, Model, ScheduleRun
+from app.snapshots import SnapshotError, restore_latest_schedule_snapshot, get_schedule_snapshot_preview
 from app.routers.auth import get_current_user, get_admin_user
 from app.services import PayrollService
 
@@ -1929,6 +1930,8 @@ def run_schedule(
         currency=currency,
         include_inactive=bool(include_inactive),
         output_dir=export_path,
+        actor=getattr(user, "username", None),
+        snapshot_reason="manual_refresh",
     )
 
     return RedirectResponse(url=f"/schedules/{run_id}", status_code=303)
@@ -1966,6 +1969,8 @@ def view_schedule(
                 currency=run.currency if getattr(run, "currency", None) else "USD",
                 include_inactive=False,
                 output_dir=export_path,
+                actor=getattr(user, "username", None),
+                snapshot_reason="auto_refresh",
             )
             # If a different run record was returned, load that one instead
             if refreshed_run_id and refreshed_run_id != run.id:
@@ -1974,6 +1979,8 @@ def view_schedule(
             # If refresh fails, continue to render the existing run rather than failing the page.
             # Errors are intentionally swallowed here to avoid blocking the user from viewing the run.
             pass
+
+    snapshot_preview = get_schedule_snapshot_preview(db, run)
 
     run.cycle_display = format_display_date(date(run.target_year, run.target_month, 1))
 
@@ -1990,6 +1997,9 @@ def view_schedule(
                 pay_date_filter = datetime.strptime(pay_date_value, "%m/%d/%Y").date()
             except ValueError:
                 raise HTTPException(status_code=400, detail="Invalid date format. Use MM/DD/YYYY.")
+
+    all_payouts = crud.list_payouts_for_run(db, run_id)
+    snapshot_preview = get_schedule_snapshot_preview(db, run, current_payouts=all_payouts)
 
     code_options = crud.payout_codes_for_run(db, run_id)
     existing_pay_dates = set(crud.payout_dates_for_run(db, run_id))
@@ -2084,8 +2094,27 @@ def view_schedule(
             "frequency_options": frequency_options,
             "code_options": code_options,
             "pay_date_options": pay_date_options,
+            "snapshot_preview": snapshot_preview,
+            "undo_error": request.query_params.get("undo_error"),
+            "undo_success": request.query_params.get("undo_success"),
         },
     )
+
+
+@router.post("/{run_id}/undo")
+def undo_schedule_run(run_id: int, db: Session = Depends(get_session), user: User = Depends(get_admin_user)):
+    run = crud.get_schedule_run(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Schedule run not found")
+
+    try:
+        restore_latest_schedule_snapshot(db, run, actor=getattr(user, "username", None))
+        query = urlencode({"undo_success": "Previous payroll version restored."})
+    except SnapshotError as exc:
+        query = urlencode({"undo_error": str(exc)})
+
+    suffix = f"?{query}" if query else ""
+    return RedirectResponse(url=f"/schedules/{run_id}{suffix}", status_code=303)
 
 
 @router.post("/{run_id}/delete")

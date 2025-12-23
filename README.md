@@ -1,6 +1,22 @@
 # Payroll Desk
 
-Automates recurring payroll schedules for the agency, supports manual roster imports via CLI, and now provides a web UI for managing models and payroll cycles with persistent storage.
+Automates recurring payroll schedules for the agency, supports manual roster imports via CLI, and provides a web UI for managing models and payroll cycles with persistent storage.
+
+## Project Structure
+
+```
+PayrollDesk/
+├── app/                 # FastAPI application
+│   ├── routers/         # Route handlers
+│   ├── templates/       # Jinja2 templates
+│   └── static/          # CSS, JS, images
+├── tests/               # Test suite
+├── scripts/             # Utility & maintenance scripts
+├── samples/             # Sample data files
+├── docs/                # Documentation
+├── data/                # Runtime data (SQLite DB)
+└── exports/             # Generated export files
+```
 
 ## Requirements
 
@@ -15,7 +31,7 @@ pip install -r requirements.txt
 Generate an export from CSV or Excel using the existing command-line interface:
 
 ```powershell
-python payroll.py --month 2025-11 --input models_sample.csv --out dist --preview
+python payroll.py --month 2025-11 --input samples/models_sample.csv --out dist --preview
 ```
 
 The CLI writes Excel and CSV bundles to the chosen output directory and prints a summary line to the console.
@@ -70,7 +86,7 @@ Notes
 
 Data migration from SQLite (optional)
 - If you already have data in `data/payroll.db` and need it in Postgres, create a one-off migration before switching.
-- We can provide a script that reads from `sqlite:///data/payroll.db` and writes to your Postgres URL, copying tables in a safe order. Ask for the "SQLite → Postgres migration script" to add it to the repo with a short runbook.
+- See [docs/MIGRATION_GUIDE.md](docs/MIGRATION_GUIDE.md) for detailed migration instructions.
 
 ## Running Tests
 
@@ -78,7 +94,15 @@ Data migration from SQLite (optional)
 python -m pytest
 ```
 
-Sample data is available in `models_sample.csv` for quick experimentation.
+Sample data is available in `samples/` for quick experimentation.
+
+## Documentation
+
+- [CHANGELOG.md](CHANGELOG.md) - Version history
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guidelines
+- [SECURITY.md](SECURITY.md) - Security policy
+- [docs/MIGRATION_GUIDE.md](docs/MIGRATION_GUIDE.md) - Data migration guide
+- [docs/DUPLICATE_HANDLING.md](docs/DUPLICATE_HANDLING.md) - Duplicate data handling
 
 ## Versioning & Release Notes
 

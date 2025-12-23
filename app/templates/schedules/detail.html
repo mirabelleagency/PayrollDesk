@@ -140,7 +140,7 @@ document.documentElement.classList.add('js-metrics');
         <a class="button secondary" href="/schedules">
             <span>← Back to Cycles</span>
         </a>
-        <div class="export-controls" style="display: flex; gap: 8px;">
+        <div class="export-controls" style="display: flex; gap: 8px; align-items: center;">
             {# CSV export removed — Excel will export the current status filter #}
             <a id="export-excel" data-base-href="/schedules/{{ run.id }}/download/schedule_excel" class="button button--primary" href="/schedules/{{ run.id }}/download/schedule_excel{% if filters.status %}?status={{ filters.status }}{% endif %}">
                 <span>📥</span>
@@ -149,6 +149,132 @@ document.documentElement.classList.add('js-metrics');
         </div>
     </div>
 </section>
+
+{% if user and user.is_admin() %}
+{% if snapshot_preview %}
+    {% set confirm_date = snapshot_preview.captured_at|display_date %}
+{% else %}
+    {% set confirm_date = 'N/A' %}
+{% endif %}
+{% set confirm_text = 'Restore the payroll snapshot captured on ' ~ confirm_date ~ '?' %}
+<section class="card" style="margin-bottom: 20px; border: 1px solid rgba(148,163,184,0.2); padding: 20px; background: rgba(15,23,42,0.35);">
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; align-items: center;">
+        <div>
+            <h2 style="margin: 0 0 6px 0; font-size: 18px; color: #f8fafc;">Undo Preview</h2>
+            {% if snapshot_preview %}
+            <p style="margin: 0; color: #94a3b8;">Captured {{ snapshot_preview.captured_at|display_date }}{% if snapshot_preview.captured_by %} by {{ snapshot_preview.captured_by }}{% endif %} · Reason: {{ (snapshot_preview.reason or 'regenerate')|replace('_', ' ')|title }}</p>
+            {% else %}
+            <p style="margin: 0; color: #94a3b8;">No previous refresh snapshot is available yet.</p>
+            {% endif %}
+        </div>
+        <form method="post" action="/schedules/{{ run.id }}/undo" onsubmit="return confirm('{{ confirm_text }}');">
+            <button class="button tertiary" type="submit" {% if not snapshot_preview %}disabled title="Undo is unavailable until a refresh snapshot exists."{% endif %}>Undo Last Refresh</button>
+        </form>
+    </div>
+    {% if snapshot_preview %}
+        <div style="margin-top: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; font-size: 14px; color: #cbd5e1;">
+        <div>
+            <div style="color: #94a3b8; text-transform: uppercase; font-size: 11px;">Payouts Restored</div>
+            <strong>{{ snapshot_preview.payout_count }}</strong>
+        </div>
+        <div>
+            <div style="color: #94a3b8; text-transform: uppercase; font-size: 11px;">Validation Notes</div>
+            <strong>{{ snapshot_preview.validation_count }}</strong>
+        </div>
+        <div>
+            <div style="color: #94a3b8; text-transform: uppercase; font-size: 11px;">Cash Advance Deductions</div>
+            <strong>{{ snapshot_preview.allocation_count }}</strong>
+        </div>
+        <div>
+            <div style="color: #94a3b8; text-transform: uppercase; font-size: 11px;">Total Payout</div>
+            <strong>{{ snapshot_preview.currency or run.currency }} {{ snapshot_preview.summary_total_payout|money }}</strong>
+        </div>
+        <div>
+            <div style="color: #94a3b8; text-transform: uppercase; font-size: 11px;">Models Paid</div>
+            <strong>{{ snapshot_preview.summary_models_paid or 0 }}</strong>
+        </div>
+    </div>
+        {% set diff = snapshot_preview.diff %}
+        {% if diff %}
+        <div style="margin-top: 20px; border-top: 1px solid rgba(148,163,184,0.18); padding-top: 16px;">
+            <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #f8fafc;">Rows impacted by undo</h3>
+            {% if diff.has_diff %}
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                {% if diff.missing %}
+                <div style="background: rgba(15,23,42,0.55); border: 1px solid rgba(59,130,246,0.3); border-radius: 10px; padding: 12px;">
+                    <div style="font-size: 13px; color: #93c5fd; text-transform: uppercase; letter-spacing: 0.5px;">Will be re-added ({{ diff.counts.missing }})</div>
+                    <ul style="list-style: none; padding: 0; margin: 10px 0 0 0; display: flex; flex-direction: column; gap: 8px;">
+                        {% for row in diff.missing %}
+                        <li>
+                            <strong>{{ row.code }}</strong>
+                            <div style="font-size: 13px; color: #cbd5e1;">{{ row.pay_date|display_date if row.pay_date else 'No date' }} · {{ snapshot_preview.currency or run.currency }} {{ (row.amount_snapshot or 0)|money }}</div>
+                            <div style="font-size: 12px; color: #94a3b8;">Status: {{ row.status_snapshot or 'not set' }}</div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% if diff.more.missing %}
+                    <div style="margin-top: 8px; font-size: 12px; color: #94a3b8;">+{{ diff.more.missing }} more</div>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if diff.changed %}
+                <div style="background: rgba(15,23,42,0.55); border: 1px solid rgba(234,179,8,0.35); border-radius: 10px; padding: 12px;">
+                    <div style="font-size: 13px; color: #fde68a; text-transform: uppercase; letter-spacing: 0.5px;">Will be updated ({{ diff.counts.changed }})</div>
+                    <ul style="list-style: none; padding: 0; margin: 10px 0 0 0; display: flex; flex-direction: column; gap: 8px;">
+                        {% for row in diff.changed %}
+                        <li>
+                            <strong>{{ row.code }}</strong>
+                            <div style="font-size: 13px; color: #cbd5e1;">{{ row.pay_date|display_date if row.pay_date else 'No date' }}</div>
+                            <div style="font-size: 12px; color: #94a3b8;">Amount: {{ snapshot_preview.currency or run.currency }} {{ (row.amount_current or 0)|money }} → {{ snapshot_preview.currency or run.currency }} {{ (row.amount_snapshot or 0)|money }}</div>
+                            <div style="font-size: 12px; color: #94a3b8;">Status: {{ row.status_current or 'n/a' }} → {{ row.status_snapshot or 'n/a' }}</div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% if diff.more.changed %}
+                    <div style="margin-top: 8px; font-size: 12px; color: #94a3b8;">+{{ diff.more.changed }} more</div>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if diff.extra %}
+                    <div style="background: rgba(15,23,42,0.55); border: 1px solid rgba(248,113,113,0.35); border-radius: 10px; padding: 12px;">
+                        <div style="font-size: 13px; color: #fecdd3; text-transform: uppercase; letter-spacing: 0.5px;">Will be removed ({{ diff.counts.extra }})</div>
+                        <ul style="list-style: none; padding: 0; margin: 10px 0 0 0; display: flex; flex-direction: column; gap: 8px;">
+                            {% for row in diff.extra %}
+                            <li>
+                                <strong>{{ row.code }}</strong>
+                                <div style="font-size: 13px; color: #cbd5e1;">{{ row.pay_date|display_date if row.pay_date else 'No date' }} · {{ snapshot_preview.currency or run.currency }} {{ (row.amount_current or 0)|money }}</div>
+                                <div style="font-size: 12px; color: #94a3b8;">Status: {{ row.status_current or 'n/a' }}</div>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% if diff.more.extra %}
+                        <div style="margin-top: 8px; font-size: 12px; color: #94a3b8;">+{{ diff.more.extra }} more</div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <p style="margin: 0; color: #94a3b8;">Current payouts already match the stored snapshot.</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    {% endif %}
+</section>
+{% endif %}
+
+{% if undo_error %}
+<div class="alert error" style="margin-bottom: 16px;">
+    <strong>Undo unavailable.</strong> {{ undo_error }}
+    {% if user and user.is_admin() %}
+    <span style="margin-left: 6px;">You can rerun payroll again if needed.</span>
+    {% endif %}
+</div>
+{% endif %}
+{% if undo_success %}
+<div class="alert success" style="margin-bottom: 16px;">
+    <strong>Previous version restored.</strong> {{ undo_success }}
+</div>
+{% endif %}
 
 <!-- Validation Alerts (if any) -->
 {% if validations|length > 0 %}

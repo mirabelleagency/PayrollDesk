@@ -39,11 +39,27 @@
         <p>Capture roster information used for automated payroll scheduling.</p>
     </div>
     {% if action == 'edit' and model %}
-    <div style="display: flex; gap: 12px;">
+    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
         <a class="button secondary" href="/models/{{ model.id }}" target="_blank" rel="noopener">View Model Profile</a>
+        <form method="post" action="/models/{{ model.id }}/undo" onsubmit="return confirm('Restore the previous saved version of {{ model.code }}?');">
+            <button class="button tertiary" type="submit">Undo Last Edit</button>
+        </form>
     </div>
     {% endif %}
 </section>
+
+{% set undo_error = request.query_params.get('undo_error') %}
+{% set undo_success = request.query_params.get('undo_success') %}
+{% if undo_error %}
+<div class="alert error" style="margin-bottom: 16px;">
+    <strong>Undo unavailable.</strong> {{ undo_error }}
+</div>
+{% endif %}
+{% if undo_success %}
+<div class="alert success" style="margin-bottom: 16px;">
+    <strong>Previous version restored.</strong> {{ undo_success }}
+</div>
+{% endif %}
 
 <section class="card card--form">
     <form class="form form--wide" method="post">

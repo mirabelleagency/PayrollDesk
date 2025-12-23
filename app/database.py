@@ -7,7 +7,7 @@ from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 from typing import Generator
 
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 DEFAULT_SQLITE_PATH = Path("data/payroll.db")
@@ -36,7 +36,18 @@ def _mask_db_url(url: str) -> str:
 def _create_engine(url: str):
     """Create a SQLAlchemy engine for the given URL, handling sqlite connect args."""
     connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {}
-    return create_engine(url, connect_args=connect_args, future=True)
+    eng = create_engine(url, connect_args=connect_args, future=True)
+    
+    # Enable foreign key enforcement for SQLite (disabled by default)
+    # This ensures referential integrity in development matches PostgreSQL behavior
+    if url.startswith("sqlite"):
+        @event.listens_for(eng, "connect")
+        def set_sqlite_pragma(dbapi_connection, connection_record):
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+    
+    return eng
 
 
 # Try to create the engine and verify a quick connection. On local development
@@ -128,7 +139,7 @@ def init_db() -> None:
 
 def ensure_schema_updates() -> None:
     """Ensure all required columns exist in the database tables."""
-    from app.models import Model, ModelCompensationAdjustment, ModelReferralTerm
+    from app.models import Model, ModelCompensationAdjustment, ModelReferralTerm, ScheduleRunSnapshot
 
     inspector = inspect(engine)
     
@@ -254,6 +265,15 @@ def ensure_schema_updates() -> None:
             print("[ensure_schema_updates] Successfully created commission_payouts table")
     except Exception as e:
         print(f"[ensure_schema_updates] Error creating commission_payouts table: {e}")
+
+    # Ensure schedule_run_snapshots table exists
+    try:
+        if "schedule_run_snapshots" not in tables:
+            print("[ensure_schema_updates] Creating schedule_run_snapshots table")
+            ScheduleRunSnapshot.__table__.create(bind=engine, checkfirst=True)
+            print("[ensure_schema_updates] Successfully created schedule_run_snapshots table")
+    except Exception as e:
+        print(f"[ensure_schema_updates] Error creating schedule_run_snapshots table: {e}")
 
     # Ensure compensation adjustments table exists and is populated from existing models
     try:

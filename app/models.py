@@ -100,6 +100,26 @@ class ScheduleRun(Base):
     validations: Mapped[list["ValidationIssue"]] = relationship(
         back_populates="schedule_run", cascade="all, delete-orphan"
     )
+    snapshots: Mapped[list["ScheduleRunSnapshot"]] = relationship(
+        back_populates="schedule_run",
+        cascade="all, delete-orphan",
+        order_by="ScheduleRunSnapshot.created_at.desc()",
+    )
+
+
+class ScheduleRunSnapshot(Base):
+    __tablename__ = "schedule_run_snapshots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    schedule_run_id: Mapped[int] = mapped_column(
+        ForeignKey("schedule_runs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    payload: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    created_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    reason: Mapped[str] = mapped_column(String(50), nullable=False, default="regenerate")
+
+    schedule_run: Mapped[ScheduleRun] = relationship("ScheduleRun", back_populates="snapshots")
 
 
 class Payout(Base):
@@ -388,3 +408,26 @@ class CommissionPayout(Base):
             name="ck_commission_payout_schedule_type_valid"
         ),
     )
+
+
+class ModelSnapshot(Base):
+    """Immutable snapshot of a model's state for undo/rollback flows."""
+
+    __tablename__ = "model_snapshots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    model_id: Mapped[int] = mapped_column(ForeignKey("models.id", ondelete="CASCADE"), nullable=False, index=True)
+    payload: Mapped[str] = mapped_column(Text, nullable=False)
+    reason: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+
+    model: Mapped[Model] = relationship("Model", back_populates="snapshots")
+
+
+Model.snapshots = relationship(
+    "ModelSnapshot",
+    back_populates="model",
+    cascade="all, delete-orphan",
+    order_by="ModelSnapshot.created_at.desc()",
+)

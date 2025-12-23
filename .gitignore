@@ -11,32 +11,45 @@ htmlcov/
 
 # Virtual environments
 .venv/
-.venv-1/
+.venv-*/
 venv/
 
 # Envs / secrets
 .env
-.env.*
-*.env
+.env.local
+!.env.example
 
 # Build / dist
 build/
 dist/
 *.log
 
-# Generated exports
-exports/
+# Generated exports (keep directory, ignore contents)
+exports/*
+!exports/.gitkeep
 
 # Local database state
 data/*.db
+data/*.json
+
+# Test databases
+test_*.db
+*.db-journal
 
 # OS / editor noise
 .DS_Store
 Thumbs.db
-.vscode/
 .idea/
 
+# VS Code (allow tasks.json for dev experience)
+.vscode/*
+!.vscode/tasks.json
+
 # Optional Node tooling
-# node_modules/
-# .next/
-# .parcel-cache/
+node_modules/
+.next/
+.parcel-cache/
+
+# Database backups
+samples/*.tar.gz
+samples/2025-*/

@@ -101,7 +101,9 @@ def login(
     # Set session cookie and redirect
     response = RedirectResponse(url=redirect_to, status_code=303)
     # In production (Render), secure=True for HTTPS. In dev, secure=False for HTTP.
-    is_production = os.getenv("PAYROLL_DATABASE_URL", "").startswith("postgresql")
+    # Check ENVIRONMENT variable, not database URL, to determine secure cookie setting.
+    env = os.getenv("ENVIRONMENT", "production").lower()
+    is_production = env not in ("development", "dev", "local", "test")
     response.set_cookie(
         key="user_id",
         value=str(user.id),

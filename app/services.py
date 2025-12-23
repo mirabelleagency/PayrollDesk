@@ -22,6 +22,7 @@ from app.core.payroll import (
 )
 from app import crud
 from app.models import Model
+from app.snapshots import capture_schedule_run_snapshot
 
 
 class PayrollService:
@@ -49,6 +50,9 @@ class PayrollService:
         currency: str,
         include_inactive: bool,
         output_dir: Path,
+        *,
+        actor: str | None = None,
+        snapshot_reason: str = "regenerate",
     ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict, int]:
         # Check if a payroll run already exists for this month/year
         existing_runs = crud.list_schedule_runs(
@@ -59,6 +63,8 @@ class PayrollService:
         old_payout_data = {}
         if existing_runs:
             run = existing_runs[0]  # Use the most recent run for this month
+            if run.payouts or run.validations:
+                capture_schedule_run_snapshot(self.db, run, actor=actor, reason=snapshot_reason)
             # Save status and notes from old payouts before clearing
             for payout in run.payouts:
                 key = (payout.code, payout.pay_date)
