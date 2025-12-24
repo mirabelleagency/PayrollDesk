@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.33.1 - 2025-12-24
+
+### Added
+- feat(a11y): sidebar accessibility enhancements
+  - Add `:focus-visible` to `.nav-link` for keyboard navigation (blue outline)
+  - Change sidebar section labels from `<p>` to semantic `<h3>` elements
+  - Add opacity transition (0.2s) to collapsed sidebar text elements
+- refactor(css): consolidate mobile sidebar breakpoints (768px/480px → single 768px rule)
+
+### Documentation
+- Update TODO.md with sidebar enhancement status
+
+### Notes
+- All sidebar accessibility improvements complete
+- Global `prefers-reduced-motion` already present (line 45)
+- Continuing UI/UX polish work
+
 ## v2.33.0 - 2025-12-24
 
 ### Added

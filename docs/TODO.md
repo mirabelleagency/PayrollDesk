@@ -76,6 +76,7 @@ Use tables with consistent columns:
 | Align login page theme | CSS | Match app's dark navy scheme |
 | Add UI/UX Guide | Docs | 674 lines, component library |
 | Add TECHNICAL_SPEC | Docs | 780 lines, full architecture |
+| Sidebar a11y enhancements | A11y | focus-visible, semantic h3, transitions |
 
 > **Archived:** Performance optimizations (v2.32.2) and test coverage improvements (v2.32.1) now documented in CHANGELOG.md
 
@@ -127,7 +128,7 @@ Use tables with consistent columns:
 ## Session Summary
 
 **Branch:** `feature/payrolldesk-v2`  
-**Current Version:** v2.33.0  
+**Current Version:** v2.33.1  
 **Test Count:** 194 tests  
 **Coverage:** 86% on crud.py
 
@@ -138,6 +139,7 @@ Use tables with consistent columns:
 - ✅ Performance: N+1 fix, caching, indexes
 - ✅ Configuration: Pool settings, eager loading
 - ✅ UI/UX: Button system, accessibility, skeleton loaders
+- ✅ Sidebar: accessibility enhancements (v2.33.1)
 
 ### Backlog Status
 | Priority | Status |
