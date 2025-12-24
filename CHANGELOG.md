@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.32.1 - 2024-12-24
+
+### Added
+- test: add comprehensive CRUD test coverage (80 tests)
+  - `test_crud_models.py` - 20 tests for model filtering/counting
+  - `test_crud_payouts.py` - 18 tests for payout/schedule run operations
+  - `test_crud_referrals.py` - 15 tests for referral terms/compensation
+  - `test_crud_advances.py` - 17 tests for cash advance operations
+  - `test_crud_adhoc.py` - 10 tests for adhoc payment operations
+- test: add integration tests for critical workflows (14 tests)
+  - Model creation workflow
+  - Schedule run workflow  
+  - Health endpoints workflow
+  - Authentication workflow
+  - Dashboard workflow
+- test: add error scenario tests (20 tests)
+  - Validation errors (model, adhoc, advance)
+  - API error handling (404s, unauthorized)
+  - Edge cases (duplicate detection, invalid months)
+
+### Changed
+- docs: update TODO.md with testing progress
+
+### Notes
+- Test count increased from 118 → 194 (+76 tests)
+- Coverage on crud.py improved from 75% → 86%
+- All medium priority testing tasks completed
+
 ## v2.32.0 - 2024-12-25
 
 ### Added

@@ -158,5 +158,5 @@
 
 ---
 
-*Last Updated: 2024-12-25*
-*Current Version: v2.32.0*
+*Last Updated: 2024-12-24*
+*Current Version: v2.32.1*
