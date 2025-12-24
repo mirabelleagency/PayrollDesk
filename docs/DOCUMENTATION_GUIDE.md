@@ -429,6 +429,7 @@ Perform housekeeping per the [TODO.md Housekeeping](#todomd-housekeeping) sectio
 
 - [ ] Archive completed tasks older than 2 weeks
 - [ ] Move detailed task info to CHANGELOG reference
+- [ ] **Remove fully-completed backlog sections** (e.g., all items ✅ Done → archive entire section)
 - [ ] Fix any date typos (common: wrong year)
 - [ ] Update "Completed This Session" with current work
 - [ ] Remove completed tasks from backlog tables
