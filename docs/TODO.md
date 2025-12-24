@@ -120,11 +120,11 @@
 
 ### Medium Priority (Recommended)
 
-| Task | Category | Effort | Notes |
-|------|----------|--------|-------|
-| Target 80% test coverage on crud.py | Testing | Medium | Strategic tests for core business logic |
-| Integration tests for critical workflows | Testing | Medium | Payroll generation, model creation |
-| Error scenario tests for user-facing features | Testing | Low | Form validation, API error responses |
+| Task | Category | Effort | Status |
+|------|----------|--------|--------|
+| Target 80% test coverage on crud.py | Testing | Medium | ✅ Done (86%) |
+| Integration tests for critical workflows | Testing | Medium | Not started |
+| Error scenario tests for user-facing features | Testing | Low | Not started |
 
 ### Low Priority
 
