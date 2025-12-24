@@ -90,11 +90,11 @@ Use tables with consistent columns:
 
 ### Medium Priority
 
-| Task | Category | Effort | Notes |
-|------|----------|--------|-------|
-| Add eager loading to list_schedule_runs | Performance | Low | joinedload for relationships |
-| Make pool settings configurable | Database | Low | ENV vars for pool_size/overflow |
-| Add composite index (schedule_run_id, status) | Database | Low | Improve payout queries |
+| Task | Category | Effort | Status |
+|------|----------|--------|--------|
+| Add eager loading to list_schedule_runs | Performance | Low | ✅ Done |
+| Make pool settings configurable | Database | Low | ✅ Done |
+| Add composite index (schedule_run_id, status) | Database | Low | ✅ Done |
 
 ### Low Priority (Future Enhancements)
 

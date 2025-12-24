@@ -98,6 +98,11 @@ def _create_engine(url: str) -> Engine:
     Configures:
     - SQLite: check_same_thread=False for FastAPI compatibility
     - PostgreSQL: connection pooling for production workloads
+    
+    Environment Variables (PostgreSQL only):
+        DB_POOL_SIZE: Min connections in pool (default: 5)
+        DB_MAX_OVERFLOW: Max additional connections (default: 10)
+        DB_POOL_RECYCLE: Seconds before recycling connections (default: 3600)
     """
     is_sqlite = url.startswith("sqlite")
     
@@ -108,12 +113,21 @@ def _create_engine(url: str) -> Engine:
             future=True,
         )
     else:
-        # PostgreSQL with connection pooling
+        # PostgreSQL with configurable connection pooling
+        pool_size = int(os.getenv("DB_POOL_SIZE", "5"))
+        max_overflow = int(os.getenv("DB_MAX_OVERFLOW", "10"))
+        pool_recycle = int(os.getenv("DB_POOL_RECYCLE", "3600"))
+        
+        logger.info(
+            "PostgreSQL pool config: pool_size=%d, max_overflow=%d, recycle=%ds",
+            pool_size, max_overflow, pool_recycle
+        )
+        
         return create_engine(
             url,
-            pool_size=5,
-            max_overflow=10,
-            pool_recycle=3600,  # Recycle connections after 1 hour
+            pool_size=pool_size,
+            max_overflow=max_overflow,
+            pool_recycle=pool_recycle,
             pool_pre_ping=True,  # Verify connections before use
             future=True,
         )

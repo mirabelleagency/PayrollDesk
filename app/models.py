@@ -106,10 +106,14 @@ class ScheduleRun(Base):
 
 class Payout(Base):
     __tablename__ = "payouts"
+    __table_args__ = (
+        Index("idx_payout_run_status", "schedule_run_id", "status"),
+        Index("idx_payout_run_model", "schedule_run_id", "model_id"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    schedule_run_id: Mapped[int] = mapped_column(ForeignKey("schedule_runs.id", ondelete="CASCADE"), nullable=False)
-    model_id: Mapped[int] = mapped_column(ForeignKey("models.id", ondelete="SET NULL"), nullable=True)
+    schedule_run_id: Mapped[int] = mapped_column(ForeignKey("schedule_runs.id", ondelete="CASCADE"), nullable=False, index=True)
+    model_id: Mapped[int] = mapped_column(ForeignKey("models.id", ondelete="SET NULL"), nullable=True, index=True)
     pay_date: Mapped[date] = mapped_column(Date, nullable=False)
     code: Mapped[str] = mapped_column(String(50), nullable=False)
     real_name: Mapped[str] = mapped_column(String(200), nullable=False)

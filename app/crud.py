@@ -500,9 +500,24 @@ def _lookup_model_id(db: Session, code: str) -> int | None:
 
 
 def list_schedule_runs(
-    db: Session, target_year: int | None = None, target_month: int | None = None
+    db: Session,
+    target_year: int | None = None,
+    target_month: int | None = None,
+    eager_load_payouts: bool = False,
 ) -> Sequence[ScheduleRun]:
+    """List schedule runs with optional filtering.
+    
+    Args:
+        db: Database session
+        target_year: Filter by year (optional)
+        target_month: Filter by month (optional)
+        eager_load_payouts: If True, eagerly load payouts relationship
+                           to avoid N+1 queries when accessing payouts
+    """
     stmt = select(ScheduleRun)
+    
+    if eager_load_payouts:
+        stmt = stmt.options(selectinload(ScheduleRun.payouts))
 
     if target_year is not None:
         stmt = stmt.where(ScheduleRun.target_year == target_year)
