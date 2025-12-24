@@ -69,12 +69,13 @@ Use tables with consistent columns:
 | Task | Category | Details |
 |------|----------|---------|
 | Rate limiting | Security | slowapi 5/minute on `/models/export` |
-| Route tests | Testing | 15 integration tests (test_models_routes.py) |
+| Route tests | Testing | 18 integration tests (test_models_routes.py) |
 | Error boundaries | UX | try-catch + showToast() notifications |
 | Export modal CSS | Refactor | ~100 lines extracted to styles.css |
 | Loading skeleton | UX | Shimmer animation for payment fetch |
 | Focus trap | A11y | Modal keyboard navigation utility |
-| Skip link | A11y | Already existed (verified) |
+| Payment pagination | Performance | 20 per page with navigation controls |
+| Currency config | Code Quality | Extracted to app/core/config.py |
 
 ### ✅ Models Page Accessibility (2025-12-24, v2.37.0)
 
@@ -120,10 +121,8 @@ Use tables with consistent columns:
 | Background tasks for exports | Performance | Medium | FastAPI BackgroundTasks |
 | Add full-text search | CRUD | High | Requires PostgreSQL tsvector |
 | Add API versioning | API | Medium | Only if external API consumers |
-| Paginate payments in expanded row | Performance | Medium | Virtual scroll for models with 100+ payouts |
-| Extract currency constant in JS | Code Quality | Low | Remove hardcoded 'USD' in formatter |
 
-> **Removed:** Rate limiting, route tests, error boundary, skeleton loader, export modal CSS - completed this session
+> **Removed:** Rate limiting, route tests, error boundary, skeleton loader, export modal CSS, pagination, currency constant - completed this session
 
 ### UI/UX Improvements
 
@@ -143,14 +142,14 @@ Use tables with consistent columns:
 
 **Branch:** `feature/payrolldesk-v2`  
 **Current Version:** v2.37.0  
-**Test Count:** 209 tests  
+**Test Count:** 212 tests  
 **Coverage:** 86% on crud.py
 
 ### Session Achievements
 
 | Version | Category | Summary |
 |---------|----------|---------|
-| post-v2.37.0 | Models | Rate limiting, 15 route tests, error boundaries, focus trap |
+| post-v2.37.0 | Models | Rate limiting, 18 route tests, pagination, currency config |
 | v2.37.0 | Models | CSS extraction, keyboard nav, modal accessibility |
 | v2.36.0 | Dashboard | Status badges, summary card SVG icons |
 | v2.35.0 | Dashboard | Hero KPIs, donut chart, sparklines, count-up |
@@ -164,7 +163,7 @@ Use tables with consistent columns:
 |----------|--------|
 | High | ✅ Complete |
 | Medium | ✅ Complete |
-| Low | 5 future enhancements |
+| Low | 3 future enhancements |
 | UI/UX | 1 low-priority pending |
 
 ---
