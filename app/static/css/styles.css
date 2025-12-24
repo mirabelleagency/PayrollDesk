@@ -67,6 +67,59 @@ body {
     border: 0;
 }
 
+/* ============================================
+   GLOBAL FOCUS STYLES - Accessibility
+   ============================================ */
+
+/* Default focus-visible style for all interactive elements */
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible:not([tabindex="-1"]) {
+    outline: 2px solid #60a5fa;
+    outline-offset: 2px;
+}
+
+/* Link-style buttons need focus states */
+.link-button:focus-visible {
+    outline: 2px solid #60a5fa;
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+/* Action buttons focus states */
+.action-button:focus-visible,
+.commission-action-button:focus-visible {
+    outline: 2px solid #60a5fa;
+    outline-offset: 2px;
+}
+
+/* Form inputs - enhanced ring style */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+/* Skip link for keyboard navigation */
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: #3b82f6;
+    color: white;
+    padding: 8px 16px;
+    z-index: 1000;
+    text-decoration: none;
+    border-radius: 0 0 4px 0;
+}
+
+.skip-link:focus {
+    top: 0;
+}
+
 a {
     color: inherit;
 }
@@ -677,6 +730,134 @@ section {
         0 4px 12px rgba(16, 185, 129, 0.4),
         inset 0 1px 0 rgba(255, 255, 255, 0.3);
     transform: translateY(-1px);
+}
+
+/* ============================================
+   BUTTON SYSTEM - Standardized Variants
+   BEM naming: .button--{variant}
+   ============================================ */
+
+/* Secondary (outline) variant - BEM alias */
+.button--secondary {
+    background-color: transparent;
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    color: #e2e8f0;
+}
+
+.button--secondary:hover {
+    background-color: rgba(148, 163, 184, 0.1);
+}
+
+/* Ghost (minimal) variant */
+.button--ghost {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    padding: 8px 12px;
+}
+
+.button--ghost:hover {
+    background: rgba(148, 163, 184, 0.1);
+    color: #e2e8f0;
+}
+
+/* Success (green) variant */
+.button--success {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: #ffffff;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.button--success:hover {
+    background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+}
+
+/* Info (blue) variant */
+.button--info {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: #ffffff;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.button--info:hover {
+    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+}
+
+/* Warning (amber) variant */
+.button--warning {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: #1e293b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.button--warning:hover {
+    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+}
+
+/* Danger (red) variant */
+.button--danger {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: #ffffff;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.button--danger:hover {
+    background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+}
+
+/* Tertiary (subtle) variant */
+.button--tertiary,
+.button.tertiary {
+    background: rgba(148, 163, 184, 0.1);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    color: #94a3b8;
+    font-size: 0.85rem;
+    padding: 6px 12px;
+}
+
+.button--tertiary:hover,
+.button.tertiary:hover {
+    background: rgba(148, 163, 184, 0.2);
+    color: #e2e8f0;
+}
+
+/* Focus states for all button variants */
+.button:focus-visible {
+    outline: 2px solid #60a5fa;
+    outline-offset: 2px;
+}
+
+.button--secondary:focus-visible,
+.button.secondary:focus-visible {
+    outline-color: #94a3b8;
+}
+
+.button--success:focus-visible {
+    outline-color: #34d399;
+}
+
+.button--warning:focus-visible {
+    outline-color: #fbbf24;
+}
+
+.button--danger:focus-visible {
+    outline-color: #f87171;
+}
+
+/* Active state for toggle buttons */
+.button.active,
+.button--active {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: rgba(59, 130, 246, 0.5);
+    color: #60a5fa;
+}
+
+/* Disabled state */
+.button:disabled,
+.button--disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
 .card-grid {
@@ -5539,6 +5720,147 @@ section {
 .referrer-view-btn--disabled {
     pointer-events: none;
     opacity: 0.4;
+}
+
+/* ============================================
+   LOGIN PAGE STYLES
+   Extracted from inline styles for consistency
+   ============================================ */
+
+.login-page {
+    background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    margin: 0;
+}
+
+.login-container {
+    background: rgba(30, 41, 59, 0.95);
+    border: 1px solid rgba(100, 116, 139, 0.3);
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 
+        0 20px 50px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(255, 255, 255, 0.05);
+    width: 100%;
+    max-width: 400px;
+}
+
+.login-container h1 {
+    text-align: center;
+    color: #f8fafc;
+    margin-bottom: 30px;
+    font-size: 28px;
+    font-weight: 700;
+}
+
+.login-form-group {
+    margin-bottom: 20px;
+}
+
+.login-form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #cbd5e1;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.login-form-group input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 6px;
+    box-sizing: border-box;
+    font-size: 16px;
+    background-color: rgba(15, 23, 42, 0.6);
+    color: #f8fafc;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.login-form-group input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+.login-form-group input::placeholder {
+    color: #64748b;
+}
+
+.login-btn {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.login-btn:hover {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+}
+
+.login-btn:active {
+    transform: scale(0.98);
+}
+
+.login-btn:focus-visible {
+    outline: 2px solid #60a5fa;
+    outline-offset: 2px;
+}
+
+.login-error-message {
+    color: #fca5a5;
+    background-color: rgba(127, 29, 29, 0.3);
+    border: 1px solid rgba(185, 28, 28, 0.5);
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+.login-warning-message {
+    color: #fbbf24;
+    background-color: rgba(146, 64, 14, 0.3);
+    border: 1px solid rgba(217, 119, 6, 0.5);
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.login-info-text {
+    text-align: center;
+    color: #64748b;
+    font-size: 12px;
+    margin-top: 24px;
+}
+
+.login-info-text p {
+    margin: 0;
+}
+
+/* Login page responsive */
+@media (max-width: 480px) {
+    .login-container {
+        margin: 16px;
+        padding: 28px 24px;
+    }
+    
+    .login-container h1 {
+        font-size: 24px;
+    }
 }
 
 

@@ -7,6 +7,9 @@
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
+<!-- Skip link for keyboard navigation -->
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
 <div class="layout">
     <!-- Mobile hamburger menu button -->
     <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle menu">
@@ -96,7 +99,7 @@
         </div>
         {% endif %}
     </aside>
-    <main class="content" id="mainContent">
+    <main class="content" id="main-content">
         {% block content %}{% endblock %}
     </main>
 </div>
@@ -109,7 +112,7 @@
     // Sidebar collapse toggle functionality
     const sidebarToggle = document.getElementById('sidebarToggle');
     const sidebar = document.getElementById('sidebar');
-    const mainContent = document.getElementById('mainContent');
+    const mainContent = document.getElementById('main-content');
     
     sidebarToggle.addEventListener('click', () => {
         sidebar.classList.toggle('collapsed');
