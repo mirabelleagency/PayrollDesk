@@ -64,26 +64,20 @@ Use tables with consistent columns:
 
 ## Completed This Session
 
-### ✅ Performance Optimizations (2024-12-24)
+### ✅ UI/UX & Accessibility (2025-12-24)
 
 | Task | Category | Details |
 |------|----------|---------|
-| Fix N+1 in cleanup_empty_runs | Database | Batch query with subquery |
-| Add dashboard caching | Performance | 5-min TTL, auto-invalidation |
-| Add eager loading option | CRUD | list_schedule_runs(eager_load_payouts=True) |
-| Configurable pool settings | Database | DB_POOL_SIZE, DB_MAX_OVERFLOW, DB_POOL_RECYCLE |
-| Add payout indexes | Database | 4 new indexes + migration |
+| Standardize button classes | CSS | BEM naming, 8 variants |
+| Extract login page styles | CSS | Moved to stylesheet, navy theme |
+| Audit focus indicators | A11y | Global focus-visible, skip-link |
+| Add skeleton loaders | UX | Shimmer animation, motion-safe |
+| Complete ARIA audit | A11y | Labels on icon buttons |
+| Align login page theme | CSS | Match app's dark navy scheme |
+| Add UI/UX Guide | Docs | 674 lines, component library |
+| Add TECHNICAL_SPEC | Docs | 780 lines, full architecture |
 
-### ✅ Test Coverage & Quality (v2.32.0 → v2.32.1)
-
-| Achievement | Details |
-|-------------|---------|
-| CRUD test coverage | 86% on crud.py (was 75%) |
-| Total tests | 194 tests (was 118) |
-| Integration tests | 14 workflow tests |
-| Error scenario tests | 20 validation tests |
-
-> **Note:** Detailed per-version changes in CHANGELOG.md (v2.27.0 → v2.32.1)
+> **Archived:** Performance optimizations (v2.32.2) and test coverage improvements (v2.32.1) now documented in CHANGELOG.md
 
 ---
 
@@ -111,14 +105,10 @@ Use tables with consistent columns:
 
 | Task | Category | Effort | Priority | Status |
 |------|----------|--------|----------|--------|
-| Standardize button classes | CSS | Medium | High | ✅ Complete |
-| Extract login page styles | CSS | Low | High | ✅ Complete |
-| Audit focus indicators | A11y | Medium | High | ✅ Complete |
-| Add skeleton loaders | UX | Medium | Medium | ✅ Complete |
-| Complete ARIA audit | A11y | Medium | Medium | ✅ Complete |
-| Align login page theme | CSS | Low | Low | ✅ Complete (navy) |
 | Dark/Light theme toggle | UX | High | Low | Pending |
 | Enhanced toast system | UX | Medium | Low | Pending |
+
+> **Completed:** 6/8 UI/UX tasks done (see v2.33.0 changelog)
 
 ---
 
@@ -143,7 +133,7 @@ Use tables with consistent columns:
 | High | ✅ Complete |
 | Medium | ✅ Complete |
 | Low | 5 future enhancements |
-| UI/UX | 6/8 complete, 2 low-priority pending |
+| UI/UX | 2 low-priority pending |
 
 ---
 
