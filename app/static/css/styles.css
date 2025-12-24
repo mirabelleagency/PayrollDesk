@@ -3606,6 +3606,107 @@ section {
     opacity: 1;
 }
 
+/* Hero KPI value color variants */
+.hero-kpi-value--warning {
+    color: #eab308;
+}
+
+/* Dashboard responsive breakpoints */
+@media (max-width: 1024px) {
+    .dashboard-page .card-grid.columns-3 {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+}
+
+@media (max-width: 640px) {
+    .dashboard-page .hero-kpi-card {
+        text-align: center;
+    }
+    
+    .dashboard-page .hero-kpi-header {
+        justify-content: center;
+    }
+    
+    .dashboard-page .hero-kpi-subtitle,
+    .dashboard-page .hero-kpi-trend {
+        text-align: center;
+        display: block;
+        width: 100%;
+    }
+    
+    .dashboard-page .card-grid.columns-3 {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .dashboard-page .metric-card {
+        text-align: center;
+    }
+    
+    .dashboard-page .metric-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        align-items: center;
+    }
+    
+    .dashboard-page .metric-item {
+        text-align: center;
+        width: 100%;
+        grid-column: span 1 !important;
+    }
+    
+    .dashboard-page .card-heading {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 8px;
+    }
+    
+    .dashboard-page .card-heading h2 {
+        text-align: center;
+        width: 100%;
+        margin-bottom: 0;
+    }
+    
+    .dashboard-page .card-heading .button {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .dashboard-page .summary-stats {
+        flex-direction: column;
+        gap: 12px;
+        align-items: center;
+    }
+    
+    .dashboard-page .summary-stat {
+        text-align: center;
+        width: 100%;
+    }
+    
+    .dashboard-page .summary-list-item {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 8px;
+    }
+    
+    .dashboard-page .summary-list-main {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .dashboard-page .summary-list-amount {
+        font-size: 18px;
+        align-self: center;
+    }
+}
+
 /* Alert/Action Items Card */
 .alert-card {
     background: linear-gradient(135deg, rgba(251, 191, 36, 0.08), rgba(30, 41, 59, 0.95));
