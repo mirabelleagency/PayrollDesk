@@ -289,6 +289,17 @@ document.addEventListener('DOMContentLoaded', function() {
                         {% endfor %}
                     </div>
                 </div>
+                <!-- Status indicators -->
+                <div class="status-badges" style="display: flex; gap: 16px; margin-top: 12px;">
+                    <div class="status-badge">
+                        <span class="status-badge__label">Pending</span>
+                        <span class="status-badge__value">{{ summary.pending_count }}</span>
+                    </div>
+                    <div class="status-badge">
+                        <span class="status-badge__label">On Hold</span>
+                        <span class="status-badge__value {% if summary.on_hold_count > 0 %}status-badge__value--warning{% endif %}">{{ summary.on_hold_count }}</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

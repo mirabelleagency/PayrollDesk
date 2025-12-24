@@ -6460,6 +6460,37 @@ section {
     margin-top: 4px;
 }
 
+/* Status Badges */
+.status-badges {
+    display: flex;
+    gap: 16px;
+}
+
+.status-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+}
+
+.status-badge__label {
+    color: #64748b;
+}
+
+.status-badge__value {
+    font-weight: 600;
+    color: #cbd5e1;
+    background: rgba(100, 116, 139, 0.2);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+}
+
+.status-badge__value--warning {
+    background: rgba(234, 179, 8, 0.2);
+    color: #facc15;
+}
+
 
 
 
