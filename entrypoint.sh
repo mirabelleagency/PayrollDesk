@@ -9,6 +9,12 @@ pip --disable-pip-version-check list || true
 echo "[entrypoint] environment vars:"
 env | sort
 
+# Run database migrations
+echo "[entrypoint] running alembic migrations..."
+alembic upgrade head || {
+    echo "[entrypoint] WARNING: alembic upgrade failed, continuing anyway"
+}
+
 # Default port if not set
 if [ -z "$PORT" ]; then
   PORT=8000
