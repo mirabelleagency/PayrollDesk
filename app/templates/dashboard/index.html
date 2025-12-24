@@ -82,19 +82,25 @@ document.addEventListener('DOMContentLoaded', function () {
         {% endif %}
     </div>
     
-    <div class="hero-kpi-card hero-kpi-card--warning">
+    <div class="hero-kpi-card hero-kpi-card--success">
         <div class="hero-kpi-header">
             <svg class="hero-kpi-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"/>
-                <polyline points="12 6 12 12 16 14"/>
+                <polyline points="20 6 9 17 4 12"/>
             </svg>
-            <span class="hero-kpi-label">{{ current_month_name }} Unpaid</span>
+            <span class="hero-kpi-label">{{ current_month_name }} Paid</span>
         </div>
-        <div class="hero-kpi-value hero-kpi-value--warning">${{ summary.latest_run_unpaid|money }}</div>
-        <div class="hero-kpi-subtitle">Current month outstanding</div>
+        <div class="hero-kpi-value hero-kpi-value--success">${{ summary.latest_run_paid|money }}</div>
+        {% set month_total = summary.monthly_burn|float %}
+        {% set month_paid = summary.latest_run_paid|float %}
+        {% if month_total > 0 %}
+            {% set pct_complete = (month_paid / month_total * 100)|round(0)|int %}
+        <div class="hero-kpi-subtitle">{{ pct_complete }}% of month complete</div>
+        {% else %}
+        <div class="hero-kpi-subtitle">No payments scheduled</div>
+        {% endif %}
     </div>
     
-    <div class="hero-kpi-card hero-kpi-card--success">
+    <div class="hero-kpi-card hero-kpi-card--secondary">
         <div class="hero-kpi-header">
             <svg class="hero-kpi-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="12" y1="1" x2="12" y2="23"/>
@@ -102,7 +108,7 @@ document.addEventListener('DOMContentLoaded', function () {
             </svg>
             <span class="hero-kpi-label">{{ current_year }} Total Paid</span>
         </div>
-        <div class="hero-kpi-value hero-kpi-value--success">${{ summary.year_total_paid|money }}</div>
+        <div class="hero-kpi-value">${{ summary.year_total_paid|money }}</div>
         <div class="hero-kpi-subtitle">Year to date</div>
     </div>
     

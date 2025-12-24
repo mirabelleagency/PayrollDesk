@@ -3438,6 +3438,15 @@ section {
     background: linear-gradient(90deg, #ef4444, #f87171);
 }
 
+.hero-kpi-card--secondary {
+    background: linear-gradient(135deg, rgba(148, 163, 184, 0.12), rgba(30, 41, 59, 0.95));
+    border-color: rgba(148, 163, 184, 0.3);
+}
+
+.hero-kpi-card--secondary::before {
+    background: linear-gradient(90deg, #64748b, #94a3b8);
+}
+
 .hero-kpi-header {
     display: flex;
     align-items: center;
@@ -3463,6 +3472,10 @@ section {
 
 .hero-kpi-card--alert .hero-kpi-icon {
     color: #f87171;
+}
+
+.hero-kpi-card--secondary .hero-kpi-icon {
+    color: #94a3b8;
 }
 
 .hero-kpi-label {
