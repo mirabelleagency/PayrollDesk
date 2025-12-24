@@ -454,45 +454,45 @@ document.documentElement.classList.add('js-metrics');
                             {% if payout.status != 'paid' %}
                 <button class="action-button action-button--success js-quick-update" 
                     data-payout-id="{{ payout.id }}" data-action="paid"
-                    title="Mark as Paid">
+                    title="Mark as Paid" aria-label="Mark payment as paid">
                                 ✓
                             </button>
                             {% else %}
                 <button class="action-button action-button--neutral js-quick-update" 
                     data-payout-id="{{ payout.id }}" data-action="not_paid"
-                    title="Unmark Paid">
+                    title="Unmark Paid" aria-label="Unmark payment as paid">
                                 ↺
                             </button>
                             {% endif %}
                             {% if payout.status != 'approved' %}
                 <button class="action-button action-button--primary js-quick-update" 
                     data-payout-id="{{ payout.id }}" data-action="approved"
-                    title="Mark Approved">
+                    title="Mark Approved" aria-label="Mark payment as approved">
                                 ✔
                             </button>
                             {% else %}
                 <button class="action-button action-button--neutral js-quick-update" 
                     data-payout-id="{{ payout.id }}" data-action="not_paid"
-                    title="Unmark Approved">
+                    title="Unmark Approved" aria-label="Unmark payment as approved">
                                 ↺
                             </button>
                             {% endif %}
                             {% if payout.status != 'on_hold' %}
                 <button class="action-button action-button--warning js-quick-update" 
                     data-payout-id="{{ payout.id }}" data-action="on_hold"
-                    title="Put On Hold">
+                    title="Put On Hold" aria-label="Put payment on hold">
                                 ⏸
                             </button>
                             {% else %}
                 <button class="action-button action-button--neutral js-quick-update" 
                     data-payout-id="{{ payout.id }}" data-action="not_paid"
-                    title="Remove Hold">
+                    title="Remove Hold" aria-label="Remove hold from payment">
                                 ▶
                             </button>
                             {% endif %}
                 <button class="action-button action-button--secondary js-toggle-notes" 
                     data-payout-id="{{ payout.id }}"
-                    title="Edit Notes">
+                    title="Edit Notes" aria-label="Edit payment notes">
                                 📝
                             </button>
                         </div>

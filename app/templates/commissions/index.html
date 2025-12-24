@@ -370,14 +370,16 @@
                                 <button class="commission-action-button commission-action-button--success js-commission-status" 
                                     data-commission-id="{{ entry.commission_payout_id }}" 
                                     data-action="paid"
-                                    title="Mark as Paid">
+                                    title="Mark as Paid"
+                                    aria-label="Mark commission as paid">
                                     ✓
                                 </button>
                                 {% else %}
                                 <button class="commission-action-button commission-action-button--warning js-commission-status" 
                                     data-commission-id="{{ entry.commission_payout_id }}" 
                                     data-action="unpaid"
-                                    title="Mark as Unpaid">
+                                    title="Mark as Unpaid"
+                                    aria-label="Mark commission as unpaid">
                                     ↺
                                 </button>
                                 {% endif %}
@@ -385,7 +387,8 @@
                                     <button class="commission-action-button commission-action-button--danger" 
                                         type="submit"
                                         onclick="return confirm('Delete this commission payout?')"
-                                        title="Delete">
+                                        title="Delete"
+                                        aria-label="Delete commission payout">
                                         🗑️
                                     </button>
                                 </form>

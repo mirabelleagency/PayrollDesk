@@ -109,16 +109,16 @@ Use tables with consistent columns:
 
 ### UI/UX Improvements
 
-| Task | Category | Effort | Priority | Notes |
-|------|----------|--------|----------|-------|
-| Standardize button classes | CSS | Medium | High | Unify `.btn`, `.btn--primary`, etc. |
-| Extract login page styles | CSS | Low | High | Move inline styles to stylesheet |
-| Audit focus indicators | A11y | Medium | High | All interactive elements need visible focus |
-| Add skeleton loaders | UX | Medium | Medium | For async content (payments, dashboard) |
-| Complete ARIA audit | A11y | Medium | Medium | Add missing labels to icon buttons |
-| Align login page theme | CSS | Low | Low | Match purple→navy color scheme |
-| Dark/Light theme toggle | UX | High | Low | System preference detection |
-| Enhanced toast system | UX | Medium | Low | Auto-dismiss, animation, queue |
+| Task | Category | Effort | Priority | Status |
+|------|----------|--------|----------|--------|
+| Standardize button classes | CSS | Medium | High | ✅ Complete |
+| Extract login page styles | CSS | Low | High | ✅ Complete |
+| Audit focus indicators | A11y | Medium | High | ✅ Complete |
+| Add skeleton loaders | UX | Medium | Medium | Pending |
+| Complete ARIA audit | A11y | Medium | Medium | Pending |
+| Align login page theme | CSS | Low | Low | ✅ Complete (navy) |
+| Dark/Light theme toggle | UX | High | Low | Pending |
+| Enhanced toast system | UX | Medium | Low | Pending |
 
 ---
 
@@ -142,7 +142,7 @@ Use tables with consistent columns:
 | High | ✅ Complete |
 | Medium | ✅ Complete |
 | Low | 5 future enhancements |
-| UI/UX | 8 improvements identified |
+| UI/UX | 4/8 complete, 4 pending |
 
 ---
 
