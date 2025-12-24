@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.37.0 - 2025-12-24
+
+### Added
+- feat(models): keyboard navigation for expandable model rows
+  - Enter/Space keys toggle payment history expansion
+  - `tabindex="0"` makes rows focusable
+  - `role="button"` for screen reader announcement
+- feat(models): ARIA accessibility attributes
+  - `aria-expanded` toggles with row state
+  - `aria-label` provides descriptive row names
+- feat(models): export modal accessibility enhancements
+  - `role="dialog"` and `aria-modal="true"`
+  - `aria-labelledby` links to modal title
+
+### Changed
+- refactor(models): extract ~400 lines of inline CSS to stylesheet
+  - `.model-metrics-dashboard` section styles
+  - `.filter-toolbar` and `.model-management-table` styles
+  - `.model-row` with `:focus` visible outlines
+  - `.frequency-badge`, `.status-chip`, `.payment-history-*` styles
+  - Responsive breakpoints for mobile layouts
+
+### Notes
+- All 194 tests passing
+- Models page now follows accessibility best practices
+
 ## v2.36.0 - 2025-12-24
 
 ### Added

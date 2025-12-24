@@ -64,7 +64,16 @@ Use tables with consistent columns:
 
 ## Completed This Session
 
-### ✅ Dashboard Enhancements (2025-12-24, v2.35.0)
+### ✅ Models Page Accessibility (2025-12-24, v2.37.0)
+
+| Task | Category | Details |
+|------|----------|---------|
+| CSS extraction | Refactor | ~400 lines inline → styles.css |
+| Keyboard navigation | A11y | Enter/Space to expand rows |
+| ARIA attributes | A11y | role, aria-expanded, aria-label |
+| Export modal A11y | A11y | role="dialog", aria-modal="true" |
+
+### ✅ Dashboard Enhancements (2025-12-24, v2.35.0-v2.36.0)
 
 | Task | Category | Details |
 |------|----------|---------|
@@ -75,6 +84,8 @@ Use tables with consistent columns:
 | Payment donut chart | Viz | SVG donut showing paid/unpaid ratio |
 | Count-up animation | UX | Numbers animate from $0 to value |
 | Trend sparkline | Viz | 6-month payment history line chart |
+| Status badges | UI | Pending/On Hold badges (v2.36.0) |
+| Summary card icons | UI | SVG icons for card headers (v2.36.0) |
 
 > **Archived:** UI/UX & Accessibility items (v2.33.x) now documented in CHANGELOG.md
 
@@ -99,6 +110,7 @@ Use tables with consistent columns:
 | Add full-text search | CRUD | High | Requires PostgreSQL tsvector |
 | Implement Redis caching | Performance | High | New infrastructure dependency |
 | Add API versioning | API | Medium | Only if external API consumers |
+| Add loading skeleton to payment history | UX | Low | Show skeleton while fetching |
 
 ### UI/UX Improvements
 
@@ -116,7 +128,7 @@ Use tables with consistent columns:
 ## Session Summary
 
 **Branch:** `feature/payrolldesk-v2`  
-**Current Version:** v2.36.0  
+**Current Version:** v2.37.0  
 **Test Count:** 194 tests  
 **Coverage:** 86% on crud.py
 
@@ -132,15 +144,17 @@ Use tables with consistent columns:
 - ✅ Sidebar: redesign with custom SVG icons (v2.34.0)
 - ✅ Dashboard: icons, donut chart, sparklines, count-up animation (v2.35.0)
 - ✅ Dashboard: cleanup, status badges, summary card icons (v2.36.0)
+- ✅ Models page: CSS extraction, keyboard nav, modal accessibility (v2.37.0)
 
 ### Backlog Status
 | Priority | Status |
 |----------|--------|
 | High | ✅ Complete |
 | Medium | ✅ Complete |
-| Low | 5 future enhancements |
+| Low | 6 future enhancements |
 | UI/UX | 2 low-priority pending |
-| Dashboard | ✅ All 7 enhancements complete |
+| Dashboard | ✅ All enhancements complete |
+| Models | ✅ CSS + A11y improvements complete (v2.37.0) |
 
 ---
 
