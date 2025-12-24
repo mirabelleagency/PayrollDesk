@@ -64,6 +64,18 @@ Use tables with consistent columns:
 
 ## Completed This Session
 
+### ✅ Models/View Page 9.0/10 (2025-12-24, v2.40.0)
+
+| Task | Category | Details |
+|------|----------|---------|
+| Inline CSS extraction | Refactor | 132+ styles → BEM classes in styles.css |
+| Button action classes | Refactor | `.button--action-paid/pending/delete/neutral` |
+| Expand row classes | Refactor | `.model-view-expand-*` for repayment/notes rows |
+| Cell variant classes | Refactor | `.model-view-cell--nowrap/center/truncate` |
+| ARIA accessibility | A11y | `aria-hidden`, `aria-labelledby`, `aria-expanded` |
+| Feedback roles | A11y | `role="alert/status"` on error/success messages |
+| Loading states | UX | Spinner + disabled state on admin form submit |
+
 ### ✅ Models/New Form 10/10 (2025-12-24, v2.39.0)
 
 | Task | Category | Details |
@@ -150,7 +162,7 @@ Use tables with consistent columns:
 ## Session Summary
 
 **Branch:** `feature/payrolldesk-v2`  
-**Current Version:** v2.39.0  
+**Current Version:** v2.40.0  
 **Test Count:** 218 tests  
 **Coverage:** 86% on crud.py
 
@@ -158,6 +170,7 @@ Use tables with consistent columns:
 
 | Version | Category | Summary |
 |---------|----------|---------|
+| v2.40.0 | View Page | 132+ inline CSS extracted, ARIA, loading states |
 | v2.39.0 | Forms | CSS extraction, aria-describedby, loading states, 6 tests |
 | v2.38.0 | Models | Rate limiting, 18 route tests, pagination, currency config |
 | v2.37.0 | Models | CSS extraction, keyboard nav, modal accessibility |
@@ -179,4 +192,4 @@ Use tables with consistent columns:
 ---
 
 *Last Updated: 2025-12-24*  
-*Last Housekeeping: 2025-12-24 (consolidated session achievements)*
+*Last Housekeeping: 2025-12-24 (added v2.40.0 view.html refactor)*

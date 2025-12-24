@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.40.0 - 2025-12-24
+
+### Changed
+- refactor(view.html): extract 132+ inline styles to BEM classes
+  - `.model-view-actions`, `.model-view-actions__form` for button groups
+  - `.button--action-paid/pending/delete/neutral` compact button variants
+  - `.model-view-expand-*` classes for expandable table rows
+  - `.model-view-cell--*` variants (nowrap, center, truncate, minwidth)
+  - `.model-view-strong--warning`, `.model-view-value--*` text variants
+  - `.model-view-table-wrap` for no-padding table containers
+  - `.status-chip--muted` variant for closed advance status
+  - Replace `style=display:none` with `hidden` attribute
+- refactor(view.html): improve accessibility
+  - Add `aria-hidden="true"` to decorative emoji icons
+  - Add `aria-labelledby` and `aria-controls` to collapsible details
+  - Add `aria-expanded` attribute updated dynamically via JS
+  - Add `role="alert"` and `role="status"` to feedback messages
+- feat(view.html): add loading states on admin forms
+  - `.button--loading` with spinner animation
+  - JavaScript handler disables submit button during form submission
+  - Prevents double-submission on slow connections
+- Regenerate minified CSS (153KB → 114KB)
+
+### Fixed
+- No fixes in this release
+
+### Tests
+- Test count: 218 (unchanged)
+- All tests passing
+
+---
+
 ## v2.39.0 - 2025-12-24
 
 ### Added
