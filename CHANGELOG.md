@@ -2,6 +2,48 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.38.0 - 2025-12-24
+
+### Added
+- feat(models): rate limiting on `/models/export` endpoint
+  - Uses slowapi with 5 requests/minute limit
+  - Centralized rate limiter config in `app/core/rate_limiter.py`
+  - User-friendly 429 error message when limit exceeded
+- feat(models): 18 route integration tests in `test_models_routes.py`
+  - Auth requirements, filter URL validation, route structure tests
+  - Pagination parameter tests, currency config tests
+  - Rate limiting decorator verification
+- feat(models): payment history pagination
+  - Server-side pagination (20 per page, max 100)
+  - Frontend pagination controls with page navigation
+  - Total summary calculated across all payouts
+- feat(models): focus trap for modal accessibility
+  - `createFocusTrap()` utility for keyboard navigation
+  - Tab cycling stays within modal when open
+  - Returns focus to trigger element on close
+
+### Changed
+- refactor(models): extract export modal CSS to stylesheet
+  - ~100 lines of inline styles moved to `styles.css`
+  - BEM-style classes: `.export-modal`, `.export-modal__*`
+  - Responsive breakpoints for mobile layouts
+- refactor(models): extract currency constant to config
+  - New `app/core/config.py` with `DEFAULT_CURRENCY`, `DEFAULT_LOCALE`
+  - Template variables `app_currency`/`app_locale` passed to frontend
+  - JS uses template variables instead of hardcoded 'USD'
+
+### Improved
+- feat(models): JS error boundaries with toast notifications
+  - `showToast()` function for user-friendly error messages
+  - `try-catch` wrappers on `toggleModelPayments` and `toggleAllPayments`
+- feat(models): loading skeleton for payment history
+  - Shimmer animation skeleton rows while fetching `/payments.json`
+  - Smooth transition when content loads
+
+### Notes
+- All 212 tests passing (209 → 212)
+- Models page architecture improvements: 10/10 assessment score
+
 ## v2.37.0 - 2025-12-24
 
 ### Added
