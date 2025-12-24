@@ -14,10 +14,10 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import Generator
+from typing import Any, Generator
 from urllib.parse import urlsplit, urlunsplit
 
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import Engine, create_engine, event, text
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ def _mask_db_url(url: str) -> str:
         return url
 
 
-def _enable_sqlite_foreign_keys(engine) -> None:
+def _enable_sqlite_foreign_keys(engine: Engine) -> None:
     """Enable foreign key enforcement for SQLite connections.
     
     SQLite does not enforce foreign keys by default. This listener ensures
@@ -64,7 +64,7 @@ def _enable_sqlite_foreign_keys(engine) -> None:
             cursor.close()
 
 
-def _enable_query_logging(engine) -> None:
+def _enable_query_logging(engine: Engine) -> None:
     """Enable query timing and logging for debugging and performance monitoring.
     
     Logs slow queries (>100ms) at WARNING level, all queries at DEBUG level.
@@ -92,7 +92,7 @@ def _enable_query_logging(engine) -> None:
                 logger.debug("Query (%.2fms): %s", elapsed_ms, stmt_preview)
 
 
-def _create_engine(url: str):
+def _create_engine(url: str) -> Engine:
     """Create a SQLAlchemy engine with appropriate settings.
     
     Configures:
@@ -119,7 +119,7 @@ def _create_engine(url: str):
         )
 
 
-def _initialize_engine():
+def _initialize_engine() -> Engine:
     """Initialize the database engine with retry and fallback support.
     
     Retries connection with exponential backoff before falling back.
@@ -217,7 +217,9 @@ def init_db() -> None:
     try:
         Base.metadata.create_all(bind=engine, checkfirst=True)
     except Exception as e:
-        if "already exists" not in str(e).lower():
+        if "already exists" in str(e).lower():
+            logger.debug("Table already exists (normal on restart): %s", e)
+        else:
             logger.warning("Table creation warning: %s", e)
 
     # Create default admin user if needed
