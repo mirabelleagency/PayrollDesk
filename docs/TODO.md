@@ -106,18 +106,19 @@ Use tables with consistent columns:
 | Task | Category | Effort | Notes |
 |------|----------|--------|-------|
 | Background tasks for exports | Performance | Medium | FastAPI BackgroundTasks |
-| Consider async SQLAlchemy | Performance | High | Only if concurrent load increases |
 | Add full-text search | CRUD | High | Requires PostgreSQL tsvector |
-| Implement Redis caching | Performance | High | New infrastructure dependency |
 | Add API versioning | API | Medium | Only if external API consumers |
 | Add loading skeleton to payment history | UX | Low | Show skeleton while fetching |
+
+> **Removed:** "Consider async SQLAlchemy" and "Implement Redis caching" - over-engineering for current scale
 
 ### UI/UX Improvements
 
 | Task | Category | Effort | Priority | Status |
 |------|----------|--------|----------|--------|
 | Dark/Light theme toggle | UX | High | Low | Pending |
-| Enhanced toast system | UX | Medium | Low | Pending |
+
+> **Removed:** "Enhanced toast system" - current implementation sufficient
 
 > **Note:** Frontend performance work completed in v2.33.2 (see CHANGELOG.md)
 > **Note:** Sidebar redesign completed in v2.34.0 (see CHANGELOG.md)
@@ -133,30 +134,26 @@ Use tables with consistent columns:
 **Coverage:** 86% on crud.py
 
 ### Session Achievements
-- ✅ All High Priority tasks completed
-- ✅ All Medium Priority tasks completed
-- ✅ Test coverage: 75% → 86% (+76 tests)
-- ✅ Performance: N+1 fix, caching, indexes
-- ✅ Configuration: Pool settings, eager loading
-- ✅ UI/UX: Button system, accessibility, skeleton loaders
-- ✅ Sidebar: accessibility enhancements (v2.33.1)
-- ✅ Frontend perf: CSS minification, preload, cache headers (v2.33.2)
-- ✅ Sidebar: redesign with custom SVG icons (v2.34.0)
-- ✅ Dashboard: icons, donut chart, sparklines, count-up animation (v2.35.0)
-- ✅ Dashboard: cleanup, status badges, summary card icons (v2.36.0)
-- ✅ Models page: CSS extraction, keyboard nav, modal accessibility (v2.37.0)
+
+| Version | Category | Summary |
+|---------|----------|---------|
+| v2.37.0 | Models | CSS extraction, keyboard nav, modal accessibility |
+| v2.36.0 | Dashboard | Status badges, summary card SVG icons |
+| v2.35.0 | Dashboard | Hero KPIs, donut chart, sparklines, count-up |
+| v2.34.0 | Sidebar | Custom SVG icon redesign |
+| v2.33.2 | Performance | CSS minification, preload, cache headers |
+| v2.33.1 | Sidebar | Accessibility enhancements |
+| v2.33.0 | Core | Test coverage 75%→86%, N+1 fixes, caching |
 
 ### Backlog Status
 | Priority | Status |
 |----------|--------|
 | High | ✅ Complete |
 | Medium | ✅ Complete |
-| Low | 6 future enhancements |
-| UI/UX | 2 low-priority pending |
-| Dashboard | ✅ All enhancements complete |
-| Models | ✅ CSS + A11y improvements complete (v2.37.0) |
+| Low | 4 future enhancements |
+| UI/UX | 1 low-priority pending |
 
 ---
 
 *Last Updated: 2025-12-24*  
-*Last Housekeeping: 2025-12-24 (archived Frontend Perf section)*
+*Last Housekeeping: 2025-12-24 (consolidated session achievements)*
