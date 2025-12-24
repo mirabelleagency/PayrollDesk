@@ -49,12 +49,14 @@ Update documentation when:
 | **New feature added** | CHANGELOG, README (if user-facing), version bump |
 | **Bug fixed** | CHANGELOG |
 | **Breaking change** | CHANGELOG, MIGRATION_GUIDE, version bump (major) |
-| **API endpoint changed** | CHANGELOG, API docs |
-| **Database schema changed** | MIGRATION_GUIDE, models documentation |
-| **Configuration changed** | README, .env.example |
+| **API endpoint changed** | CHANGELOG, TECHNICAL_SPEC (API section) |
+| **Database schema changed** | MIGRATION_GUIDE, TECHNICAL_SPEC (schema section) |
+| **Configuration changed** | README, TECHNICAL_SPEC (config section), .env.example |
 | **Dependency added/removed** | requirements.txt, CHANGELOG |
 | **Security fix** | CHANGELOG (mark as security) |
 | **Deprecation** | CHANGELOG, mark deprecated in code |
+| **New router/module added** | TECHNICAL_SPEC (architecture, file structure) |
+| **Architecture change** | TECHNICAL_SPEC (architecture section) |
 
 ---
 
@@ -63,18 +65,20 @@ Update documentation when:
 ### Decision Matrix
 
 ```
-┌─────────────────────────┬──────────┬───────────┬─────────┬──────────┐
-│ Change Type             │ CHANGELOG│ README    │ Version │ Migration│
-├─────────────────────────┼──────────┼───────────┼─────────┼──────────┤
-│ New feature             │ ✅       │ If visible│ Minor++ │ ❌       │
-│ Bug fix                 │ ✅       │ ❌        │ Patch++ │ ❌       │
-│ Breaking change         │ ✅       │ ✅        │ Major++ │ ✅       │
-│ Performance improvement │ ✅       │ ❌        │ Patch++ │ ❌       │
-│ Security fix            │ ✅       │ ❌        │ Patch++ │ ❌       │
-│ Documentation only      │ ❌       │ ❌        │ ❌      │ ❌       │
-│ Database migration      │ ✅       │ ❌        │ Minor++ │ ✅       │
-│ Dependency update       │ ✅       │ ❌        │ Patch++ │ ❌       │
-└─────────────────────────┴──────────┴───────────┴─────────┴──────────┘
+┌─────────────────────────┬──────────┬───────────┬─────────┬──────────┬──────────────┐
+│ Change Type             │ CHANGELOG│ README    │ Version │ Migration│ TECHNICAL_SPEC│
+├─────────────────────────┼──────────┼───────────┼─────────┼──────────┼──────────────┤
+│ New feature             │ ✅       │ If visible│ Minor++ │ ❌       │ If structural │
+│ Bug fix                 │ ✅       │ ❌        │ Patch++ │ ❌       │ ❌           │
+│ Breaking change         │ ✅       │ ✅        │ Major++ │ ✅       │ ✅           │
+│ Performance improvement │ ✅       │ ❌        │ Patch++ │ ❌       │ ❌           │
+│ Security fix            │ ✅       │ ❌        │ Patch++ │ ❌       │ If auth flow  │
+│ Documentation only      │ ❌       │ ❌        │ ❌      │ ❌       │ ❌           │
+│ Database migration      │ ✅       │ ❌        │ Minor++ │ ✅       │ ✅ (schema)   │
+│ Dependency update       │ ✅       │ ❌        │ Patch++ │ ❌       │ If major      │
+│ New API endpoint        │ ✅       │ ❌        │ Minor++ │ ❌       │ ✅ (API ref)  │
+│ New env variable        │ ✅       │ ✅        │ ❌      │ ❌       │ ✅ (config)   │
+└─────────────────────────┴──────────┴───────────┴─────────┴──────────┴──────────────┘
 ```
 
 ---
@@ -85,10 +89,13 @@ Update documentation when:
 |------|---------|----------|
 | `README.md` | Project overview, setup instructions | Root |
 | `CHANGELOG.md` | Version history, release notes | Root |
+| `TECHNICAL_SPEC.md` | System architecture, database schema, API reference | docs/ |
 | `MIGRATION_GUIDE.md` | Database migration instructions | Root |
 | `MIGRATION_README.md` | Alembic migration details | Root |
 | `TODO.md` | Pending tasks and roadmap | Root |
 | `DUPLICATE_HANDLING.md` | Duplicate detection logic docs | Root |
+| `DOCUMENTATION_GUIDE.md` | This guide - documentation standards | docs/ |
+| `tasksync.md` | TaskSync protocol for AI agents | docs/ |
 | `app/__init__.py` | Version number (`__version__`) | app/ |
 | `.env.example` | Environment variable template | Root (if exists) |
 | `requirements.txt` | Python dependencies | Root |
@@ -203,6 +210,48 @@ Update README.md when:
 - Environment variables table
 - Usage instructions
 - Troubleshooting
+
+---
+
+## Technical Specification Updates
+
+The `docs/TECHNICAL_SPEC.md` document contains comprehensive technical documentation. Update it when:
+
+### When to Update
+
+| Change Type | Update Section |
+|-------------|----------------|
+| New database table | Database Schema (add table diagram, column details) |
+| New column added | Database Schema (update table details) |
+| New index/constraint | Database Schema (update constraints/indexes) |
+| New API endpoint | API Reference (add to appropriate router table) |
+| New router added | API Reference (add new router section) |
+| Environment variable | Configuration (add to env vars table) |
+| Architecture change | Architecture (update diagrams) |
+| New business logic | Core Business Logic (document flow) |
+| Authentication change | Authentication & Security section |
+| New file/module | File Structure (update tree) |
+
+### Sections Reference
+
+1. **System Overview** - Feature list, key capabilities
+2. **Architecture** - Layer diagram, component responsibilities
+3. **Technology Stack** - Backend/frontend/testing tools
+4. **Database Schema** - ER diagram, table definitions, constraints
+5. **API Reference** - All endpoints by router
+6. **Authentication & Security** - Session management, lockout, hashing
+7. **Core Business Logic** - Payroll calculation, advances, commissions
+8. **Data Flow Diagrams** - Process flows
+9. **Configuration** - Environment variables
+10. **File Structure** - Directory tree, file sizes
+
+### Update Process
+
+1. Make code changes
+2. Update relevant TECHNICAL_SPEC.md section(s)
+3. Update version number at top of file
+4. Update "Last Updated" date
+5. Commit together: `docs: update technical spec for [change]`
 
 ---
 
