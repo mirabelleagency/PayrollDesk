@@ -107,6 +107,19 @@ Use tables with consistent columns:
 | Implement Redis caching | Performance | High | New infrastructure dependency |
 | Add API versioning | API | Medium | Only if external API consumers |
 
+### UI/UX Improvements
+
+| Task | Category | Effort | Priority | Notes |
+|------|----------|--------|----------|-------|
+| Standardize button classes | CSS | Medium | High | Unify `.btn`, `.btn--primary`, etc. |
+| Extract login page styles | CSS | Low | High | Move inline styles to stylesheet |
+| Audit focus indicators | A11y | Medium | High | All interactive elements need visible focus |
+| Add skeleton loaders | UX | Medium | Medium | For async content (payments, dashboard) |
+| Complete ARIA audit | A11y | Medium | Medium | Add missing labels to icon buttons |
+| Align login page theme | CSS | Low | Low | Match purple→navy color scheme |
+| Dark/Light theme toggle | UX | High | Low | System preference detection |
+| Enhanced toast system | UX | Medium | Low | Auto-dismiss, animation, queue |
+
 ---
 
 ## Session Summary
@@ -129,8 +142,9 @@ Use tables with consistent columns:
 | High | ✅ Complete |
 | Medium | ✅ Complete |
 | Low | 5 future enhancements |
+| UI/UX | 8 improvements identified |
 
 ---
 
-*Last Updated: 2024-12-24*  
-*Last Housekeeping: 2024-12-24*
+*Last Updated: 2025-12-24*  
+*Last Housekeeping: 2025-12-24*
