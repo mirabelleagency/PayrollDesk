@@ -64,21 +64,19 @@ Use tables with consistent columns:
 
 ## Completed This Session
 
-### ✅ UI/UX & Accessibility (2025-12-24)
+### ✅ Dashboard Enhancements (2025-12-24, v2.35.0)
 
 | Task | Category | Details |
 |------|----------|---------|
-| Standardize button classes | CSS | BEM naming, 8 variants |
-| Extract login page styles | CSS | Moved to stylesheet, navy theme |
-| Audit focus indicators | A11y | Global focus-visible, skip-link |
-| Add skeleton loaders | UX | Shimmer animation, motion-safe |
-| Complete ARIA audit | A11y | Labels on icon buttons |
-| Align login page theme | CSS | Match app's dark navy scheme |
-| Add UI/UX Guide | Docs | 674 lines, component library |
-| Add TECHNICAL_SPEC | Docs | 780 lines, full architecture |
-| Sidebar a11y enhancements | A11y | focus-visible, semantic h3, transitions |
+| Hero KPI icons | UI | Custom SVG icons (calendar, checkmark, dollar, alert) |
+| Accent color bars | UI | Color-coded top borders (blue, green, gray, red) |
+| Month Paid KPI | UI | Replaced Unpaid card, shows % progress |
+| Skeleton loaders | UX | Shimmer animation placeholders |
+| Payment donut chart | Viz | SVG donut showing paid/unpaid ratio |
+| Count-up animation | UX | Numbers animate from $0 to value |
+| Trend sparkline | Viz | 6-month payment history line chart |
 
-> **Archived:** Performance optimizations (v2.32.2) and test coverage improvements (v2.32.1) now documented in CHANGELOG.md
+> **Archived:** UI/UX & Accessibility items (v2.33.x) now documented in CHANGELOG.md
 
 ---
 
@@ -109,25 +107,9 @@ Use tables with consistent columns:
 | Dark/Light theme toggle | UX | High | Low | Pending |
 | Enhanced toast system | UX | Medium | Low | Pending |
 
-### Dashboard Enhancements (from Assessment)
-
-| Task | Category | Effort | Priority | Status |
-|------|----------|--------|----------|--------|
-| Add SVG icons to hero KPIs | UI | Low | High | ✅ Done |
-| Add card header accent colors | UI | Low | High | ✅ Done |
-| Replace Unpaid with Month Paid | UI | Low | High | ✅ Done |
-| Add skeleton loaders | UX | Medium | Medium | ✅ Done |
-| Add payment status donut chart | Viz | Medium | Medium | ✅ Done |
-| Add number count-up animation | UX | Medium | Low | ✅ Done |
-| Add monthly trend sparklines | Viz | High | Low | ✅ Done |
-
-> **All dashboard enhancements complete!** See commits from this session.
-
 > **Note:** Frontend performance work completed in v2.33.2 (see CHANGELOG.md)
-> - CSS minification (26% savings), preload hints, cache headers
-> - CSS splitting deferred (gzip already provides ~85% compression)
-
 > **Note:** Sidebar redesign completed in v2.34.0 (see CHANGELOG.md)
+> **Note:** Dashboard enhancements completed in v2.35.0 (see CHANGELOG.md)
 
 ---
 
