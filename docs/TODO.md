@@ -92,22 +92,31 @@
 
 ---
 
-## Backlog
+### ✅ Backlog Items (v2.31.0)
+**Completed: 2024-12-25**
+
+| Task | Status |
+|------|--------|
+| Add database health check endpoint `/health/db` | ✅ Done |
+| Add query timing/logging (LOG_QUERIES=true) | ✅ Done |
+| Add soft delete to Model (deleted_at column) | ✅ Done |
+| Add soft_delete_model(), restore_model() | ✅ Done |
+| Add list_deleted_models(), get_deleted_model() | ✅ Done |
+| Add 13 tests for new features | ✅ Passing |
+| Create Alembic migration for deleted_at | ✅ Done |
+
+**Result:** Test count increased from 46 → 74
+
+---
+
+## Remaining Backlog
 
 ### High Priority
 
 | Task | Category | Effort |
 |------|----------|--------|
 | Improve test coverage for crud.py | Testing | Medium |
-
-### Medium Priority
-
-| Task | Category | Effort |
-|------|----------|--------|
-| Add soft delete to Model | CRUD | Medium |
-| Add database health check endpoint | API | Low |
 | Implement connection retry logic | Database | Medium |
-| Add query timing/logging | Performance | Low |
 
 ### Low Priority
 
@@ -123,8 +132,8 @@
 ## Session Summary
 
 **Branch:** `feature/payrolldesk-v2`  
-**Commits This Session:** 12+  
-**Version Progress:** v2.26.0 → v2.30.0  
+**Commits This Session:** 15+  
+**Version Progress:** v2.26.0 → v2.31.0  
 
 ### Key Achievements
 1. Fixed critical data loss bug (auto-refresh)
