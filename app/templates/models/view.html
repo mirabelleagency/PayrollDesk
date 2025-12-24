@@ -351,7 +351,7 @@ details[open] > .collapsible-summary::after {
                     {% if model.real_name %}
                     <div class="model-view-header__meta-item">
                         <span>Real Name:</span>
-                        <strong style="color: #cbd5e1;">{{ model.real_name }}</strong>
+                        <strong class="model-view-value--muted">{{ model.real_name }}</strong>
                     </div>
                     {% endif %}
                 </div>
@@ -398,7 +398,7 @@ details[open] > .collapsible-summary::after {
         <!-- Contract Details -->
         <div class="model-view-card">
             <div class="model-view-card__header">
-                <span class="model-view-card__icon">📋</span>
+                <span class="model-view-card__icon" aria-hidden="true">📋</span>
                 <h2 class="model-view-card__title">Contract Details</h2>
             </div>
             <div class="model-view-info-grid">
@@ -432,7 +432,7 @@ details[open] > .collapsible-summary::after {
                 <div class="model-view-info-row">
                     <span class="model-view-info-label">Referred By</span>
                     <span class="model-view-info-value">
-                        <a href="/models/{{ referrer_model.id }}" style="color: #60a5fa; text-decoration: none;">
+                        <a href="/models/{{ referrer_model.id }}" class="model-view-link">
                             {{ referrer_model.working_name or referrer_model.real_name }}
                         </a>
                     </span>
@@ -444,7 +444,7 @@ details[open] > .collapsible-summary::after {
         <!-- Payment Information -->
         <div class="model-view-card">
             <div class="model-view-card__header">
-                <span class="model-view-card__icon">💳</span>
+                <span class="model-view-card__icon" aria-hidden="true">💳</span>
                 <h2 class="model-view-card__title">Payment Information</h2>
             </div>
             <div class="model-view-info-grid">
@@ -453,9 +453,9 @@ details[open] > .collapsible-summary::after {
                     <span class="model-view-info-value">{{ model.payment_method }}</span>
                 </div>
                 {% if model.crypto_wallet %}
-                <div class="model-view-info-row" style="grid-column: 1 / -1;">
+                <div class="model-view-info-row model-view-info-row--full">
                     <span class="model-view-info-label">Wallet Address</span>
-                    <span class="model-view-info-value model-view-info-value--mono" style="font-size: 12px; word-break: break-all;">
+                    <span class="model-view-info-value model-view-info-value--mono model-view-info-value--wallet">
                         {{ model.crypto_wallet }}
                     </span>
                 </div>
@@ -484,42 +484,42 @@ details[open] > .collapsible-summary::after {
         {% set paid_count = commission_payouts|selectattr('status', 'equalto', 'paid')|list|length %}
         <div class="model-view-card model-view-card--full">
             <div class="model-view-card__header">
-                <span class="model-view-card__icon">💼</span>
+                <span class="model-view-card__icon" aria-hidden="true">💼</span>
                 <h2 class="model-view-card__title">Referrals & Commission</h2>
             </div>
-            <div style="display: grid; gap: 24px;">
-                <section style="background: rgba(15,23,42,0.35); border: 1px solid rgba(148,163,184,0.2); border-radius: 10px; padding: 20px;">
-                    <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #f8fafc;">Referral Source</h3>
+            <div class="model-view-section-grid">
+                <section class="model-view-section">
+                    <h3 class="model-view-section__title">Referral Source</h3>
                     {% if referrer_model %}
-                    <p style="margin: 0; font-size: 14px; color: #94a3b8;">This model was referred by</p>
-                    <p style="margin: 4px 0 0 0; font-size: 16px; font-weight: 600;">
-                        <a href="/models/{{ referrer_model.id }}" style="color: #60a5fa; text-decoration: none;">
+                    <p class="model-view-section__text">This model was referred by</p>
+                    <p class="model-view-section__text model-view-section__text--large">
+                        <a href="/models/{{ referrer_model.id }}" class="model-view-link">
                             {{ referrer_model.working_name or referrer_model.real_name }}
                         </a>
                     </p>
-                    <p style="margin: 8px 0 0 0; font-size: 13px; color: #94a3b8;">Edit the referred model to change this relationship.</p>
+                    <p class="model-view-section__text model-view-section__text--small">Edit the referred model to change this relationship.</p>
                     {% else %}
-                    <p style="margin: 0; font-size: 14px; color: #94a3b8;">No referrer linked yet. Set one from the edit form if this model was sourced by another talent.</p>
+                    <p class="model-view-section__text">No referrer linked yet. Set one from the edit form if this model was sourced by another talent.</p>
                     {% endif %}
                 </section>
 
-                <section style="background: rgba(15,23,42,0.35); border: 1px solid rgba(148,163,184,0.2); border-radius: 10px; padding: 20px;">
-                    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 12px;">
+                <section class="model-view-section">
+                    <div class="model-view-section__header">
                         <div>
-                            <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #f8fafc;">Upcoming Referral Payouts</h3>
-                            <p style="margin: 4px 0 0 0; font-size: 13px; color: #94a3b8;">Statuses mirror the commissions dashboard.</p>
+                            <h3 class="model-view-section__title">Upcoming Referral Payouts</h3>
+                            <p class="model-view-section__text model-view-section__text--small">Statuses mirror the commissions dashboard.</p>
                         </div>
-                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                            <span class="model-view-table-count" style="background: rgba(15,23,42,0.6); border-color: rgba(148,163,184,0.3);">{{ commission_payouts_count }} total</span>
-                            <span class="model-view-table-count" style="background: rgba(234, 179, 8, 0.15); color: #eab308; border-color: rgba(234, 179, 8, 0.3);">{{ unpaid_count }} unpaid</span>
-                            <span class="model-view-table-count" style="background: rgba(34, 197, 94, 0.15); color: #22c55e; border-color: rgba(34, 197, 94, 0.3);">{{ paid_count }} paid</span>
+                        <div class="model-view-section__stats">
+                            <span class="model-view-table-count model-view-table-count--neutral">{{ commission_payouts_count }} total</span>
+                            <span class="model-view-table-count model-view-table-count--warning">{{ unpaid_count }} unpaid</span>
+                            <span class="model-view-table-count model-view-table-count--success">{{ paid_count }} paid</span>
                         </div>
                     </div>
 
                     {% if commission_payouts_count %}
                     {% set preview_rows = commission_payouts[:5] %}
-                    <div style="overflow-x: auto;">
-                        <table class="model-view-table" style="min-width: 100%;">
+                    <div class="model-view-table-scroll">
+                        <table class="model-view-table model-view-table--full">
                             <thead>
                                 <tr>
                                     <th>Pay Date</th>
@@ -534,16 +534,16 @@ details[open] > .collapsible-summary::after {
                                 {% set is_referrer = payout.referrer_model_id == model.id %}
                                 {% set related_model = payout.referral_model if is_referrer else payout.referrer_model %}
                                 <tr>
-                                    <td style="white-space: nowrap;">{{ payout.pay_date|display_date }}</td>
-                                    <td style="white-space: nowrap;">
+                                    <td class="model-view-cell--nowrap">{{ payout.pay_date|display_date }}</td>
+                                    <td class="model-view-cell--nowrap">
                                         {% if related_model %}
-                                        <a href="/models/{{ related_model.id }}" style="color: #60a5fa; text-decoration: none;">
+                                        <a href="/models/{{ related_model.id }}" class="model-view-link">
                                             {{ related_model.working_name or related_model.real_name }}
                                         </a>
                                         {% else %}
-                                            <span style="color: #64748b;">—</span>
+                                            <span class="model-view-value--dim">—</span>
                                         {% endif %}
-                                        <span style="display: block; font-size: 12px; color: #94a3b8;">
+                                        <span class="model-view-cell--block">
                                             {% if is_referrer %}Referrer{% else %}Referred{% endif %}
                                         </span>
                                     </td>
@@ -554,7 +554,7 @@ details[open] > .collapsible-summary::after {
                                             <span class="status-chip status-chip--neutral">Mid-Month · 14th</span>
                                         {% endif %}
                                     </td>
-                                    <td><strong style="color: #22c55e;">${{ payout.amount|money }}</strong></td>
+                                    <td><strong class="model-view-strong--success">${{ payout.amount|money }}</strong></td>
                                     <td>
                                         {% if payout.status == 'paid' %}
                                             <span class="status-chip status-chip--success">Paid</span>
@@ -568,12 +568,12 @@ details[open] > .collapsible-summary::after {
                         </table>
                     </div>
                     {% if commission_payouts_count > preview_rows|length %}
-                    <p style="margin: 12px 0 0 0; font-size: 13px; color: #94a3b8;">Showing first {{ preview_rows|length }} payouts. Scroll down to view the full referral schedule.</p>
+                    <p class="model-view-section__text model-view-section__text--small">Showing first {{ preview_rows|length }} payouts. Scroll down to view the full referral schedule.</p>
                     {% endif %}
                     {% else %}
-                    <div class="model-view-empty" style="min-height: 120px;">
+                    <div class="model-view-empty model-view-empty--compact">
                         <div class="model-view-empty__icon">💸</div>
-                        <p class="model-view-empty__text" style="margin-bottom: 4px;">No referral payouts tracked yet.</p>
+                        <p class="model-view-empty__text">No referral payouts tracked yet.</p>
                         <p class="model-view-empty__subtext">Add referral terms on the edit page to generate payouts.</p>
                     </div>
                     {% endif %}
@@ -587,14 +587,14 @@ details[open] > .collapsible-summary::after {
     <div class="model-view-table-card">
         <div class="model-view-table-header">
             <div class="model-view-table-title">
-                <span style="font-size: 24px;">💰</span>
+                <span class="model-view-section__icon" aria-hidden="true">💰</span>
                 <h2>Commission Payouts</h2>
                 <span class="model-view-table-count">{{ commission_payouts_count }} payout{{ 's' if commission_payouts_count != 1 else '' }}</span>
                 {% if unpaid_count > 0 %}
-                <span class="model-view-table-count" style="background: rgba(234, 179, 8, 0.15); color: #eab308; border-color: rgba(234, 179, 8, 0.3);">{{ unpaid_count }} unpaid</span>
+                <span class="model-view-table-count--warning">{{ unpaid_count }} unpaid</span>
                 {% endif %}
                 {% if paid_count > 0 %}
-                <span class="model-view-table-count" style="background: rgba(34, 197, 94, 0.15); color: #22c55e; border-color: rgba(34, 197, 94, 0.3);">{{ paid_count }} paid</span>
+                <span class="model-view-table-count--success">{{ paid_count }} paid</span>
                 {% endif %}
             </div>
         </div>
@@ -614,33 +614,33 @@ details[open] > .collapsible-summary::after {
                 {% set is_referrer = payout.referrer_model_id == model.id %}
                 {% set related_model = payout.referral_model if is_referrer else payout.referrer_model %}
                 <tr>
-                    <td style="white-space: nowrap;">{{ payout.pay_date|display_date }}</td>
+                    <td class="model-view-cell--nowrap">{{ payout.pay_date|display_date }}</td>
                     <td>
                         {% if payout.schedule_type == 'monthly' %}
-                            <span style="color: #94a3b8;">Monthly · 1st</span>
+                            <span class="model-view-value--muted">Monthly · 1st</span>
                         {% elif payout.schedule_type == 'mid_month' %}
-                            <span style="color: #94a3b8;">Mid-Month · 14th</span>
+                            <span class="model-view-value--muted">Mid-Month · 14th</span>
                         {% else %}
-                            <span style="color: #94a3b8;">{{ payout.schedule_type|title }}</span>
+                            <span class="model-view-value--muted">{{ payout.schedule_type|title }}</span>
                         {% endif %}
                     </td>
                     <td>
                         {% if is_referrer %}
-                            <span style="color: #60a5fa;">Referrer</span>
+                            <span class="model-view-value--primary">Referrer</span>
                         {% else %}
-                            <span style="color: #a78bfa;">Referred</span>
+                            <span class="model-view-value--purple">Referred</span>
                         {% endif %}
                     </td>
                     <td>
                         {% if related_model %}
-                        <a href="/models/{{ related_model.id }}" style="color: #60a5fa; text-decoration: none;">
+                        <a href="/models/{{ related_model.id }}" class="model-view-link">
                             {{ related_model.working_name or related_model.real_name }}
                         </a>
                         {% else %}
-                            <span style="color: #64748b;">—</span>
+                            <span class="model-view-value--dim">—</span>
                         {% endif %}
                     </td>
-                    <td><strong style="color: #22c55e;">${{ payout.amount|money }}</strong></td>
+                    <td><strong class="model-view-strong--success">${{ payout.amount|money }}</strong></td>
                     <td>
                         {% if payout.status == 'paid' %}
                             <span class="status-chip status-chip--success">Paid</span>
@@ -664,13 +664,13 @@ details[open] > .collapsible-summary::after {
     <div class="model-view-table-card">
         <div class="model-view-table-header">
             <div class="model-view-table-title">
-                <span style="font-size: 24px;">💵</span>
+                <span class="model-view-section__icon" aria-hidden="true">💵</span>
                 <h2>Compensation Timeline</h2>
                 <span class="model-view-table-count">{{ adjustments_count }} adjustment{{ 's' if adjustments_count != 1 else '' }}</span>
             </div>
             {% if latest_adjustment %}
-            <span style="font-size: 13px; color: #94a3b8;">
-                Latest: <strong style="color: #22c55e;">${{ latest_adjustment.amount_monthly|money }}</strong> on {{ latest_adjustment.effective_date|display_date }}
+            <span class="model-view-header__subtitle">
+                Latest: <strong class="model-view-strong--success">${{ latest_adjustment.amount_monthly|money }}</strong> on {{ latest_adjustment.effective_date|display_date }}
             </span>
             {% endif %}
         </div>
@@ -685,9 +685,9 @@ details[open] > .collapsible-summary::after {
             <tbody>
                 {% for adjustment in adjustments %}
                 <tr>
-                    <td style="white-space: nowrap;">{{ adjustment.effective_date|display_date }}</td>
-                    <td><strong style="color: #22c55e;">${{ adjustment.amount_monthly|money }}</strong></td>
-                    <td style="color: #94a3b8;">{{ adjustment.notes or '—' }}</td>
+                    <td class="model-view-cell--nowrap">{{ adjustment.effective_date|display_date }}</td>
+                    <td><strong class="model-view-strong--success">${{ adjustment.amount_monthly|money }}</strong></td>
+                    <td class="model-view-value--muted">{{ adjustment.notes or '—' }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -700,33 +700,33 @@ details[open] > .collapsible-summary::after {
     {% set latest_payment = adhoc_payments[0] if adhoc_count else None %}
 
     <!-- Ad Hoc Payments (collapsible header + form; table moved outside to stay always visible) -->
-    <details id="adhoc-card" class="model-view-table-card collapsible-card">
-        <summary class="model-view-table-header collapsible-summary">
+    <details id="adhoc-card" class="model-view-table-card collapsible-card" aria-labelledby="adhoc-title">
+        <summary class="model-view-table-header collapsible-summary" aria-expanded="false" aria-controls="adhoc-content">
             <div class="model-view-table-title">
-                <span style="font-size: 24px;">💸</span>
-                <h2>Ad Hoc Payments</h2>
+                <span class="model-view-section__icon" aria-hidden="true">💸</span>
+                <h2 id="adhoc-title">Ad Hoc Payments</h2>
                 <span class="model-view-table-count">{{ adhoc_count }} recorded</span>
                 {% if pending_count %}
-                <span class="model-view-table-count" style="background: rgba(234, 179, 8, 0.15); color: #fbbf24;">{{ pending_count }} pending</span>
+                <span class="model-view-table-count--warning">{{ pending_count }} pending</span>
                 {% endif %}
             </div>
             {% if latest_payment %}
-            <span style="font-size: 13px; color: #94a3b8;">
-                Latest: <strong style="color: #22c55e;">${{ latest_payment.amount|money }}</strong> on {{ latest_payment.pay_date|display_date }}
+            <span class="model-view-header__subtitle">
+                Latest: <strong class="model-view-strong--success">${{ latest_payment.amount|money }}</strong> on {{ latest_payment.pay_date|display_date }}
             </span>
             {% endif %}
         </summary>
         
-        <div style="padding: 24px; background: rgba(15, 23, 42, 0.3); border-bottom: 1px solid rgba(148, 163, 184, 0.08);">
-            <p style="margin: 0; font-size: 14px; color: #94a3b8;">Log one-off payments that fall outside scheduled payroll cycles.</p>
+        <div id="adhoc-content" class="model-view-card__desc">
+            <p>Log one-off payments that fall outside scheduled payroll cycles.</p>
         </div>
 
         {% if user.role == 'admin' %}
-        <div style="padding: 24px; background: rgba(30, 41, 59, 0.3); border-bottom: 1px solid rgba(148, 163, 184, 0.08);">
+        <div class="model-view-form-section">
             <form action="/models/{{ model.id }}/adhoc-payments" method="post">
-                <div style="margin-bottom: 20px;">
-                    <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #f8fafc;">➕ Record New Payment</h3>
-                    <p style="margin: 0; font-size: 13px; color: #94a3b8;">Capture payment details that should appear on the ledger.</p>
+                <div class="model-view-form-section__header">
+                    <h3 class="model-view-form-section__title">➕ Record New Payment</h3>
+                    <p class="model-view-form-section__subtitle">Capture payment details that should appear on the ledger.</p>
                 </div>
                 <div class="form-grid two-column">
                     <div class="form-row">
@@ -746,16 +746,16 @@ details[open] > .collapsible-summary::after {
                         <textarea id="adhoc-notes" name="notes" rows="3" placeholder="Optional notes for this payment"></textarea>
                     </div>
                 </div>
-                <div style="margin-top: 16px; display: flex; align-items: center; gap: 12px;">
+                <div class="model-view-form-section__actions">
                     <button class="button" type="submit">Add Ad Hoc Payment</button>
-                    <span style="font-size: 13px; color: #64748b;">Saved instantly and will appear in the table below.</span>
+                    <span class="model-view-form-section__hint">Saved instantly and will appear in the table below.</span>
                 </div>
             </form>
         </div>
         {% endif %}
 
         {# Ad Hoc Payments table inside card #}
-        <div style="padding: 0;">
+        <div class="model-view-table-wrap">
         {% if adhoc_payments %}
             <table class="model-view-table">
                 <thead>
@@ -773,8 +773,8 @@ details[open] > .collapsible-summary::after {
                 <tbody>
                     {% for payment in adhoc_payments %}
                     <tr>
-                        <td style="white-space: nowrap;">{{ payment.pay_date|display_date }}</td>
-                        <td><strong style="color: #22c55e;">${{ payment.amount|money }}</strong></td>
+                        <td class="model-view-cell--nowrap">{{ payment.pay_date|display_date }}</td>
+                        <td><strong class="model-view-strong--success">${{ payment.amount|money }}</strong></td>
                         <td>
                             {% if payment.status == 'paid' %}
                                 <span class="status-chip status-chip--success">Paid</span>
@@ -784,37 +784,33 @@ details[open] > .collapsible-summary::after {
                                 <span class="status-chip status-chip--warning">Pending</span>
                             {% endif %}
                         </td>
-                        <td style="color: #94a3b8;">{{ payment.description or '—' }}</td>
-                        <td style="color: #94a3b8;">{{ payment.notes or '—' }}</td>
+                        <td class="model-view-value--muted">{{ payment.description or '—' }}</td>
+                        <td class="model-view-value--muted">{{ payment.notes or '—' }}</td>
                         {% if user.role == 'admin' %}
                         <td>
-                            <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap;">
-                                <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/status" method="post" style="display: inline;">
+                            <div class="model-view-actions">
+                                <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/status" method="post" class="model-view-actions__form">
                                     <input name="action" type="hidden" value="mark_paid" />
-                                    <button class="button button--compact" type="submit" {% if payment.status == 'paid' %}disabled{% endif %} 
-                                            style="background: rgba(34, 197, 94, 0.15); color: #22c55e; border-color: rgba(34, 197, 94, 0.3); font-size: 12px; padding: 6px 12px;">
+                                    <button class="button--action-paid" type="submit" {% if payment.status == 'paid' %}disabled{% endif %}>
                                         Mark Paid
                                     </button>
                                 </form>
-                                <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/status" method="post" style="display: inline;">
+                                <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/status" method="post" class="model-view-actions__form">
                                     <input name="action" type="hidden" value="mark_pending" />
-                                    <button class="button button--compact" type="submit" {% if payment.status == 'pending' %}disabled{% endif %} 
-                                            style="background: rgba(234, 179, 8, 0.15); color: #eab308; border-color: rgba(234, 179, 8, 0.3); font-size: 12px; padding: 6px 12px;">
+                                    <button class="button--action-pending" type="submit" {% if payment.status == 'pending' %}disabled{% endif %}>
                                         Mark Pending
                                     </button>
                                 </form>
-                                <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/status" method="post" style="display: inline;">
+                                <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/status" method="post" class="model-view-actions__form">
                                     <input name="action" type="hidden" value="cancel" />
-                                    <button class="button secondary button--compact" type="submit" {% if payment.status == 'cancelled' %}disabled{% endif %} 
-                                            style="font-size: 12px; padding: 6px 12px;">
+                                    <button class="button--action-neutral" type="submit" {% if payment.status == 'cancelled' %}disabled{% endif %}>
                                         Cancel
                                     </button>
                                 </form>
                                 <form action="/models/{{ model.id }}/adhoc-payments/{{ payment.id }}/delete" method="post" 
                                       onsubmit="return confirm('Delete this ad hoc payment?');" 
-                                      style="display: inline;">
-                                    <button class="button secondary button--compact" type="submit" 
-                                            style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border-color: rgba(239, 68, 68, 0.3); font-size: 12px; padding: 6px 12px;">
+                                      class="model-view-actions__form">
+                                    <button class="button--action-delete" type="submit">
                                         Delete
                                     </button>
                                 </form>
@@ -837,27 +833,27 @@ details[open] > .collapsible-summary::after {
     </details>
 
     <!-- Cash Advances (collapsible header + form; table moved inside) -->
-    <details id="advances-card" class="model-view-table-card collapsible-card">
-        <summary class="model-view-table-header collapsible-summary">
+    <details id="advances-card" class="model-view-table-card collapsible-card" aria-labelledby="advances-title">
+        <summary class="model-view-table-header collapsible-summary" aria-expanded="false" aria-controls="advances-content">
             <div class="model-view-table-title">
-                <span style="font-size: 24px;">🏦</span>
-                <h2>Cash Advances</h2>
-                <span class="model-view-table-count" style="background: rgba(234, 179, 8, 0.15); color: #eab308; border-color: rgba(234, 179, 8, 0.3);">Outstanding: ${{ (advances_outstanding or 0)|money }}</span>
+                <span class="model-view-section__icon" aria-hidden="true">🏦</span>
+                <h2 id="advances-title">Cash Advances</h2>
+                <span class="model-view-table-count--warning">Outstanding: ${{ (advances_outstanding or 0)|money }}</span>
             </div>
         </summary>
 
-        <div style="padding: 24px; background: rgba(15, 23, 42, 0.3); border-bottom: 1px solid rgba(148, 163, 184, 0.08);">
-            <p style="margin: 0; font-size: 14px; color: #94a3b8;">
+        <div id="advances-content" class="model-view-card__desc">
+            <p>
                 Advances let you pay a model early and automatically recover the balance from future payouts without pushing net pay below a safe floor.
             </p>
         </div>
 
         {% if user.role == 'admin' %}
-        <div style="padding: 24px; background: rgba(30, 41, 59, 0.3); border-bottom: 1px solid rgba(148, 163, 184, 0.08);">
+        <div class="model-view-form-section">
             <form action="/models/{{ model.id }}/advances" method="post">
-                <div style="margin-bottom: 16px;">
-                    <h3 style="margin: 0 0 6px 0; font-size: 16px; font-weight: 600; color: #f8fafc;">➕ Request Advance</h3>
-                    <p style="margin: 0; font-size: 13px; color: #94a3b8;">Create a cash advance and optionally choose a deduction strategy.</p>
+                <div class="model-view-form-section__header">
+                    <h3 class="model-view-form-section__title">➕ Request Advance</h3>
+                    <p class="model-view-form-section__subtitle">Create a cash advance and optionally choose a deduction strategy.</p>
                 </div>
                 <div class="form-grid two-column">
                     <div class="form-row">
@@ -875,7 +871,7 @@ details[open] > .collapsible-summary::after {
                         <label for="adv-fixed">Fixed amount per run</label>
                         <input id="adv-fixed" name="fixed_amount" type="number" step="0.01" min="0.01" placeholder="e.g., 300" />
                     </div>
-                    <div class="form-row" id="adv-percent-row" style="display:none;">
+                    <div class="form-row" id="adv-percent-row" hidden>
                         <label for="adv-percent">Percent of payout (%)</label>
                         <input id="adv-percent" name="percent_rate" type="number" step="0.01" min="0.01" max="100" placeholder="e.g., 25" />
                     </div>
@@ -884,39 +880,39 @@ details[open] > .collapsible-summary::after {
                         <textarea id="adv-notes" name="notes" rows="2" placeholder="Optional internal notes"></textarea>
                     </div>
                 </div>
-                <div style="margin-top: 12px; display: flex; align-items: center; gap: 12px;">
-                    <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #cbd5e1;">
+                <div class="model-view-form-section__actions">
+                    <label class="model-view-form-section__checkbox">
                         <input type="checkbox" name="auto_approve" /> Approve now (starts deductions)
                     </label>
                     <button class="button" type="submit">Create Advance</button>
-                    <span style="font-size: 12px; color: #64748b;">Cap is evaluated against current outstanding at approval.</span>
+                    <span class="model-view-form-section__hint">Cap is evaluated against current outstanding at approval.</span>
                 </div>
             </form>
         </div>
         {% endif %}
 
         {# Cash Advances table inside card #}
-        <div style="padding: 0;">
+        <div class="model-view-table-wrap">
             <table class="model-view-table">
                 <thead>
                     <tr>
-                        <th style="white-space: nowrap;">Created</th>
-                        <th style="text-align: center;">Status</th>
+                        <th class="model-view-cell--nowrap">Created</th>
+                        <th class="model-view-cell--center">Status</th>
                         <th>Principal</th>
                         <th>Remaining</th>
                         <th>Strategy</th>
-                        <th style="min-width: 180px;">Notes</th>
-                        {% if user.role == 'admin' %}<th style="min-width: 200px;">Quick Actions</th>{% endif %}
+                        <th class="model-view-cell--minwidth">Notes</th>
+                        {% if user.role == 'admin' %}<th class="model-view-cell--minwidth-lg">Quick Actions</th>{% endif %}
                     </tr>
                 </thead>
                 <tbody>
                     {% if advances %}
                     {% for adv in advances %}
                     <tr>
-                        <td style="white-space: nowrap;">
+                        <td class="model-view-cell--nowrap">
                             <strong>{{ adv.created_at.strftime('%b %d, %Y') if adv.created_at else '—' }}</strong>
                         </td>
-                        <td style="text-align: center;">
+                        <td class="model-view-cell--center">
                             {% if adv.status == 'active' %}
                                 <span class="status-chip status-chip--success">Active</span>
                             {% elif adv.status == 'approved' %}
@@ -924,48 +920,45 @@ details[open] > .collapsible-summary::after {
                             {% elif adv.status == 'requested' %}
                                 <span class="status-chip status-chip--warning">Requested</span>
                             {% else %}
-                                <span class="status-chip" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border-color: rgba(148, 163, 184, 0.3);">Closed</span>
+                                <span class="status-chip status-chip--muted">Closed</span>
                             {% endif %}
                         </td>
-                        <td><strong style="color: #22c55e; font-size: 15px;">${{ adv.amount_total|money }}</strong></td>
-                        <td><strong style="color: #eab308; font-size: 15px;">${{ adv.amount_remaining|money }}</strong></td>
-                        <td style="color: #cbd5e1; font-size: 14px;">
+                        <td><strong class="model-view-strong--success model-view-value--lg">${{ adv.amount_total|money }}</strong></td>
+                        <td><strong class="model-view-strong--warning model-view-value--lg">${{ adv.amount_remaining|money }}</strong></td>
+                        <td class="model-view-value--light">
                             {% if adv.strategy == 'fixed' %}
-                                <span style="font-weight: 600;">Fixed</span> ${{ adv.fixed_amount|money }}/run
+                                <span class="model-view-strong">Fixed</span> ${{ adv.fixed_amount|money }}/run
                             {% else %}
-                                <span style="font-weight: 600;">{{ adv.percent_rate }}%</span> of payout
+                                <span class="model-view-strong">{{ adv.percent_rate }}%</span> of payout
                             {% endif %}
                         </td>
-                        <td style="color: #cbd5e1; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ adv.notes or '' }}">
+                        <td class="model-view-cell--truncate" title="{{ adv.notes or '' }}">
                             {{ adv.notes or '—' }}
                         </td>
                         {% if user.role == 'admin' %}
                         <td>
-                            <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap;">
+                            <div class="model-view-actions">
                                 {% if adv.status == 'requested' %}
-                                <form action="/models/{{ model.id }}/advances/{{ adv.id }}/approve" method="post" style="display: inline;">
-                                    <button class="button button--compact" type="submit" style="background: rgba(34, 197, 94, 0.15); color: #22c55e; border-color: rgba(34, 197, 94, 0.3); font-size: 12px; padding: 6px 12px;">
+                                <form action="/models/{{ model.id }}/advances/{{ adv.id }}/approve" method="post" class="model-view-actions__form">
+                                    <button class="button--action-paid" type="submit">
                                         Approve & Activate
                                     </button>
                                 </form>
                                 {% endif %}
                                 {% if adv.status in ['approved','active'] and adv.amount_remaining and adv.amount_remaining > 0 %}
-                                <button class="button button--compact" type="button" 
-                                        onclick="toggleRepaymentRow('{{ adv.id }}')" 
-                                        style="background: rgba(234, 179, 8, 0.15); color: #eab308; border-color: rgba(234, 179, 8, 0.3); font-size: 12px; padding: 6px 12px;">
+                                <button class="button--action-pending" type="button" 
+                                        onclick="toggleRepaymentRow('{{ adv.id }}')">
                                     Record Repayment
                                 </button>
                                 {% endif %}
-                                <button class="button secondary button--compact" type="button" 
-                                        onclick="toggleAdvanceNotesRow('{{ adv.id }}')" 
-                                        style="font-size: 12px; padding: 6px 12px;">
+                                <button class="button--action-neutral" type="button" 
+                                        onclick="toggleAdvanceNotesRow('{{ adv.id }}')">
                                     Edit Notes
                                 </button>
                                 <form action="/models/{{ model.id }}/advances/{{ adv.id }}/delete" method="post" 
                                       onsubmit="return confirm('Delete this advance? This cannot be undone.');" 
-                                      style="display: inline;">
-                                    <button class="button secondary button--compact" type="submit" 
-                                            style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border-color: rgba(239, 68, 68, 0.3); font-size: 12px; padding: 6px 12px;">
+                                      class="model-view-actions__form">
+                                    <button class="button--action-delete" type="submit">
                                         Delete
                                     </button>
                                 </form>
@@ -975,21 +968,21 @@ details[open] > .collapsible-summary::after {
                     </tr>
                     <!-- Expandable Repayment Row -->
                     {% if user.role == 'admin' and adv.status in ['approved','active'] and adv.amount_remaining and adv.amount_remaining > 0 %}
-                    <tr class="repayment-row" id="repayment-row-{{ adv.id }}" style="display: none;">
-                        <td colspan="7" style="padding: 0; background: rgba(15, 23, 42, 0.95);">
-                            <div style="padding: 16px; border-top: 1px solid rgba(148, 163, 184, 0.1);">
-                                <form method="post" action="/models/{{ model.id }}/advances/{{ adv.id }}/repay" style="display: flex; gap: 12px; align-items: flex-end;">
-                                    <div style="flex: 0 0 200px;">
-                                        <label style="display: block; margin-bottom: 6px; color: #cbd5e1; font-weight: 600; font-size: 13px;">Repayment Amount</label>
+                    <tr class="repayment-row model-view-expand-row" id="repayment-row-{{ adv.id }}" hidden>
+                        <td colspan="7" class="model-view-expand-content">
+                            <div class="model-view-expand-form">
+                                <form method="post" action="/models/{{ model.id }}/advances/{{ adv.id }}/repay" class="model-view-expand-form__inner">
+                                    <div class="model-view-expand-field model-view-expand-field--fixed">
+                                        <label class="model-view-expand-field__label">Repayment Amount</label>
                                         <input name="amount" type="number" step="0.01" min="0.01" max="{{ adv.amount_remaining }}" placeholder="Enter amount" 
-                                               style="width: 100%; padding: 10px; background: rgba(15, 23, 42, 0.7); color: #f8fafc; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 6px; font-size: 14px;" required />
+                                               class="model-view-expand-field__input" required />
                                     </div>
-                                    <div style="flex: 1;">
-                                        <label style="display: block; margin-bottom: 6px; color: #cbd5e1; font-weight: 600; font-size: 13px;">Notes (Optional)</label>
+                                    <div class="model-view-expand-field model-view-expand-field--flex">
+                                        <label class="model-view-expand-field__label">Notes (Optional)</label>
                                         <input name="notes" type="text" placeholder="Payment reference or context" 
-                                               style="width: 100%; padding: 10px; background: rgba(15, 23, 42, 0.7); color: #f8fafc; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 6px; font-size: 14px;" />
+                                               class="model-view-expand-field__input" />
                                     </div>
-                                    <div style="display: flex; gap: 8px;">
+                                    <div class="model-view-expand-actions">
                                         <button class="button button--primary button--compact" type="submit">
                                             <span>Record</span>
                                         </button>
@@ -1003,17 +996,17 @@ details[open] > .collapsible-summary::after {
                     </tr>
                     {% endif %}
                     <!-- Expandable Advance Notes Row -->
-                    <tr class="advance-notes-row" id="advance-notes-{{ adv.id }}" style="display: none;">
-                        <td colspan="7" style="padding: 0; background: rgba(15, 23, 42, 0.95);">
-                            <div style="padding: 16px; border-top: 1px solid rgba(148, 163, 184, 0.1);">
-                                <form method="post" action="/models/{{ model.id }}/advances/{{ adv.id }}/note" style="display: flex; gap: 12px; align-items: flex-start;">
+                    <tr class="advance-notes-row model-view-expand-row" id="advance-notes-{{ adv.id }}" hidden>
+                        <td colspan="7" class="model-view-expand-content">
+                            <div class="model-view-expand-form">
+                                <form method="post" action="/models/{{ model.id }}/advances/{{ adv.id }}/note" class="model-view-expand-form__inner model-view-expand-form__inner--notes">
                                     <input type="hidden" name="redirect_to" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
-                                    <div style="flex: 1;">
-                                        <label style="display: block; margin-bottom: 6px; color: #cbd5e1; font-weight: 600; font-size: 13px;">Notes (Internal)</label>
+                                    <div class="model-view-expand-field model-view-expand-field--flex">
+                                        <label class="model-view-expand-field__label">Notes (Internal)</label>
                                         <textarea name="notes" rows="3" placeholder="Optional notes for this advance" 
-                                                  style="width: 100%; padding: 10px; background: rgba(15, 23, 42, 0.7); color: #f8fafc; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 6px; font-family: inherit; resize: vertical; font-size: 14px;">{{ adv.notes or '' }}</textarea>
+                                                  class="model-view-expand-field__textarea">{{ adv.notes or '' }}</textarea>
                                     </div>
-                                    <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 28px;">
+                                    <div class="model-view-expand-actions model-view-expand-actions--vertical">
                                         <button class="button button--primary button--compact" type="submit">
                                             <span>Save</span>
                                         </button>
@@ -1048,11 +1041,11 @@ details[open] > .collapsible-summary::after {
         const percentRow = document.getElementById('adv-percent-row');
         if (!fixedRow || !percentRow) return;
         if (strategy === 'percent') {
-            fixedRow.style.display = 'none';
-            percentRow.style.display = '';
+            fixedRow.hidden = true;
+            percentRow.hidden = false;
         } else {
-            fixedRow.style.display = '';
-            percentRow.style.display = 'none';
+            fixedRow.hidden = false;
+            percentRow.hidden = true;
         }
     }
 
@@ -1062,12 +1055,24 @@ details[open] > .collapsible-summary::after {
         function setupPersistentCard(detailsId) {
             const el = document.getElementById(detailsId);
             if (!el) return;
+            const summary = el.querySelector('summary');
             const key = `model:${MODEL_ID}:${detailsId}:open`;
             const saved = sessionStorage.getItem(key);
+            
+            // Update aria-expanded based on current state
+            function updateAria() {
+                if (summary) {
+                    summary.setAttribute('aria-expanded', el.open ? 'true' : 'false');
+                }
+            }
+            
             if (saved === '1') {
                 el.setAttribute('open', '');
             }
+            updateAria();
+            
             el.addEventListener('toggle', () => {
+                updateAria();
                 if (el.open) sessionStorage.setItem(key, '1');
                 else sessionStorage.removeItem(key);
             });
@@ -1103,14 +1108,13 @@ details[open] > .collapsible-summary::after {
         if (!row) return;
         // Hide all other advance notes rows
         document.querySelectorAll('.advance-notes-row').forEach(r => {
-            if (r.id !== `advance-notes-${advId}`) r.style.display = 'none';
+            if (r.id !== `advance-notes-${advId}`) r.hidden = true;
         });
         // Hide all repayment rows
         document.querySelectorAll('.repayment-row').forEach(r => {
-            r.style.display = 'none';
+            r.hidden = true;
         });
-        if (row.style.display === 'none') row.style.display = '';
-        else row.style.display = 'none';
+        row.hidden = !row.hidden;
     }
     
     // Toggle repayment row
@@ -1119,26 +1123,48 @@ details[open] > .collapsible-summary::after {
         if (!row) return;
         // Hide all other repayment rows
         document.querySelectorAll('.repayment-row').forEach(r => {
-            if (r.id !== `repayment-row-${advId}`) r.style.display = 'none';
+            if (r.id !== `repayment-row-${advId}`) r.hidden = true;
         });
         // Hide all advance notes rows
         document.querySelectorAll('.advance-notes-row').forEach(r => {
-            r.style.display = 'none';
+            r.hidden = true;
         });
-        if (row.style.display === 'none') row.style.display = '';
-        else row.style.display = 'none';
+        row.hidden = !row.hidden;
+    }
+    
+    // Add loading state to admin forms
+    function setupFormLoadingStates() {
+        document.querySelectorAll('.model-view-form-section form, .model-view-expand-form form').forEach(form => {
+            form.addEventListener('submit', function(e) {
+                const btn = form.querySelector('button[type="submit"]');
+                if (btn && !btn.disabled) {
+                    btn.disabled = true;
+                    btn.classList.add('button--loading');
+                    const originalText = btn.innerHTML;
+                    btn.dataset.originalText = originalText;
+                    btn.innerHTML = '<span class="button__spinner" aria-hidden="true"></span> Saving...';
+                }
+            });
+        });
+    }
+    
+    // Initialize loading states on DOM ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setupFormLoadingStates);
+    } else {
+        setupFormLoadingStates();
     }
     </script>
 
     
 
     {% if error_message %}
-    <div class="alert error">
+    <div class="alert error" role="alert">
         <strong>Could not complete request.</strong> {{ error_message }}
     </div>
     {% endif %}
     {% if success_message %}
-    <div class="alert success">
+    <div class="alert success" role="status">
         <strong>Done.</strong> {{ success_message }}
     </div>
     {% endif %}
@@ -1147,7 +1173,7 @@ details[open] > .collapsible-summary::after {
     <div class="model-view-table-card">
         <div class="model-view-table-header">
             <div class="model-view-table-title">
-                <span style="font-size: 24px;">📜</span>
+                <span class="model-view-section__icon" aria-hidden="true">📜</span>
                 <h2>Payment History</h2>
                 <span class="model-view-table-count">{{ paid_payouts|length }} payment{{ 's' if paid_payouts|length != 1 else '' }}</span>
             </div>
@@ -1169,8 +1195,8 @@ details[open] > .collapsible-summary::after {
             <tbody>
                 {% for payout in paid_payouts %}
                 <tr>
-                    <td style="white-space: nowrap;">{{ payout.pay_date|display_date }}</td>
-                    <td><strong style="color: #22c55e;">${{ payout.amount|money }}</strong></td>
+                    <td class="model-view-cell--nowrap">{{ payout.pay_date|display_date }}</td>
+                    <td><strong class="model-view-strong--success">${{ payout.amount|money }}</strong></td>
                     <td>
                         {% if payout.status == 'paid' %}
                             <span class="status-chip status-chip--success">Paid</span>
@@ -1186,7 +1212,7 @@ details[open] > .collapsible-summary::after {
                             {{ payout.payment_frequency|title }}
                         </span>
                     </td>
-                    <td style="color: #94a3b8;">{{ payout.notes or '—' }}</td>
+                    <td class="model-view-value--muted">{{ payout.notes or '—' }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -1195,7 +1221,7 @@ details[open] > .collapsible-summary::after {
         <div class="model-view-empty">
             <div class="model-view-empty__icon">📭</div>
             <p class="model-view-empty__text">No payments recorded yet for this model.</p>
-            <p class="model-view-empty__subtext">Payments will appear here once they're scheduled in <a href="/schedules" style="color: #60a5fa;">Schedule Cycles</a>.</p>
+            <p class="model-view-empty__subtext">Payments will appear here once they're scheduled in <a href="/schedules" class="model-view-link">Schedule Cycles</a>.</p>
         </div>
         {% endif %}
     </div>

@@ -7477,6 +7477,542 @@ section {
     }
 }
 
+/* ==========================================================================
+   Model View Page Styles
+   ========================================================================== */
 
+/* Section panel - used for referral source, commission overview sections */
+.model-view-section {
+    background: rgba(15, 23, 42, 0.35);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 10px;
+    padding: 20px;
+}
+
+.model-view-section__title {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #f8fafc;
+}
+
+.model-view-section__text {
+    margin: 0;
+    font-size: 14px;
+    color: #94a3b8;
+}
+
+.model-view-section__text--small {
+    font-size: 13px;
+}
+
+.model-view-section__text--spaced {
+    margin-top: 4px;
+}
+
+.model-view-section__text--large {
+    font-size: 16px;
+    font-weight: 600;
+    margin-top: 4px;
+}
+
+/* Section grid - for commission overview sections */
+.model-view-section-grid {
+    display: grid;
+    gap: 24px;
+}
+
+/* Section header with stats */
+.model-view-section__header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.model-view-section__stats {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Table count badges - variants */
+.model-view-table-count--neutral {
+    background: rgba(15, 23, 42, 0.6);
+    border-color: rgba(148, 163, 184, 0.3);
+}
+
+.model-view-table-count--warning {
+    background: rgba(234, 179, 8, 0.15);
+    color: #eab308;
+    border-color: rgba(234, 179, 8, 0.3);
+}
+
+.model-view-table-count--success {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+    border-color: rgba(34, 197, 94, 0.3);
+}
+
+/* Table scrollable wrapper */
+.model-view-table-scroll {
+    overflow-x: auto;
+}
+
+.model-view-table--full {
+    min-width: 100%;
+}
+
+/* Cell value colors */
+.model-view-value--success {
+    color: #22c55e;
+}
+
+.model-view-value--warning {
+    color: #eab308;
+}
+
+.model-view-value--primary {
+    color: #60a5fa;
+}
+
+.model-view-value--muted {
+    color: #94a3b8;
+}
+
+.model-view-value--dim {
+    color: #64748b;
+}
+
+/* Cell text modifiers */
+.model-view-cell--nowrap {
+    white-space: nowrap;
+}
+
+.model-view-cell--block {
+    display: block;
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+/* Link styling */
+.model-view-link {
+    color: #60a5fa;
+    text-decoration: none;
+}
+
+.model-view-link:hover {
+    text-decoration: underline;
+}
+
+/* Strong value text */
+.model-view-strong {
+    font-weight: 600;
+}
+
+.model-view-strong--success {
+    color: #22c55e;
+}
+
+.model-view-strong--large {
+    font-size: 15px;
+}
+
+/* Card description */
+.model-view-card__desc {
+    padding: 24px;
+    background: rgba(15, 23, 42, 0.3);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+.model-view-card__desc p {
+    margin: 0;
+    font-size: 14px;
+    color: #94a3b8;
+}
+
+/* Form section inside collapsible card */
+.model-view-form-section {
+    padding: 24px;
+    background: rgba(30, 41, 59, 0.3);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+.model-view-form-section__header {
+    margin-bottom: 20px;
+}
+
+.model-view-form-section__title {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #f8fafc;
+}
+
+.model-view-form-section__subtitle {
+    margin: 0 0 6px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #f8fafc;
+}
+
+.model-view-form-section__hint {
+    margin: 0;
+    font-size: 13px;
+    color: #94a3b8;
+}
+
+.model-view-form-section__footer {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.model-view-form-section__footer--compact {
+    margin-top: 12px;
+}
+
+.model-view-form-section__hint--inline {
+    font-size: 13px;
+    color: #64748b;
+}
+
+.model-view-form-section__hint--small {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.model-view-form-section__checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #cbd5e1;
+}
+
+/* Table action buttons group */
+.model-view-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+.model-view-actions__form {
+    display: inline;
+}
+
+/* Compact button variant for tables */
+.button--action-paid {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.button--action-paid:hover:not(:disabled) {
+    background: rgba(34, 197, 94, 0.25);
+}
+
+.button--action-paid:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.button--action-pending {
+    background: rgba(234, 179, 8, 0.15);
+    color: #eab308;
+    border: 1px solid rgba(234, 179, 8, 0.3);
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.button--action-pending:hover:not(:disabled) {
+    background: rgba(234, 179, 8, 0.25);
+}
+
+.button--action-pending:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.button--action-delete {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.button--action-delete:hover {
+    background: rgba(239, 68, 68, 0.25);
+}
+
+.button--action-neutral {
+    background: rgba(148, 163, 184, 0.1);
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.button--action-neutral:hover:not(:disabled) {
+    background: rgba(148, 163, 184, 0.2);
+}
+
+.button--action-neutral:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Expandable row styling */
+.model-view-expand-row {
+    background: rgba(15, 23, 42, 0.95);
+}
+
+.model-view-expand-row[hidden] {
+    display: none;
+}
+
+.model-view-expand-content {
+    padding: 0;
+    background: rgba(15, 23, 42, 0.95);
+}
+
+.model-view-expand-form {
+    padding: 16px;
+    border-top: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.model-view-expand-form__inner {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+}
+
+.model-view-expand-form__inner--notes {
+    align-items: flex-start;
+}
+
+.model-view-expand-field {
+    flex: 1;
+}
+
+.model-view-expand-field--fixed {
+    flex: 0 0 200px;
+}
+
+.model-view-expand-field--flex {
+    flex: 1;
+}
+
+.model-view-expand-field__label {
+    display: block;
+    margin-bottom: 6px;
+    color: #cbd5e1;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.model-view-expand-field__input {
+    width: 100%;
+    padding: 10px;
+    background: rgba(15, 23, 42, 0.7);
+    color: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.model-view-expand-field__textarea {
+    width: 100%;
+    padding: 10px;
+    background: rgba(15, 23, 42, 0.7);
+    color: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 6px;
+    font-family: inherit;
+    resize: vertical;
+    font-size: 14px;
+}
+
+.model-view-expand-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.model-view-expand-actions--vertical {
+    flex-direction: column;
+    padding-top: 28px;
+}
+
+/* Table cell variants */
+.model-view-cell--center {
+    text-align: center;
+}
+
+.model-view-cell--minwidth {
+    min-width: 180px;
+}
+
+.model-view-cell--minwidth-lg {
+    min-width: 200px;
+}
+
+.model-view-cell--truncate {
+    color: #cbd5e1;
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Table title icon */
+.model-view-table-title__icon {
+    font-size: 24px;
+}
+
+/* Strong text variants */
+.model-view-strong {
+    font-weight: 600;
+}
+
+.model-view-strong--warning {
+    color: #eab308;
+}
+
+/* Value size variants */
+.model-view-value--lg {
+    font-size: 15px;
+}
+
+.model-view-value--light {
+    color: #cbd5e1;
+    font-size: 14px;
+}
+
+.model-view-value--purple {
+    color: #a78bfa;
+}
+
+/* Table wrapper for no-padding tables */
+.model-view-table-wrap {
+    padding: 0;
+}
+
+/* Status chip muted variant */
+.status-chip--muted {
+    background: rgba(148, 163, 184, 0.15);
+    color: #94a3b8;
+    border-color: rgba(148, 163, 184, 0.3);
+}
+
+/* Header subtitle in table header */
+.model-view-header__subtitle {
+    font-size: 13px;
+    color: #94a3b8;
+}
+
+/* Info row full width */
+.model-view-info-row--full {
+    grid-column: 1 / -1;
+}
+
+/* Wallet address value styling */
+.model-view-info-value--wallet {
+    font-size: 12px;
+    word-break: break-all;
+}
+
+/* Button loading state */
+.button--loading {
+    position: relative;
+    cursor: wait;
+    opacity: 0.7;
+}
+
+.button__spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: button-spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
+@keyframes button-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Table header latest info */
+.model-view-table-header__latest {
+    font-size: 13px;
+    color: #94a3b8;
+}
+
+/* Advance strategy text */
+.model-view-strategy {
+    color: #cbd5e1;
+    font-size: 14px;
+}
+
+.model-view-strategy__label {
+    font-weight: 600;
+}
+
+/* Notes cell with truncation */
+.model-view-notes {
+    color: #cbd5e1;
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Info row spanning full width */
+.model-view-info-row--full {
+    grid-column: 1 / -1;
+}
+
+/* Info value with word break */
+.model-view-info-value--break {
+    font-size: 12px;
+    word-break: break-all;
+}
+
+/* Checkbox label inline */
+.model-view-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #cbd5e1;
+}
 
 
