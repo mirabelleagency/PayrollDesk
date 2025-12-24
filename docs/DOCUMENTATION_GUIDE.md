@@ -90,6 +90,7 @@ Update documentation when:
 | `README.md` | Project overview, setup instructions | Root |
 | `CHANGELOG.md` | Version history, release notes | Root |
 | `TECHNICAL_SPEC.md` | System architecture, database schema, API reference | docs/ |
+| `UI_UX_GUIDE.md` | User interface design, components, workflows | docs/ |
 | `MIGRATION_GUIDE.md` | Database migration instructions | Root |
 | `MIGRATION_README.md` | Alembic migration details | Root |
 | `TODO.md` | Pending tasks and roadmap | Root |
