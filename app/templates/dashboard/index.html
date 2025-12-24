@@ -109,7 +109,7 @@ document.addEventListener('DOMContentLoaded', function () {
             </svg>
             <span class="hero-kpi-label">{{ current_month_name }} Total to pay</span>
         </div>
-        <div class="hero-kpi-value">${{ summary.monthly_burn|money }}</div>
+        <div class="hero-kpi-value" data-countup="{{ summary.monthly_burn }}" data-prefix="$">${{ summary.monthly_burn|money }}</div>
         {% if summary.burn_change_pct is not none %}
         <div class="hero-kpi-trend {% if summary.burn_change_pct > 0 %}hero-kpi-trend--up{% else %}hero-kpi-trend--down{% endif %}">
             {% if summary.burn_change_pct > 0 %}↑{% else %}↓{% endif %} {{ summary.burn_change_pct|abs|round(1) }}% from last month
@@ -124,7 +124,7 @@ document.addEventListener('DOMContentLoaded', function () {
             </svg>
             <span class="hero-kpi-label">{{ current_month_name }} Paid</span>
         </div>
-        <div class="hero-kpi-value hero-kpi-value--success">${{ summary.latest_run_paid|money }}</div>
+        <div class="hero-kpi-value hero-kpi-value--success" data-countup="{{ summary.latest_run_paid }}" data-prefix="$">${{ summary.latest_run_paid|money }}</div>
         {% set month_total = summary.monthly_burn|float %}
         {% set month_paid = summary.latest_run_paid|float %}
         {% if month_total > 0 %}
@@ -143,7 +143,7 @@ document.addEventListener('DOMContentLoaded', function () {
             </svg>
             <span class="hero-kpi-label">{{ current_year }} Total Paid</span>
         </div>
-        <div class="hero-kpi-value">${{ summary.year_total_paid|money }}</div>
+        <div class="hero-kpi-value" data-countup="{{ summary.year_total_paid }}" data-prefix="$">${{ summary.year_total_paid|money }}</div>
         <div class="hero-kpi-subtitle">Year to date</div>
     </div>
     
@@ -156,16 +156,62 @@ document.addEventListener('DOMContentLoaded', function () {
             </svg>
             <span class="hero-kpi-label">Requires Attention</span>
         </div>
-        <div class="hero-kpi-value hero-kpi-value--secondary">{{ summary.overdue_count }}</div>
+        <div class="hero-kpi-value hero-kpi-value--secondary" data-countup="{{ summary.overdue_count }}" data-decimals="0">{{ summary.overdue_count }}</div>
         <div class="hero-kpi-subtitle">{% if summary.overdue_count > 0 %}Overdue payments{% else %}All payments current{% endif %}</div>
     </div>
 </section>
 <script>
-// Reveal hero KPIs after content loads
+// Reveal hero KPIs and animate count-up
 document.addEventListener('DOMContentLoaded', function() {
-    // Small delay for smoother visual transition
+    const heroSection = document.getElementById('heroKpis');
+    
+    // Count-up animation function
+    function animateCountUp(el) {
+        const target = parseFloat(el.dataset.countup) || 0;
+        const prefix = el.dataset.prefix || '';
+        const decimals = parseInt(el.dataset.decimals) || (target % 1 === 0 ? 0 : 2);
+        const duration = 800;
+        const start = performance.now();
+        
+        // Skip animation for reduced motion or zero values
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || target === 0) {
+            return;
+        }
+        
+        function formatNumber(num) {
+            return num.toLocaleString('en-US', {
+                minimumFractionDigits: decimals,
+                maximumFractionDigits: decimals
+            });
+        }
+        
+        function update(now) {
+            const elapsed = now - start;
+            const progress = Math.min(elapsed / duration, 1);
+            // Ease-out quad
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const current = target * eased;
+            el.textContent = prefix + formatNumber(current);
+            
+            if (progress < 1) {
+                requestAnimationFrame(update);
+            } else {
+                el.textContent = prefix + formatNumber(target);
+            }
+        }
+        
+        el.textContent = prefix + formatNumber(0);
+        requestAnimationFrame(update);
+    }
+    
+    // Reveal content then animate numbers
     requestAnimationFrame(function() {
-        document.getElementById('heroKpis').classList.add('hero-kpis--loaded');
+        heroSection.classList.add('hero-kpis--loaded');
+        
+        // Start count-up after cards fade in (300ms transition)
+        setTimeout(function() {
+            heroSection.querySelectorAll('[data-countup]').forEach(animateCountUp);
+        }, 150);
     });
 });
 </script>
