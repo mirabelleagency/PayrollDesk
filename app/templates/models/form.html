@@ -33,13 +33,13 @@
     transform: translateY(0);
 }
 </style>
-<section class="page-header" style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+<section class="page-header">
     <div>
         <h1 class="page-title">{{ 'Edit Model' if action == 'edit' else 'Add Model' }}</h1>
         <p>Capture roster information used for automated payroll scheduling.</p>
     </div>
     {% if action == 'edit' and model %}
-    <div style="display: flex; gap: 12px;">
+    <div class="header-actions">
         <a class="button secondary" href="/models/{{ model.id }}" target="_blank" rel="noopener">View Model Profile</a>
     </div>
     {% endif %}
@@ -93,7 +93,8 @@
 
         <div class="form-row">
             <label for="crypto_wallet">Crypto Wallet Address (Optional)</label>
-            <input id="crypto_wallet" name="crypto_wallet" type="text" value="{{ model.crypto_wallet if model else '' }}" placeholder="e.g., 0x742d35Cc6634C0532925a3b844Bc9e7595f42e" />
+            <input id="crypto_wallet" name="crypto_wallet" type="text" value="{{ model.crypto_wallet if model else '' }}" placeholder="e.g., 0x742d35Cc6634C0532925a3b844Bc9e7595f42e" aria-describedby="crypto_wallet_hint" />
+            <p id="crypto_wallet_hint" class="form-hint form-hint--no-margin sr-only">Enter a valid cryptocurrency wallet address</p>
         </div>
 
         {% set adjustments = model.compensation_adjustments if model and model.compensation_adjustments else [] %}
@@ -170,43 +171,43 @@
             'dual': '1st & 14th'
         } %}
 
-        <div style="margin: 32px 0; border: 1px solid rgba(148,163,184,0.25); border-radius: 12px; padding: 24px; background: rgba(15,23,42,0.4);" data-commission-card>
-            <div style="display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 24px;">
+        <div class="commission-card" data-commission-card aria-labelledby="referral-source-title" aria-describedby="referral-source-desc">
+            <div class="commission-card__header">
                 <div>
-                    <h2 style="margin: 0 0 8px 0; font-size: 20px; font-weight: 600; color: #f8fafc;">Referral Source</h2>
-                    <p class="form-hint" style="margin: 0; max-width: 520px;">
+                    <h2 id="referral-source-title" class="commission-card__title">Referral Source</h2>
+                    <p id="referral-source-desc" class="form-hint form-hint--no-margin form-hint--max-width">
                         Select which model (if any) referred {{ model_display_name }} into the roster. Changing this keeps both sides of the relationship in sync.
                     </p>
                 </div>
             </div>
-            <div style="background: rgba(30,41,59,0.45); border: 1px solid rgba(148,163,184,0.2); border-radius: 10px; padding: 20px; margin-bottom: 24px;"
+            <div class="commission-card__panel"
                 data-referrer-picker
                 data-selected-id="{{ model.referred_by_model_id if model and model.referred_by_model_id else '' }}">
-                <div style="display: flex; flex-direction: column; gap: 16px;">
-                    <div style="display: flex; flex-direction: column; gap: 8px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
-                            <label for="referrer_search" style="margin: 0; font-weight: 600; color: #f8fafc;">Referred By</label>
-                            <span style="font-size: 12px; color: #94a3b8;">Optional</span>
+                <div class="referrer-picker">
+                    <div class="referrer-picker__field">
+                        <div class="referrer-picker__label-row">
+                            <label for="referrer_search" class="referrer-picker__label">Referred By</label>
+                            <span class="referrer-picker__optional">Optional</span>
                         </div>
-                        <div style="position: relative; display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 10px; border: 1px solid rgba(148, 163, 184, 0.25); background: rgba(15, 23, 42, 0.7); transition: border-color 0.2s ease, background 0.2s ease;" data-referrer-input-wrapper>
-                            <svg style="width: 18px; height: 18px; color: rgba(148, 163, 184, 0.6); flex-shrink: 0;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div class="referrer-picker__input-wrapper" data-referrer-input-wrapper>
+                            <svg class="referrer-picker__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                             </svg>
-                            <input id="referrer_search" data-referrer-search type="text" list="referrer-search-options" placeholder="Start typing to search" value="{{ referrer_picker_label }}" autocomplete="off" style="flex: 1; background: transparent; border: none; color: #f8fafc; font-size: 0.95rem; outline: none; padding: 0;" />
+                            <input id="referrer_search" class="referrer-picker__input" data-referrer-search type="text" list="referrer-search-options" placeholder="Start typing to search" value="{{ referrer_picker_label }}" autocomplete="off" aria-describedby="referrer_hint" />
                             <datalist id="referrer-search-options">
                                 {% for option in referrable_models %}
                                     <option value="{{ option.label }}" data-id="{{ option.id }}"></option>
                                 {% endfor %}
                             </datalist>
                             <input type="hidden" id="referred_by_model_id" name="referred_by_model_id" data-referrer-value value="{{ model.referred_by_model_id if model and model.referred_by_model_id else '' }}" />
-                            <button type="button" class="button tertiary" data-clear-referrer style="margin: 0; padding: 6px 14px; font-size: 0.85rem; white-space: nowrap;">Clear</button>
+                            <button type="button" class="button tertiary referrer-picker__clear-btn" data-clear-referrer aria-label="Clear referrer selection">Clear</button>
                         </div>
-                        <p class="form-hint" style="margin: 0;">Type to filter the roster and select a referrer. Leave blank for self-sourced models.</p>
+                        <p id="referrer_hint" class="form-hint form-hint--no-margin">Type to filter the roster and select a referrer. Leave blank for self-sourced models.</p>
                     </div>
-                    <div data-referrer-chip style="display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 8px; border: 1px solid rgba(148,163,184,0.3); background: rgba(15,23,42,0.35);">
-                        <div style="flex: 1;">
-                            <p data-referrer-chip-label style="margin: 0; font-weight: 600; color: #f8fafc;">{% if referrer_picker_label %}{{ referrer_picker_label }}{% else %}No referrer selected{% endif %}</p>
-                            <span data-referrer-chip-subtext style="font-size: 12px; color: #94a3b8;">{% if referrer_picker_label %}Linked referrer{% else %}Self-sourced referral{% endif %}</span>
+                    <div class="referrer-chip" data-referrer-chip>
+                        <div class="referrer-chip__content">
+                            <p class="referrer-chip__label" data-referrer-chip-label>{% if referrer_picker_label %}{{ referrer_picker_label }}{% else %}No referrer selected{% endif %}</p>
+                            <span class="referrer-chip__subtext" data-referrer-chip-subtext>{% if referrer_picker_label %}Linked referrer{% else %}Self-sourced referral{% endif %}</span>
                         </div>
                         {% set referrer_view_btn_classes = 'button tertiary referrer-view-btn' %}
                         {% if not (model and model.referred_by_model_id) %}
@@ -218,24 +219,24 @@
             </div>
 
             {% if action == 'edit' %}
-            <div style="background: rgba(30,41,59,0.45); border: 1px solid rgba(148,163,184,0.2); border-radius: 10px; padding: 20px;" data-commission-panel>
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">
+            <div class="commission-card__panel" data-commission-panel>
+                    <div class="commission-card__panel-header">
                         <div>
-                            <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #f8fafc;">Per-Referral Terms</h3>
-                            <p class="form-hint" style="margin: 0;">Control commission settings for each referred model individually.</p>
+                            <h3 class="commission-card__subtitle">Per-Referral Terms</h3>
+                            <p class="form-hint form-hint--no-margin">Control commission settings for each referred model individually.</p>
                         </div>
                         {% if model and model.referrals %}
-                        <span class="model-view-table-count" style="background: rgba(59,130,246,0.15); color: #93c5fd;">{{ model.referrals|length }} total</span>
+                        <span class="model-view-table-count referrals-count-badge">{{ model.referrals|length }} total</span>
                         {% endif %}
                     </div>
-                    <div data-commission-lock {% if not (model and model.referred_by_model_id) %}hidden{% endif %} style="margin-top: 16px; padding: 12px 16px; border-radius: 8px; background: rgba(15,23,42,0.55); border: 1px dashed rgba(248,250,252,0.2);">
-                        <p style="margin: 0; font-size: 13px; color: #94a3b8;">
+                    <div class="commission-card__lock-notice" data-commission-lock {% if not (model and model.referred_by_model_id) %}hidden{% endif %}>
+                        <p>
                             Heads up: {{ model_display_name }} was referred by {{ referrer_display_name or 'their recruiter' }}, but you can still manage the terms for the models they refer below.
                         </p>
                     </div>
                     <div data-commission-fields>
                         {% if model and model.referrals %}
-                        <div style="display: flex; flex-direction: column; gap: 16px;" data-referral-terms-panel>
+                        <div class="referral-terms-panel" data-referral-terms-panel>
                             {% for referral in model.referrals %}
                             {% set term = referral_terms.get(referral.id) %}
                             {% set term_amount = term.commission_per_referral if term and term.commission_per_referral is not none else model.commission_per_referral %}
@@ -244,28 +245,28 @@
                             {% set term_duration = term.commission_duration_months if term and term.commission_duration_months else (model.commission_duration_months if model and model.commission_duration_months else default_commission_duration) %}
                             {% set term_active = term.is_active if term is not none else True %}
                             <div class="referral-term-card {% if not term_active %}referral-term-card--inactive{% endif %}" data-referral-term-card>
-                                <div class="referral-term-card__header" style="display: flex; justify-content: space-between; align-items: center; gap: 16px;">
-                                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                                        <strong style="font-size: 18px; color: #f8fafc;">{{ referral.working_name or referral.real_name }}</strong>
-                                        <span style="font-family: monospace; font-size: 14px; color: #94a3b8; border: 1px solid rgba(148,163,184,0.3); padding: 2px 8px; border-radius: 6px;">{{ referral.code }}</span>
+                                <div class="referral-term-card__header">
+                                    <div class="referral-term-card__info">
+                                        <strong class="referral-term-card__name">{{ referral.working_name or referral.real_name }}</strong>
+                                        <span class="referral-term-card__code">{{ referral.code }}</span>
                                         <span class="referral-term-status" data-referral-term-status>{% if term_active %}Active{% else %}Inactive{% endif %}</span>
                                     </div>
-                                    <a class="button tertiary" href="/models/{{ referral.id }}/edit" target="_blank" rel="noopener" style="margin: 0; white-space: nowrap;">Edit Model</a>
+                                    <a class="button tertiary referral-term-card__edit-btn" href="/models/{{ referral.id }}/edit" target="_blank" rel="noopener">Edit Model</a>
                                 </div>
                                 <div class="referral-term-card__controls">
-                                    <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #f8fafc;">
+                                    <label class="referral-term-card__active-toggle">
                                         <input type="checkbox" data-referral-active-toggle {% if term_active %}checked{% endif %} />
                                         Commission Active
                                     </label>
                                 </div>
                                 <input type="hidden" name="referral_term_referral_ids" value="{{ referral.id }}" />
                                 <input type="hidden" name="referral_term_actives" value="{% if term_active %}1{% else %}0{% endif %}" data-referral-active-value />
-                                <div class="form-grid two-column" style="gap: 16px;" data-referral-term-fields>
-                                    <div class="form-row" style="margin: 0;">
+                                <div class="form-grid two-column referral-term-card__fields" data-referral-term-fields>
+                                    <div class="form-row">
                                         <label>Commission Amount (USD)</label>
                                         <input name="referral_term_amounts" type="number" step="0.01" min="0" value="{{ amount_value }}" data-referral-term-field />
                                     </div>
-                                    <div class="form-row" style="margin: 0;">
+                                    <div class="form-row">
                                         <label>Payout Frequency</label>
                                         <select name="referral_term_frequencies" data-referral-term-field>
                                             {% for option in commission_frequency_options %}
@@ -273,38 +274,41 @@
                                             {% endfor %}
                                         </select>
                                     </div>
-                                    <div class="form-row" style="margin: 0;">
+                                    <div class="form-row">
                                         <label>Duration (months)</label>
                                         <input name="referral_term_durations" type="number" min="1" max="36" step="1" value="{{ term_duration }}" data-referral-term-field />
                                     </div>
-                                    <div class="form-row" style="margin: 0;">
-                                        <p class="form-hint" style="margin: 24px 0 0 0;">Changes only affect this referral relationship.</p>
+                                    <div class="form-row">
+                                        <p class="form-hint form-hint--spaced">Changes only affect this referral relationship.</p>
                                     </div>
                                 </div>
                             </div>
                             {% endfor %}
                         </div>
                         {% else %}
-                        <p class="form-hint" style="margin: 0;">No referrals yet. Once {{ model_display_name }} brings talent, customize their terms here.</p>
+                        <p class="form-hint form-hint--no-margin">No referrals yet. Once {{ model_display_name }} brings talent, customize their terms here.</p>
                         {% endif %}
                     </div>
             </div>
             {% else %}
-            <div style="background: rgba(30,41,59,0.45); border: 1px solid rgba(148,163,184,0.2); border-radius: 10px; padding: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">
+            <div class="commission-card__panel">
+                <div class="commission-card__panel-header">
                     <div>
-                        <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #f8fafc;">Per-Referral Terms</h3>
-                        <p class="form-hint" style="margin: 0;">Set up referral configurations after saving and linking referred models.</p>
+                        <h3 class="commission-card__subtitle">Per-Referral Terms</h3>
+                        <p class="form-hint form-hint--no-margin">Set up referral configurations after saving and linking referred models.</p>
                     </div>
                 </div>
-                <p class="form-hint" style="margin-top: 16px;">This section appears once {{ model_display_name }} has referred someone.</p>
+                <p class="form-hint form-hint--top-margin">This section appears once {{ model_display_name }} has referred someone.</p>
             </div>
             {% endif %}
         </div>
 
         <div class="form-actions form-actions--end">
             <a class="button secondary" href="/models" data-back-button>Back to Models</a>
-            <button class="button" type="submit">Save</button>
+            <button class="button" type="submit" data-submit-btn>
+                <span data-submit-text>Save</span>
+                <span data-submit-loading class="sr-only" aria-hidden="true">Saving...</span>
+            </button>
             <a class="button secondary" href="/models">Cancel</a>
         </div>
     </form>
@@ -329,6 +333,27 @@
 </template>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    // Form submit loading state
+    const form = document.querySelector('.form--wide');
+    const submitBtn = form ? form.querySelector('[data-submit-btn]') : null;
+    const submitText = submitBtn ? submitBtn.querySelector('[data-submit-text]') : null;
+    const submitLoading = submitBtn ? submitBtn.querySelector('[data-submit-loading]') : null;
+    
+    if (form && submitBtn) {
+        form.addEventListener('submit', function() {
+            submitBtn.disabled = true;
+            submitBtn.classList.add('button--loading');
+            if (submitText) {
+                submitText.classList.add('sr-only');
+                submitText.setAttribute('aria-hidden', 'true');
+            }
+            if (submitLoading) {
+                submitLoading.classList.remove('sr-only');
+                submitLoading.removeAttribute('aria-hidden');
+            }
+        });
+    }
+
     const panel = document.querySelector('[data-adjustments-panel]');
     const container = panel ? panel.querySelector('[data-adjustments]') : null;
     const addButton = document.getElementById('add-adjustment');

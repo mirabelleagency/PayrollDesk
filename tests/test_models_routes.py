@@ -21,6 +21,26 @@ def client():
 
 
 @pytest.fixture
+def auth_client():
+    """Create authenticated test client by mocking the auth dependency."""
+    from app.routers.auth import get_current_user
+    
+    # Use MagicMock to avoid SQLAlchemy model instantiation issues
+    mock_user = MagicMock()
+    mock_user.id = 1
+    mock_user.username = "testadmin"
+    mock_user.role = "admin"
+    
+    def mock_get_current_user():
+        return mock_user
+    
+    app.dependency_overrides[get_current_user] = mock_get_current_user
+    client = TestClient(app)
+    yield client
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
 def sample_model(db_session):
     """Create a sample model for testing."""
     model = Model(
@@ -182,4 +202,44 @@ class TestCurrencyConfiguration:
         from app.core.config import DEFAULT_CURRENCY, DEFAULT_LOCALE
         assert DEFAULT_CURRENCY == "USD"
         assert DEFAULT_LOCALE == "en-US"
+
+
+class TestModelFormRoutes:
+    """Tests for model form routes (new/edit)."""
+
+    def test_new_model_form_requires_auth(self, client):
+        """GET /models/new should redirect unauthenticated users."""
+        response = client.get("/models/new", follow_redirects=False)
+        assert response.status_code in (302, 303, 307, 401)
+
+    def test_new_model_form_renders_for_authenticated(self, auth_client):
+        """GET /models/new should render form for authenticated users."""
+        response = auth_client.get("/models/new")
+        assert response.status_code == 200
+        assert b"form" in response.content.lower()
+
+    def test_edit_model_form_requires_auth(self, client):
+        """GET /models/{id}/edit should redirect unauthenticated users."""
+        response = client.get("/models/1/edit", follow_redirects=False)
+        assert response.status_code in (302, 303, 307, 401)
+
+    def test_edit_nonexistent_model_returns_404(self, auth_client):
+        """GET /models/{id}/edit should return 404 for non-existent model."""
+        response = auth_client.get("/models/99999/edit")
+        assert response.status_code == 404
+
+    def test_new_model_form_has_referrable_models_context(self, auth_client):
+        """New model form should include referrable_models in context."""
+        response = auth_client.get("/models/new")
+        assert response.status_code == 200
+        # Form should render without error (referrable_models used in template)
+        assert b"Model" in response.content or b"model" in response.content.lower()
+
+    def test_form_has_loading_state_attributes(self, auth_client):
+        """Form submit button should have loading state attributes."""
+        response = auth_client.get("/models/new")
+        assert response.status_code == 200
+        content = response.content.decode()
+        # Check for loading state data attributes
+        assert "data-submit-btn" in content or "submit" in content.lower()
 

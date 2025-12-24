@@ -7194,6 +7194,289 @@ section {
     }
 }
 
+/* =====================================================
+   MODEL FORM - COMMISSION CARD STYLES
+   ===================================================== */
+
+.commission-card {
+    margin: 32px 0;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 12px;
+    padding: 24px;
+    background: rgba(15, 23, 42, 0.4);
+}
+
+.commission-card__header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+}
+
+.commission-card__title {
+    margin: 0 0 8px 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: #f8fafc;
+}
+
+.commission-card__subtitle {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #f8fafc;
+}
+
+.commission-card__panel {
+    background: rgba(30, 41, 59, 0.45);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 24px;
+}
+
+.commission-card__panel:last-child {
+    margin-bottom: 0;
+}
+
+.commission-card__panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.commission-card__lock-notice {
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px dashed rgba(248, 250, 252, 0.2);
+}
+
+.commission-card__lock-notice p {
+    margin: 0;
+    font-size: 13px;
+    color: #94a3b8;
+}
+
+/* Referrer Picker */
+.referrer-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.referrer-picker__field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.referrer-picker__label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.referrer-picker__label {
+    margin: 0;
+    font-weight: 600;
+    color: #f8fafc;
+}
+
+.referrer-picker__optional {
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+.referrer-picker__input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(15, 23, 42, 0.7);
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.referrer-picker__input-wrapper:focus-within {
+    border-color: rgba(59, 130, 246, 0.5);
+    background: rgba(15, 23, 42, 0.9);
+}
+
+.referrer-picker__icon {
+    width: 18px;
+    height: 18px;
+    color: rgba(148, 163, 184, 0.6);
+    flex-shrink: 0;
+}
+
+.referrer-picker__input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #f8fafc;
+    font-size: 0.95rem;
+    outline: none;
+    padding: 0;
+}
+
+.referrer-picker__clear-btn {
+    margin: 0;
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+/* Referrer Chip */
+.referrer-chip {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: rgba(15, 23, 42, 0.35);
+}
+
+.referrer-chip__content {
+    flex: 1;
+}
+
+.referrer-chip__label {
+    margin: 0;
+    font-weight: 600;
+    color: #f8fafc;
+}
+
+.referrer-chip__subtext {
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+/* Referral Term Card */
+.referral-terms-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.referral-term-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+}
+
+.referral-term-card__info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.referral-term-card__name {
+    font-size: 18px;
+    color: #f8fafc;
+}
+
+.referral-term-card__code {
+    font-family: monospace;
+    font-size: 14px;
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    padding: 2px 8px;
+    border-radius: 6px;
+}
+
+.referral-term-card__controls {
+    margin-top: 12px;
+}
+
+.referral-term-card__active-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #f8fafc;
+}
+
+.referral-term-card__fields {
+    gap: 16px;
+}
+
+.referral-term-card__fields .form-row {
+    margin: 0;
+}
+
+.referral-term-card__edit-btn {
+    margin: 0;
+    white-space: nowrap;
+}
+
+/* Referrals count badge */
+.referrals-count-badge {
+    background: rgba(59, 130, 246, 0.15);
+    color: #93c5fd;
+}
+
+/* Form hint spacing helpers */
+.form-hint--no-margin {
+    margin: 0;
+}
+
+.form-hint--max-width {
+    max-width: 520px;
+}
+
+.form-hint--top-margin {
+    margin-top: 16px;
+}
+
+.form-hint--spaced {
+    margin: 24px 0 0 0;
+}
+
+/* Button loading state */
+.button--loading {
+    position: relative;
+    cursor: wait;
+    opacity: 0.7;
+}
+
+.button--loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: button-spin 0.8s linear infinite;
+}
+
+@keyframes button-spin {
+    to {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .button--loading::after {
+        animation: none;
+    }
+}
+
 
 
 
