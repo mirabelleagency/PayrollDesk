@@ -559,7 +559,10 @@ function quickFilterTable() {
 const paymentCache = {};
 let expandedModels = new Set();
 
-const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+// Currency configuration (from server config)
+const APP_CURRENCY = '{{ app_currency | default("USD") }}';
+const APP_LOCALE = '{{ app_locale | default("en-US") }}';
+const currencyFormatter = new Intl.NumberFormat(APP_LOCALE, { style: 'currency', currency: APP_CURRENCY });
 
 function formatCurrency(value) {
     if (value === null || value === undefined || Number.isNaN(value)) {
@@ -661,23 +664,29 @@ async function toggleModelPayments(modelId) {
     }
 }
 
-// Load payment history for a model
-async function loadModelPayments(modelId) {
+// Store pagination state per model
+const paginationState = {};
+const PAYMENTS_PER_PAGE = 20;
+
+// Load payment history for a model with pagination
+async function loadModelPayments(modelId, page = 1) {
     const contentDiv = document.getElementById(`payment-content-${modelId}`);
     const summaryDiv = document.getElementById(`payment-summary-${modelId}`);
 
-    // Show loading skeleton while fetching
-    contentDiv.innerHTML = `
-        <div class="payment-skeleton">
-            <div class="skeleton-row"><div class="skeleton-cell"></div><div class="skeleton-cell"></div><div class="skeleton-cell"></div><div class="skeleton-cell"></div></div>
-            <div class="skeleton-row"><div class="skeleton-cell"></div><div class="skeleton-cell"></div><div class="skeleton-cell"></div><div class="skeleton-cell"></div></div>
-            <div class="skeleton-row"><div class="skeleton-cell"></div><div class="skeleton-cell"></div><div class="skeleton-cell"></div><div class="skeleton-cell"></div></div>
-        </div>
-    `;
-    summaryDiv.innerHTML = '<span class="skeleton-text" style="display: inline-block; width: 100px; height: 14px; background: rgba(148, 163, 184, 0.2); border-radius: 4px; animation: shimmer 1.5s infinite;"></span>';
+    // Show loading skeleton while fetching (only on first load, not pagination)
+    if (page === 1) {
+        contentDiv.innerHTML = `
+            <div class="payment-skeleton">
+                <div class="skeleton-row"><div class="skeleton-cell"></div><div class="skeleton-cell"></div><div class="skeleton-cell"></div><div class="skeleton-cell"></div></div>
+                <div class="skeleton-row"><div class="skeleton-cell"></div><div class="skeleton-cell"></div><div class="skeleton-cell"></div><div class="skeleton-cell"></div></div>
+                <div class="skeleton-row"><div class="skeleton-cell"></div><div class="skeleton-cell"></div><div class="skeleton-cell"></div><div class="skeleton-cell"></div></div>
+            </div>
+        `;
+        summaryDiv.innerHTML = '<span class="skeleton-text" style="display: inline-block; width: 100px; height: 14px; background: rgba(148, 163, 184, 0.2); border-radius: 4px; animation: shimmer 1.5s infinite;"></span>';
+    }
 
     try {
-        const response = await fetch(`/models/${modelId}/payments.json`, {
+        const response = await fetch(`/models/${modelId}/payments.json?page=${page}&per_page=${PAYMENTS_PER_PAGE}`, {
             headers: { 'Accept': 'application/json' },
         });
 
@@ -688,8 +697,12 @@ async function loadModelPayments(modelId) {
         const data = await response.json();
         const payouts = Array.isArray(data.payouts) ? data.payouts : [];
         const summary = data.summary || {};
+        const pagination = data.pagination || { page: 1, total_pages: 1, total_count: 0 };
+        
+        // Store pagination state
+        paginationState[modelId] = pagination;
 
-        if (payouts.length === 0) {
+        if (pagination.total_count === 0) {
             contentDiv.innerHTML = '<p class="empty-state" style="padding: 24px;">No payment history recorded for this model.</p>';
             summaryDiv.innerHTML = '<span>0 payments</span>';
             paymentCache[modelId] = true;
@@ -739,20 +752,26 @@ async function loadModelPayments(modelId) {
         });
 
         tableHTML += '</tbody></table>';
+        
+        // Add pagination controls if more than one page
+        if (pagination.total_pages > 1) {
+            tableHTML += renderPaginationControls(modelId, pagination);
+        }
+        
         contentDiv.innerHTML = tableHTML;
 
-        const paymentCount = typeof summary.count === 'number' ? summary.count : payouts.length;
+        const paymentCount = typeof summary.count === 'number' ? summary.count : pagination.total_count;
         const totalPaidValue = typeof summary.total_paid_value === 'number'
             ? summary.total_paid_value
             : Number.parseFloat(summary.total_paid || '0') || 0;
 
-        summaryDiv.innerHTML = `
-            <span><strong>${paymentCount}</strong> total payments</span>
-            <span>·</span>
-            <span>Total paid: <strong>${formatCurrency(totalPaidValue)}</strong></span>
-        `;
-
-        // Last payment column removed from table; no UI update needed here
+        // Show page info in summary if paginated
+        let summaryText = `<span><strong>${paymentCount}</strong> total payments</span>`;
+        if (pagination.total_pages > 1) {
+            summaryText += `<span>·</span><span>Page ${pagination.page} of ${pagination.total_pages}</span>`;
+        }
+        summaryText += `<span>·</span><span>Total paid: <strong>${formatCurrency(totalPaidValue)}</strong></span>`;
+        summaryDiv.innerHTML = summaryText;
 
         paymentCache[modelId] = true;
     } catch (error) {
@@ -761,6 +780,70 @@ async function loadModelPayments(modelId) {
         summaryDiv.innerHTML = '<span style="color: #dc2626;">Error</span>';
         paymentCache[modelId] = false;
     }
+}
+
+// Render pagination controls
+function renderPaginationControls(modelId, pagination) {
+    const { page, total_pages, has_prev, has_next } = pagination;
+    
+    let html = `<div class="pagination-controls" style="display: flex; justify-content: center; align-items: center; gap: 8px; padding: 12px 0; border-top: 1px solid rgba(148, 163, 184, 0.2);">`;
+    
+    // Previous button
+    html += `<button 
+        class="button secondary button--compact" 
+        onclick="loadModelPayments(${modelId}, ${page - 1})"
+        ${has_prev ? '' : 'disabled'}
+        style="${has_prev ? '' : 'opacity: 0.5; cursor: not-allowed;'}"
+        aria-label="Previous page"
+    >← Prev</button>`;
+    
+    // Page numbers (show first, current area, last)
+    html += `<span class="pagination-info" style="font-size: 0.85rem; color: #94a3b8;">`;
+    
+    // Build page number list
+    const pageNumbers = [];
+    if (total_pages <= 7) {
+        for (let i = 1; i <= total_pages; i++) pageNumbers.push(i);
+    } else {
+        pageNumbers.push(1);
+        if (page > 3) pageNumbers.push('...');
+        for (let i = Math.max(2, page - 1); i <= Math.min(total_pages - 1, page + 1); i++) {
+            pageNumbers.push(i);
+        }
+        if (page < total_pages - 2) pageNumbers.push('...');
+        pageNumbers.push(total_pages);
+    }
+    
+    pageNumbers.forEach(p => {
+        if (p === '...') {
+            html += `<span style="padding: 0 4px;">…</span>`;
+        } else if (p === page) {
+            html += `<span style="padding: 4px 8px; background: rgba(96, 165, 250, 0.2); border-radius: 4px; font-weight: 600; color: #60a5fa;">${p}</span>`;
+        } else {
+            html += `<button 
+                onclick="loadModelPayments(${modelId}, ${p})" 
+                style="padding: 4px 8px; background: transparent; border: none; color: #94a3b8; cursor: pointer; border-radius: 4px;"
+                onmouseover="this.style.background='rgba(148, 163, 184, 0.1)'"
+                onmouseout="this.style.background='transparent'"
+                aria-label="Page ${p}"
+            >${p}</button>`;
+        }
+    });
+    
+    html += `</span>`;
+    
+    // Next button
+    html += `<button 
+        class="button secondary button--compact" 
+        onclick="loadModelPayments(${modelId}, ${page + 1})"
+        ${has_next ? '' : 'disabled'}
+        style="${has_next ? '' : 'opacity: 0.5; cursor: not-allowed;'}"
+        aria-label="Next page"
+    >Next →</button>`;
+    
+    html += `</div>`;
+    
+    return html;
 }
 
 // Toggle all payments

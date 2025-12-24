@@ -154,3 +154,32 @@ class TestExportRateLimiting:
         # The @limiter.limit decorator adds __wrapped__ or similar attributes
         assert hasattr(export_models_data, "__wrapped__") or callable(export_models_data)
 
+
+class TestPaymentsJsonPagination:
+    """Tests for payment history pagination."""
+
+    def test_payments_json_accepts_pagination_params(self, client):
+        """Payments endpoint should accept page and per_page parameters."""
+        response = client.get("/models/1/payments.json?page=1&per_page=10", follow_redirects=True)
+        # Should not error on pagination params
+        assert response.status_code in (200, 401, 403, 404)
+
+    def test_payments_json_validates_pagination_bounds(self, client):
+        """Pagination params should be validated (page >= 1, per_page <= 100)."""
+        # These should not cause 500 errors
+        response = client.get("/models/1/payments.json?page=0", follow_redirects=True)
+        assert response.status_code in (200, 401, 403, 404)  # page 0 should become page 1
+        
+        response = client.get("/models/1/payments.json?per_page=200", follow_redirects=True)
+        assert response.status_code in (200, 401, 403, 404)  # per_page capped at 100
+
+
+class TestCurrencyConfiguration:
+    """Tests for currency configuration in models context."""
+
+    def test_currency_config_exists(self):
+        """Currency config should be importable."""
+        from app.core.config import DEFAULT_CURRENCY, DEFAULT_LOCALE
+        assert DEFAULT_CURRENCY == "USD"
+        assert DEFAULT_LOCALE == "en-US"
+

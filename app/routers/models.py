@@ -18,6 +18,7 @@ from app import crud
 from app.auth import User
 from app.database import get_session
 from app.dependencies import templates
+from app.core.config import DEFAULT_CURRENCY, DEFAULT_LOCALE
 from app.core.formatting import format_display_date
 from app.core.rate_limiter import limiter, EXPORT_LIMIT
 from app.models import COMMISSION_PAYOUT_FREQUENCY_ENUM, FREQUENCY_ENUM, STATUS_ENUM, Payout, ScheduleRun
@@ -191,6 +192,9 @@ def _build_model_list_context(
         "status_counts": status_counts,
         "pagination": pagination,
         "average_paid_active": average_paid_active,
+        # Currency configuration
+        "app_currency": DEFAULT_CURRENCY,
+        "app_locale": DEFAULT_LOCALE,
     }
     if extra:
         context.update(extra)
@@ -689,14 +693,34 @@ def export_models_csv(
 @router.get("/{model_id}/payments.json")
 def model_payments_json(
     model_id: int,
+    page: int = 1,
+    per_page: int = 20,
     db: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
+    """Get paginated payment history for a model.
+    
+    Args:
+        model_id: The model ID
+        page: Page number (1-indexed, default 1)
+        per_page: Items per page (default 20, max 100)
+    """
+    # Validate pagination params
+    page = max(1, page)
+    per_page = min(max(1, per_page), 100)
+    
     model = crud.get_model(db, model_id)
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
 
-    payouts = crud.list_payouts_for_model(db, model_id)
+    # Get total count first
+    all_payouts = crud.list_payouts_for_model(db, model_id)
+    total_count = len(all_payouts)
+    total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
+    
+    # Calculate offset and slice payouts for current page
+    offset = (page - 1) * per_page
+    payouts = all_payouts[offset:offset + per_page]
 
     run_ids = {payout.schedule_run_id for payout in payouts if payout.schedule_run_id}
     runs_map: dict[int, ScheduleRun] = {}
@@ -704,18 +728,21 @@ def model_payments_json(
         runs = db.execute(select(ScheduleRun).where(ScheduleRun.id.in_(run_ids))).scalars().all()
         runs_map = {run.id: run for run in runs}
 
+    # Calculate totals from ALL payouts (not just current page)
     total_paid = Decimal("0")
     latest_pay_date: date | None = None
-    payout_rows: list[dict[str, Any]] = []
-
-    for payout in payouts:
-        amount = Decimal(payout.amount or 0)
+    for payout in all_payouts:
         if payout.status == "paid":
-            total_paid += amount
-
+            total_paid += Decimal(payout.amount or 0)
         pay_date = payout.pay_date
         if pay_date and (latest_pay_date is None or pay_date > latest_pay_date):
             latest_pay_date = pay_date
+
+    # Build rows for current page
+    payout_rows: list[dict[str, Any]] = []
+    for payout in payouts:
+        amount = Decimal(payout.amount or 0)
+        pay_date = payout.pay_date
 
         run = runs_map.get(payout.schedule_run_id) if payout.schedule_run_id else None
         run_payload = None
@@ -743,11 +770,20 @@ def model_payments_json(
         )
 
     summary = {
-        "count": len(payout_rows),
+        "count": total_count,
         "total_paid": str(total_paid),
         "total_paid_value": float(total_paid),
         "latest_pay_date": latest_pay_date.isoformat() if latest_pay_date else None,
         "latest_pay_date_display": format_display_date(latest_pay_date) if latest_pay_date else None,
+    }
+    
+    pagination = {
+        "page": page,
+        "per_page": per_page,
+        "total_count": total_count,
+        "total_pages": total_pages,
+        "has_next": page < total_pages,
+        "has_prev": page > 1,
     }
 
     return JSONResponse(  # type: ignore[arg-type]
@@ -759,6 +795,7 @@ def model_payments_json(
             },
             "payouts": payout_rows,
             "summary": summary,
+            "pagination": pagination,
         }
     )
 
