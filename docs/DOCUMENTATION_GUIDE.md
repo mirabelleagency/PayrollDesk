@@ -436,6 +436,8 @@ Perform housekeeping per the [TODO.md Housekeeping](#todomd-housekeeping) sectio
 - [ ] Update "Backlog Status" counts
 - [ ] Verify "Last Updated" and "Last Housekeeping" dates
 
+> **Important:** Complete ALL documentation steps (1-5) before committing. A single commit keeps git history clean.
+
 ### Step 6: Verify and Commit
 
 ```bash
