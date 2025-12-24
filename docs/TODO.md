@@ -113,10 +113,10 @@
 
 ### High Priority
 
-| Task | Category | Effort |
-|------|----------|--------|
-| Improve test coverage for crud.py | Testing | Medium |
-| Implement connection retry logic | Database | Medium |
+| Task | Category | Effort | Status |
+|------|----------|--------|--------|
+| Improve test coverage for crud.py | Testing | Medium | ✅ 70% → 75% |
+| Implement connection retry logic | Database | Medium | ✅ Done v2.32.0 |
 
 ### Low Priority
 
@@ -146,4 +146,4 @@
 ---
 
 *Last Updated: 2024-12-25*
-*Current Version: v2.30.0*
+*Current Version: v2.32.0*
