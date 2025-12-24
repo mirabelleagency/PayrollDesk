@@ -117,8 +117,8 @@ Use tables with consistent columns:
 | Add card header accent colors | UI | Low | High | ✅ Done |
 | Replace Unpaid with Month Paid | UI | Low | High | ✅ Done |
 | Add skeleton loaders | UX | Medium | Medium | ✅ Done |
-| Add payment status donut chart | Viz | Medium | Medium | Pending |
-| Add number count-up animation | UX | Medium | Low | Pending |
+| Add payment status donut chart | Viz | Medium | Medium | ✅ Done |
+| Add number count-up animation | UX | Medium | Low | ✅ Done |
 | Add monthly trend sparklines | Viz | High | Low | Pending |
 
 > **Note:** Frontend performance work completed in v2.33.2 (see CHANGELOG.md)

@@ -938,6 +938,40 @@ def dashboard_summary(db: Session) -> dict[str, Decimal | int | date | None]:
     if active_models > 0 and monthly_burn > 0:
         avg_per_model = monthly_burn / active_models
 
+    # Get monthly trend data for sparkline (last 6 months)
+    monthly_trend = []
+    for months_back in range(5, -1, -1):  # 5,4,3,2,1,0 (oldest to newest)
+        trend_month = today.month - months_back
+        trend_year = today.year
+        while trend_month <= 0:
+            trend_month += 12
+            trend_year -= 1
+        
+        trend_run = (
+            db.execute(
+                select(ScheduleRun)
+                .where(
+                    ScheduleRun.target_year == trend_year,
+                    ScheduleRun.target_month == trend_month,
+                )
+                .order_by(ScheduleRun.created_at.desc())
+            )
+            .scalars()
+            .first()
+        )
+        
+        trend_total = Decimal("0")
+        if trend_run:
+            trend_total = trend_run.summary_total_payout or Decimal("0")
+        
+        import calendar
+        month_name = calendar.month_abbr[trend_month]
+        monthly_trend.append({
+            "month": month_name,
+            "year": trend_year,
+            "amount": float(trend_total),
+        })
+
     return {
         "total_models": int(total_models),
         "active_models": int(active_models),
@@ -959,6 +993,7 @@ def dashboard_summary(db: Session) -> dict[str, Decimal | int | date | None]:
         "avg_per_model": avg_per_model,
         "overdue_payments": overdue_payments_data,
         "on_hold_payments": on_hold_payments_data,
+        "monthly_trend": monthly_trend,
     }
 
 

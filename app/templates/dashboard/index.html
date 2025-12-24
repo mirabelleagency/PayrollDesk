@@ -250,13 +250,44 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="metric-label">Total Outstanding</div>
                 <div class="metric-number metric-number--warning">${{ summary.outstanding_total|money }}</div>
             </div>
-            <div class="metric-item">
-                <div class="metric-label">Pending</div>
-                <div class="metric-number">{{ summary.pending_count }}</div>
-            </div>
-            <div class="metric-item">
-                <div class="metric-label">On Hold</div>
-                <div class="metric-number metric-number--muted">{{ summary.on_hold_count }}</div>
+            <div class="metric-item" style="grid-column: span 2;">
+                <!-- Monthly Trend Sparkline -->
+                <div class="sparkline">
+                    <span class="sparkline__title">6-Month Trend</span>
+                    {% set trend_data = summary.monthly_trend %}
+                    {% set max_amount = namespace(val=1) %}
+                    {% for t in trend_data %}
+                        {% if t.amount > max_amount.val %}
+                            {% set max_amount.val = t.amount %}
+                        {% endif %}
+                    {% endfor %}
+                    <svg class="sparkline__svg" viewBox="0 0 200 50" preserveAspectRatio="none">
+                        <defs>
+                            <linearGradient id="sparklineGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" style="stop-color:#60a5fa;stop-opacity:0.4"/>
+                                <stop offset="100%" style="stop-color:#60a5fa;stop-opacity:0"/>
+                            </linearGradient>
+                        </defs>
+                        {% set points = [] %}
+                        {% for t in trend_data %}
+                            {% set x = loop.index0 * 40 %}
+                            {% set y = 45 - (t.amount / max_amount.val * 40) if max_amount.val > 0 else 45 %}
+                            {% set _ = points.append(x|string ~ ',' ~ y|string) %}
+                        {% endfor %}
+                        <polyline class="sparkline__area" points="{{ points|join(' ') }} 200,50 0,50" />
+                        <polyline class="sparkline__line" points="{{ points|join(' ') }}" />
+                        {% for t in trend_data %}
+                            {% set x = loop.index0 * 40 %}
+                            {% set y = 45 - (t.amount / max_amount.val * 40) if max_amount.val > 0 else 45 %}
+                            <circle class="sparkline__dot{% if loop.last %} sparkline__dot--current{% endif %}" cx="{{ x }}" cy="{{ y }}" r="{{ '4' if loop.last else '2' }}"/>
+                        {% endfor %}
+                    </svg>
+                    <div class="sparkline__labels">
+                        {% for t in trend_data %}
+                        <span>{{ t.month }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
         </div>
     </div>
