@@ -116,7 +116,7 @@ Use tables with consistent columns:
 ## Session Summary
 
 **Branch:** `feature/payrolldesk-v2`  
-**Current Version:** v2.35.0  
+**Current Version:** v2.36.0  
 **Test Count:** 194 tests  
 **Coverage:** 86% on crud.py
 
@@ -131,6 +131,7 @@ Use tables with consistent columns:
 - ✅ Frontend perf: CSS minification, preload, cache headers (v2.33.2)
 - ✅ Sidebar: redesign with custom SVG icons (v2.34.0)
 - ✅ Dashboard: icons, donut chart, sparklines, count-up animation (v2.35.0)
+- ✅ Dashboard: cleanup, status badges, summary card icons (v2.36.0)
 
 ### Backlog Status
 | Priority | Status |

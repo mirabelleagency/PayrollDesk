@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.36.0 - 2025-12-24
+
+### Added
+- feat(dashboard): Pending/On Hold status badges in Financial Overview
+  - Compact pill-styled badges below sparkline chart
+  - Yellow highlight when on-hold count > 0
+- feat(dashboard): SVG icons for summary card headers
+  - Recent Activity: pulse/activity icon
+  - Top Earners: users icon
+  - Ad Hoc Payments: document icon
+
+### Changed
+- refactor(dashboard): extract ~170 lines of inline CSS to stylesheet
+  - Add `dashboard-page` wrapper class for scoped styles
+  - Better cacheability with external stylesheet
+  - Add `hero-kpi-value--warning` color variant
+
+### Notes
+- All 194 tests passing
+- Dashboard cleanup: moved mobile responsive styles to styles.css
+
 ## v2.35.0 - 2025-12-24
 
 ### Added
