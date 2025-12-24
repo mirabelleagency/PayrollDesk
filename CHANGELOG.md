@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.30.0 - 2024-12-25
+
+### Added
+- feat(crud): add CommissionPayout CRUD operations in `app/crud.py`
+  - `get_commission_payout()` - retrieve by ID
+  - `list_commission_payouts()` - list with filters (status, date range, model IDs)
+  - `count_commission_payouts()` - count with filters
+  - `sum_commission_payouts()` - sum amounts with filters
+  - `create_commission_payout()` - create new payout
+  - `get_or_create_commission_payout()` - idempotent create
+  - `update_commission_payout_status()` - update paid/unpaid status
+  - `bulk_update_commission_payout_status()` - bulk status updates
+  - `delete_commission_payout()` - delete single payout
+  - `delete_commission_payouts_by_model()` - delete all payouts for a model
+- test: add 15 tests for CommissionPayout CRUD operations
+
+### Changed
+- refactor(commissions): use CRUD functions instead of direct queries in router
+- fix(conftest): import models before Base to ensure all tables are registered
+
+### Notes
+- CommissionPayout model existed but had no dedicated CRUD layer
+- Now follows the same patterns as Model, Payout, and AdhocPayment CRUD
+
 ## v2.29.0 - 2024-12-24
 
 ### Changed

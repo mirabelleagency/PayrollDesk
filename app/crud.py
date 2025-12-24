@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.payroll import ModelRecord, ValidationMessage
 from app.models import (
     AdhocPayment,
+    CommissionPayout,
     Model,
     ModelCompensationAdjustment,
     ModelReferralTerm,
@@ -1531,3 +1532,245 @@ def reset_application_data(db: Session) -> dict[str, int]:
         raise
 
     return deleted
+
+
+# ---------------------------------------------------------------------------
+# CommissionPayout CRUD Operations
+# ---------------------------------------------------------------------------
+
+
+def _commission_payout_filters(
+    referrer_model_id: int | None = None,
+    referral_model_id: int | None = None,
+    status: str | None = None,
+    schedule_type: str | None = None,
+    pay_date_from: date | None = None,
+    pay_date_to: date | None = None,
+) -> list:
+    """Build filter list for commission payout queries."""
+    filters: list = []
+    if referrer_model_id is not None:
+        filters.append(CommissionPayout.referrer_model_id == referrer_model_id)
+    if referral_model_id is not None:
+        filters.append(CommissionPayout.referral_model_id == referral_model_id)
+    if status:
+        filters.append(CommissionPayout.status == status)
+    if schedule_type:
+        filters.append(CommissionPayout.schedule_type == schedule_type)
+    if pay_date_from:
+        filters.append(CommissionPayout.pay_date >= pay_date_from)
+    if pay_date_to:
+        filters.append(CommissionPayout.pay_date <= pay_date_to)
+    return filters
+
+
+def get_commission_payout(db: Session, payout_id: int) -> CommissionPayout | None:
+    """Get a commission payout by ID."""
+    return db.get(CommissionPayout, payout_id)
+
+
+def list_commission_payouts(
+    db: Session,
+    referrer_model_id: int | None = None,
+    referral_model_id: int | None = None,
+    status: str | None = None,
+    schedule_type: str | None = None,
+    pay_date_from: date | None = None,
+    pay_date_to: date | None = None,
+    *,
+    limit: int | None = None,
+    offset: int = 0,
+) -> Sequence[CommissionPayout]:
+    """List commission payouts with optional filtering."""
+    stmt = select(CommissionPayout)
+    filters = _commission_payout_filters(
+        referrer_model_id=referrer_model_id,
+        referral_model_id=referral_model_id,
+        status=status,
+        schedule_type=schedule_type,
+        pay_date_from=pay_date_from,
+        pay_date_to=pay_date_to,
+    )
+    if filters:
+        stmt = stmt.where(*filters)
+    stmt = stmt.order_by(CommissionPayout.pay_date.desc(), CommissionPayout.id.desc())
+    if offset:
+        stmt = stmt.offset(offset)
+    if limit is not None:
+        stmt = stmt.limit(limit)
+    return db.execute(stmt).scalars().all()
+
+
+def count_commission_payouts(
+    db: Session,
+    referrer_model_id: int | None = None,
+    referral_model_id: int | None = None,
+    status: str | None = None,
+    schedule_type: str | None = None,
+    pay_date_from: date | None = None,
+    pay_date_to: date | None = None,
+) -> int:
+    """Count commission payouts with optional filtering."""
+    stmt = select(func.count()).select_from(CommissionPayout)
+    filters = _commission_payout_filters(
+        referrer_model_id=referrer_model_id,
+        referral_model_id=referral_model_id,
+        status=status,
+        schedule_type=schedule_type,
+        pay_date_from=pay_date_from,
+        pay_date_to=pay_date_to,
+    )
+    if filters:
+        stmt = stmt.where(*filters)
+    return int(db.execute(stmt).scalar_one())
+
+
+def sum_commission_payouts(
+    db: Session,
+    referrer_model_id: int | None = None,
+    referral_model_id: int | None = None,
+    status: str | None = None,
+    schedule_type: str | None = None,
+    pay_date_from: date | None = None,
+    pay_date_to: date | None = None,
+) -> Decimal:
+    """Sum commission payout amounts with optional filtering."""
+    stmt = select(func.coalesce(func.sum(CommissionPayout.amount), 0)).select_from(CommissionPayout)
+    filters = _commission_payout_filters(
+        referrer_model_id=referrer_model_id,
+        referral_model_id=referral_model_id,
+        status=status,
+        schedule_type=schedule_type,
+        pay_date_from=pay_date_from,
+        pay_date_to=pay_date_to,
+    )
+    if filters:
+        stmt = stmt.where(*filters)
+    result = db.execute(stmt).scalar_one()
+    return Decimal(result or 0)
+
+
+@dataclass
+class CommissionPayoutCreate:
+    """Payload for creating a commission payout."""
+    referrer_model_id: int
+    referral_model_id: int
+    pay_date: date
+    schedule_type: str  # 'monthly' or 'mid-month'
+    amount: Decimal
+    status: str = "unpaid"
+
+
+def create_commission_payout(db: Session, payload: CommissionPayoutCreate) -> CommissionPayout:
+    """Create a new commission payout record."""
+    payout = CommissionPayout(
+        referrer_model_id=payload.referrer_model_id,
+        referral_model_id=payload.referral_model_id,
+        pay_date=payload.pay_date,
+        schedule_type=payload.schedule_type,
+        amount=payload.amount,
+        status=payload.status,
+    )
+    db.add(payout)
+    db.commit()
+    db.refresh(payout)
+    return payout
+
+
+def get_or_create_commission_payout(
+    db: Session,
+    referrer_model_id: int,
+    referral_model_id: int,
+    pay_date: date,
+    schedule_type: str,
+    amount: Decimal,
+) -> tuple[CommissionPayout, bool]:
+    """
+    Get existing or create new commission payout.
+    
+    Returns tuple of (payout, created) where created is True if new record.
+    Uses the unique constraint on (referrer, referral, pay_date, schedule_type).
+    """
+    stmt = select(CommissionPayout).where(
+        CommissionPayout.referrer_model_id == referrer_model_id,
+        CommissionPayout.referral_model_id == referral_model_id,
+        CommissionPayout.pay_date == pay_date,
+        CommissionPayout.schedule_type == schedule_type,
+    )
+    existing = db.execute(stmt).scalars().first()
+    if existing:
+        return existing, False
+    
+    payout = CommissionPayout(
+        referrer_model_id=referrer_model_id,
+        referral_model_id=referral_model_id,
+        pay_date=pay_date,
+        schedule_type=schedule_type,
+        amount=amount,
+        status="unpaid",
+    )
+    db.add(payout)
+    db.flush()
+    return payout, True
+
+
+def update_commission_payout_status(
+    db: Session,
+    payout: CommissionPayout,
+    status: str,
+) -> CommissionPayout:
+    """Update a commission payout's status."""
+    if status not in ("paid", "unpaid"):
+        raise ValueError(f"Invalid status: {status}. Must be 'paid' or 'unpaid'.")
+    payout.status = status
+    payout.updated_at = datetime.now()
+    db.add(payout)
+    db.commit()
+    db.refresh(payout)
+    return payout
+
+
+def bulk_update_commission_payout_status(
+    db: Session,
+    payout_ids: Sequence[int],
+    status: str,
+) -> int:
+    """
+    Bulk update status for multiple commission payouts.
+    
+    Returns the number of records updated.
+    """
+    if status not in ("paid", "unpaid"):
+        raise ValueError(f"Invalid status: {status}. Must be 'paid' or 'unpaid'.")
+    if not payout_ids:
+        return 0
+    
+    from sqlalchemy import update
+    stmt = (
+        update(CommissionPayout)
+        .where(CommissionPayout.id.in_(payout_ids))
+        .values(status=status, updated_at=datetime.now())
+    )
+    result = db.execute(stmt)
+    db.commit()
+    return result.rowcount
+
+
+def delete_commission_payout(db: Session, payout: CommissionPayout) -> None:
+    """Delete a commission payout record."""
+    db.delete(payout)
+    db.commit()
+
+
+def delete_commission_payouts_by_model(db: Session, model_id: int) -> int:
+    """
+    Delete all commission payouts for a model (as referrer or referral).
+    
+    Returns the number of records deleted.
+    """
+    deleted = db.query(CommissionPayout).filter(
+        (CommissionPayout.referrer_model_id == model_id) |
+        (CommissionPayout.referral_model_id == model_id)
+    ).delete(synchronize_session=False)
+    db.commit()
+    return int(deleted or 0)

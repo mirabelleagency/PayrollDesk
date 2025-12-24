@@ -11,9 +11,13 @@ from sqlalchemy.orm import Session
 
 from app.auth import User
 from app.commission import ReferralScheduleEntry, generate_referral_schedule
+from app.crud import (
+    delete_commission_payout as crud_delete_commission_payout,
+    get_commission_payout,
+    update_commission_payout_status,
+)
 from app.database import get_session
 from app.dependencies import templates
-from app.models import CommissionPayout
 from app.routers.auth import get_admin_user, get_current_user
 
 router = APIRouter(prefix="/commissions", tags=["Commissions"])
@@ -116,18 +120,14 @@ def update_commission_status(
     user: User = Depends(get_admin_user),
 ):
     """Update commission payout status (paid/unpaid)."""
-    commission = db.query(CommissionPayout).filter(CommissionPayout.id == commission_id).first()
+    commission = get_commission_payout(db, commission_id)
     if not commission:
         raise HTTPException(status_code=404, detail="Commission payout not found")
 
-    if action == "paid":
-        commission.status = "paid"
-    elif action == "unpaid":
-        commission.status = "unpaid"
-    else:
+    if action not in ("paid", "unpaid"):
         raise HTTPException(status_code=400, detail="Invalid action")
 
-    db.commit()
+    update_commission_payout_status(db, commission, action)
     return JSONResponse(content={"status": "success", "new_status": commission.status})
 
 
@@ -138,11 +138,10 @@ def delete_commission_payout(
     user: User = Depends(get_admin_user),
 ):
     """Delete a commission payout record."""
-    commission = db.query(CommissionPayout).filter(CommissionPayout.id == commission_id).first()
+    commission = get_commission_payout(db, commission_id)
     if not commission:
         raise HTTPException(status_code=404, detail="Commission payout not found")
 
-    db.delete(commission)
-    db.commit()
+    crud_delete_commission_payout(db, commission)
     return RedirectResponse(url="/commissions", status_code=303)
 

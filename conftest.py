@@ -14,6 +14,9 @@ os.environ["PAYROLL_DATABASE_URL"] = f"sqlite:///{_DB_FILE}"
 def setup_test_database():
     """Initialize a fresh temporary SQLite database for tests and clean it up after."""
     # Import after setting env var so the app uses the temp DB
+    # Import models and auth FIRST to register all tables with Base.metadata
+    from app import models  # noqa: F401 - registers domain models
+    from app.auth import User  # noqa: F401 - registers users table
     from app.database import Base, engine, init_db
 
     # Enable SQLite foreign keys
