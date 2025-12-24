@@ -120,40 +120,67 @@ def _create_engine(url: str):
 
 
 def _initialize_engine():
-    """Initialize the database engine with fallback support.
+    """Initialize the database engine with retry and fallback support.
     
+    Retries connection with exponential backoff before falling back.
     In development, falls back to SQLite if PostgreSQL is unavailable.
     In production, fails loudly if the database is unreachable.
+    
+    Environment Variables:
+        DB_CONNECT_RETRIES: Number of retry attempts (default: 3)
+        DB_RETRY_DELAY: Initial delay between retries in seconds (default: 1.0)
     """
     global DATABASE_URL
     
     masked_url = 'sqlite:///*' if DATABASE_URL.startswith('sqlite') else _mask_db_url(DATABASE_URL)
     env = os.getenv("ENVIRONMENT", "production").lower()
     logger.info("ENVIRONMENT=%s | DATABASE_URL=%s", env, masked_url)
-
-    try:
-        engine = _create_engine(DATABASE_URL)
-        _enable_sqlite_foreign_keys(engine)
-        _enable_query_logging(engine)
-        # Smoke-test connection
-        with engine.connect():
-            pass
-        return engine
-    except Exception as e:
-        is_dev = env in ("development", "dev", "local")
-        allow_fallback = os.getenv("LOCAL_DEV_SQLITE_FALLBACK", str(is_dev)).lower() in ("1", "true", "yes")
-        
-        logger.warning("Could not connect to database: %s", e)
-        
-        if is_dev and allow_fallback:
-            DATABASE_URL = f"sqlite:///{DEFAULT_SQLITE_PATH}"
-            logger.info("Falling back to SQLite (dev-only): %s", DATABASE_URL)
+    
+    # Retry configuration
+    max_retries = int(os.getenv("DB_CONNECT_RETRIES", "3"))
+    base_delay = float(os.getenv("DB_RETRY_DELAY", "1.0"))
+    
+    last_error: Exception | None = None
+    
+    for attempt in range(1, max_retries + 1):
+        try:
             engine = _create_engine(DATABASE_URL)
             _enable_sqlite_foreign_keys(engine)
+            _enable_query_logging(engine)
+            # Smoke-test connection
+            with engine.connect():
+                pass
+            if attempt > 1:
+                logger.info("Database connection succeeded on attempt %d", attempt)
             return engine
-        else:
-            logger.error("Database connection failed; aborting startup")
-            raise
+        except Exception as e:
+            last_error = e
+            if attempt < max_retries:
+                delay = base_delay * (2 ** (attempt - 1))  # Exponential backoff
+                logger.warning(
+                    "Database connection attempt %d/%d failed: %s. Retrying in %.1fs...",
+                    attempt, max_retries, e, delay
+                )
+                time.sleep(delay)
+            else:
+                logger.warning(
+                    "Database connection attempt %d/%d failed: %s",
+                    attempt, max_retries, e
+                )
+    
+    # All retries exhausted - try fallback
+    is_dev = env in ("development", "dev", "local")
+    allow_fallback = os.getenv("LOCAL_DEV_SQLITE_FALLBACK", str(is_dev)).lower() in ("1", "true", "yes")
+    
+    if is_dev and allow_fallback:
+        DATABASE_URL = f"sqlite:///{DEFAULT_SQLITE_PATH}"
+        logger.info("Falling back to SQLite (dev-only): %s", DATABASE_URL)
+        engine = _create_engine(DATABASE_URL)
+        _enable_sqlite_foreign_keys(engine)
+        return engine
+    else:
+        logger.error("Database connection failed after %d attempts; aborting startup", max_retries)
+        raise last_error or RuntimeError("Database connection failed")
 
 
 # Initialize engine and session factory

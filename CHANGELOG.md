@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.32.0 - 2024-12-25
+
+### Added
+- feat(database): add connection retry logic with exponential backoff
+  - Configurable via `DB_CONNECT_RETRIES` (default: 3) and `DB_RETRY_DELAY` (default: 1.0s)
+  - Exponential backoff: 1s → 2s → 4s between retries
+  - Logs retry attempts at WARNING level
+- test: add 6 tests for connection retry logic
+
+### Notes
+- Improves resilience during transient database outages
+- Falls back to SQLite in development mode only after all retries exhausted
+- Production mode fails loudly after retry exhaustion
+
 ## v2.31.0 - 2024-12-25
 
 ### Added
