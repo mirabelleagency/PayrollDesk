@@ -16,16 +16,17 @@
 8. [Commit Message Format](#commit-message-format)
 9. [Branch Naming Conventions](#branch-naming-conventions)
 10. [Release Checklist](#release-checklist)
-11. [Database & Migration Docs](#database--migration-docs)
-12. [Environment Configuration](#environment-configuration)
-13. [Code Documentation Standards](#code-documentation-standards)
-14. [API Documentation](#api-documentation)
-15. [Error Codes & Messages](#error-codes--messages)
-16. [Security Documentation](#security-documentation)
-17. [TODO.md Management](#todomd-management)
-18. [Testing Documentation](#testing-documentation)
-19. [Deprecation Process](#deprecation-process)
-20. [Troubleshooting Documentation](#troubleshooting-documentation)
+11. [Execute Documentation Guide](#execute-documentation-guide)
+12. [Database & Migration Docs](#database--migration-docs)
+13. [Environment Configuration](#environment-configuration)
+14. [Code Documentation Standards](#code-documentation-standards)
+15. [API Documentation](#api-documentation)
+16. [Error Codes & Messages](#error-codes--messages)
+17. [Security Documentation](#security-documentation)
+18. [TODO.md Management](#todomd-management)
+19. [Testing Documentation](#testing-documentation)
+20. [Deprecation Process](#deprecation-process)
+21. [Troubleshooting Documentation](#troubleshooting-documentation)
 
 ---
 
@@ -371,6 +372,94 @@ git tag -a v1.5.0 -m "Release v1.5.0"
 
 # 3. Push tag
 git push origin v1.5.0
+```
+
+---
+
+## Execute Documentation Guide
+
+When asked to "execute documentation guide", perform this comprehensive documentation update workflow:
+
+### Step 1: Version Verification
+
+```bash
+# Check current app version
+python -c "from app import __version__; print(__version__)"
+
+# Check CHANGELOG has matching version
+head -10 CHANGELOG.md
+
+# Check TECHNICAL_SPEC version matches
+head -10 docs/TECHNICAL_SPEC.md
+```
+
+### Step 2: Review Recent Changes
+
+```bash
+# List recent commits since last documented version
+git log --oneline -15
+
+# Check for uncommitted changes
+git status
+```
+
+### Step 3: Determine Version Bump Need
+
+Use the [Decision Matrix](#what-to-update) to determine if changes warrant a version bump:
+
+| If Changes Include | Version Action |
+|-------------------|----------------|
+| New feature (UI, API, etc.) | Bump MINOR (x.Y.z → x.Y+1.0) |
+| Bug fixes only | Bump PATCH (x.y.Z → x.y.Z+1) |
+| Breaking changes | Bump MAJOR (X.y.z → X+1.0.0) |
+| Documentation only | No version change |
+
+### Step 4: Update Documentation Files
+
+If version bump needed:
+
+1. **app/__init__.py** - Update `__version__`
+2. **CHANGELOG.md** - Add new version section with changes
+3. **docs/TECHNICAL_SPEC.md** - Update version at top
+4. **docs/TODO.md** - Update version in Session Summary
+
+### Step 5: TODO.md Housekeeping
+
+Perform housekeeping per the [TODO.md Housekeeping](#todomd-housekeeping) section:
+
+- [ ] Archive completed tasks older than 2 weeks
+- [ ] Move detailed task info to CHANGELOG reference
+- [ ] Fix any date typos (common: wrong year)
+- [ ] Update "Completed This Session" with current work
+- [ ] Remove completed tasks from backlog tables
+- [ ] Update "Backlog Status" counts
+- [ ] Verify "Last Updated" and "Last Housekeeping" dates
+
+### Step 6: Verify and Commit
+
+```bash
+# Run tests to verify nothing broke
+python -m pytest tests/ -q
+
+# Stage and review changes
+git add -A
+git status
+git diff --cached --stat
+
+# Commit with appropriate message
+git commit -m "chore(release): vX.Y.Z - brief description"
+```
+
+### Complete Checklist
+
+```markdown
+□ Version verified in app/__init__.py
+□ CHANGELOG.md has entry for new version
+□ TECHNICAL_SPEC.md version updated
+□ TODO.md version updated
+□ TODO.md housekeeping performed
+□ All tests passing
+□ Changes committed
 ```
 
 ---
