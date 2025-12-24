@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.39.0 - 2025-12-24
+
+### Added
+- feat(models/form): form route integration tests
+  - 6 new tests in `TestModelFormRoutes` class
+  - Auth requirement tests for new/edit routes
+  - 404 handling for non-existent model edit
+  - Context verification for referrable_models
+  - Loading state attribute tests
+  - `auth_client` fixture with MagicMock dependency override
+- feat(models/form): loading state on form submit
+  - `.button--loading` class with spinner animation
+  - JavaScript form handler disables button on submit
+  - Visual feedback prevents double-submission
+
+### Changed
+- refactor(models/form): extract inline CSS to stylesheet
+  - ~47 inline styles moved to BEM classes
+  - `.commission-card`, `.commission-card__*` components
+  - `.referrer-picker`, `.referrer-picker__*` components
+  - `.referrer-chip` with nested content classes
+  - `.referral-terms-panel`, `.referral-term-card__*`
+  - Form hint utility classes (--no-margin, --max-width, etc.)
+- refactor(models/form): improve accessibility
+  - Add `aria-describedby` linking hints to form inputs
+  - Crypto wallet and referrer search fields now linked to hints
+
+### Fixed
+- No fixes in this release
+
+### Tests
+- Test count: 218 (was 212)
+- All tests passing
+
+---
+
 ## v2.38.0 - 2025-12-24
 
 ### Added
