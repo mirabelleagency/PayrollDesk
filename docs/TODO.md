@@ -110,6 +110,18 @@ Use tables with consistent columns:
 
 > **Completed:** 6/8 UI/UX tasks done (see v2.33.0 changelog)
 
+### Sidebar Enhancements (from Assessment)
+
+| Task | Category | Effort | Priority | Status |
+|------|----------|--------|----------|--------|
+| Add `:focus-visible` to `.nav-link` | A11y | Low | Medium | ✅ Done |
+| Add `prefers-reduced-motion` query | A11y | Low | Medium | ✅ Already present |
+| Semantic `<h3>` for section labels | A11y | Low | Low | ✅ Done |
+| Collapsed state text opacity transition | UX | Low | Low | ✅ Done |
+| Review mobile breakpoint redundancy | CSS | Low | Low | ✅ Consolidated |
+
+> **All sidebar accessibility enhancements completed (2025-12-24)**
+
 ---
 
 ## Session Summary
