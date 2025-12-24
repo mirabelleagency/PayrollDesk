@@ -6,6 +6,7 @@ import calendar
 import csv
 import io
 import json
+import time
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Sequence, cast, Any
@@ -28,6 +29,36 @@ from app.routers.auth import get_current_user, get_admin_user
 from app.services import PayrollService
 
 router = APIRouter(prefix="/schedules", tags=["Schedules"])
+
+DEFAULT_EXPORT_DIR = Path("exports")
+
+# Simple in-memory cache for dashboard data
+# Key: (month, year) -> (timestamp, data)
+_dashboard_cache: dict[tuple[str | None, int | None], tuple[float, dict[str, Any]]] = {}
+_CACHE_TTL_SECONDS = 300  # 5 minutes
+
+
+def _invalidate_dashboard_cache() -> None:
+    """Clear the dashboard cache. Call after schedule/payout modifications."""
+    _dashboard_cache.clear()
+
+
+def _get_cached_dashboard(month: str | None, year: int | None) -> dict[str, Any] | None:
+    """Get cached dashboard data if still valid."""
+    cache_key = (month, year)
+    if cache_key in _dashboard_cache:
+        cached_time, cached_data = _dashboard_cache[cache_key]
+        if time.time() - cached_time < _CACHE_TTL_SECONDS:
+            return cached_data
+        # Expired - remove it
+        del _dashboard_cache[cache_key]
+    return None
+
+
+def _set_cached_dashboard(month: str | None, year: int | None, data: dict[str, Any]) -> None:
+    """Store dashboard data in cache."""
+    cache_key = (month, year)
+    _dashboard_cache[cache_key] = (time.time(), data)
 
 DEFAULT_EXPORT_DIR = Path("exports")
 
@@ -285,7 +316,15 @@ def _format_frequency_summary(frequency_counts: object | None) -> str:
 
 
 def _gather_dashboard_data(db: Session, month: str | None, year: int | None = None) -> dict[str, object]:
-    """Collect the datasets needed to render or export the schedules dashboard."""
+    """Collect the datasets needed to render or export the schedules dashboard.
+    
+    Uses in-memory caching with 5-minute TTL to reduce database load.
+    Cache is invalidated on schedule/payout modifications.
+    """
+    # Check cache first
+    cached = _get_cached_dashboard(month, year)
+    if cached is not None:
+        return cached
 
     today = date.today()
     display_year = year if year else today.year
@@ -568,7 +607,7 @@ def _gather_dashboard_data(db: Session, month: str | None, year: int | None = No
         "currency": table_currency,
     }
 
-    return {
+    result = {
         "today": today,
         "current_year": current_year,
         "current_month_label": format_display_date(today),
@@ -596,6 +635,11 @@ def _gather_dashboard_data(db: Session, month: str | None, year: int | None = No
         "month_candidate": month_candidate,
         "normalized_month": normalized_month,
     }
+    
+    # Cache the result for subsequent requests
+    _set_cached_dashboard(month, year, result)
+    
+    return result
 
 
 @router.get("/")
@@ -1931,6 +1975,8 @@ def run_schedule(
         output_dir=export_path,
     )
 
+    _invalidate_dashboard_cache()  # Clear cache after creating new schedule
+    
     return RedirectResponse(url=f"/schedules/{run_id}", status_code=303)
 
 
@@ -2075,6 +2121,7 @@ def delete_schedule_run(run_id: int, db: Session = Depends(get_session), user: U
         raise HTTPException(status_code=404, detail="Schedule run not found")
 
     crud.delete_schedule_run(db, run)
+    _invalidate_dashboard_cache()  # Clear cache after deletion
     return RedirectResponse(url="/schedules", status_code=303)
 
 
@@ -2103,6 +2150,8 @@ def add_new_models_to_schedule(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to add new models: {str(e)}")
 
+    _invalidate_dashboard_cache()  # Clear cache after adding models
+    
     # Redirect back to schedule view with a success message via query param
     added_count = result.get("added_count", 0)
     return RedirectResponse(
@@ -2276,6 +2325,7 @@ def update_payout_record(
 
     trimmed = notes.strip()
     crud.update_payout(db, payout, trimmed if trimmed else None, status_value)
+    _invalidate_dashboard_cache()  # Clear cache after payout update
 
     wants_json = request.headers.get("x-requested-with", "").lower() == "fetch"
     if wants_json:
@@ -2338,6 +2388,8 @@ def bulk_update_payouts(
             # Preserve existing notes, only update status
             crud.update_payout(db, payout, payout.notes, status_value)
     
+    _invalidate_dashboard_cache()  # Clear cache after bulk update
+    
     target_url = redirect_to or f"/schedules/{run_id}"
     if not target_url.startswith("/schedules/"):
         target_url = f"/schedules/{run_id}"
@@ -2366,6 +2418,7 @@ def api_update_payout_status(
 
     # Preserve existing notes, only update status
     crud.update_payout(db, payout, payout.notes, status_value)
+    _invalidate_dashboard_cache()  # Clear cache after status update
 
     # Compute overdue flag server-side to reduce client logic differences
     today = date.today()
@@ -2418,6 +2471,9 @@ def api_bulk_update_payouts(
             updated.append(pid)
             overdue_flags[pid] = bool(payout.pay_date and payout.pay_date < today and status_value in ("not_paid", "on_hold"))
 
+    if updated:
+        _invalidate_dashboard_cache()  # Clear cache after bulk status update
+    
     return JSONResponse({
         "ok": True,
         "updated_ids": updated,

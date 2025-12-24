@@ -83,10 +83,10 @@ Use tables with consistent columns:
 
 ### High Priority
 
-| Task | Category | Effort | Notes |
-|------|----------|--------|-------|
-| Fix N+1 in cleanup_empty_runs | Performance | Low | Batch query instead of loop |
-| Add dashboard caching | Performance | Medium | 5-min TTL for summary data |
+| Task | Category | Effort | Status |
+|------|----------|--------|--------|
+| Fix N+1 in cleanup_empty_runs | Performance | Low | ✅ Done |
+| Add dashboard caching | Performance | Medium | ✅ Done |
 
 ### Medium Priority
 

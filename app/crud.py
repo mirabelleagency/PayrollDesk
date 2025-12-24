@@ -8,7 +8,7 @@ from typing import Iterable, Sequence, Dict
 
 import json
 
-from sqlalchemy import case, distinct, func, select
+from sqlalchemy import case, delete, distinct, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.payroll import ModelRecord, ValidationMessage
@@ -1259,20 +1259,34 @@ def log_admin_action(db: Session, user_id: int | None, action: str, details: dic
 
 
 def cleanup_empty_runs(db: Session) -> dict[str, int | list[int]]:
-    """Delete schedule runs that have zero payouts. Returns count and ids."""
-    runs = db.execute(select(ScheduleRun.id)).scalars().all()
-    deleted_ids: list[int] = []
-    for run_id in runs:
-        count = db.execute(
-            select(func.count()).where(Payout.schedule_run_id == run_id)
-        ).scalar_one() or 0
-        if count == 0:
-            run = get_schedule_run(db, run_id)
-            if run:
-                db.delete(run)
-                deleted_ids.append(run_id)
+    """Delete schedule runs that have zero payouts. Returns count and ids.
+    
+    Uses a single subquery to find empty runs instead of N+1 queries.
+    """
+    # Subquery: get run IDs that have at least one payout
+    runs_with_payouts = (
+        select(Payout.schedule_run_id)
+        .where(Payout.schedule_run_id.isnot(None))
+        .distinct()
+        .scalar_subquery()
+    )
+    
+    # Find runs NOT in the subquery (i.e., runs with zero payouts)
+    empty_runs_stmt = (
+        select(ScheduleRun)
+        .where(ScheduleRun.id.notin_(runs_with_payouts))
+    )
+    empty_runs = db.execute(empty_runs_stmt).scalars().all()
+    
+    deleted_ids = [run.id for run in empty_runs]
+    
     if deleted_ids:
+        # Bulk delete using the IDs
+        db.execute(
+            delete(ScheduleRun).where(ScheduleRun.id.in_(deleted_ids))
+        )
         db.commit()
+    
     return {"deleted_runs": len(deleted_ids), "run_ids": deleted_ids}
 
 
