@@ -64,6 +64,18 @@ Use tables with consistent columns:
 
 ## Completed This Session
 
+### ✅ Models Page Architecture 10/10 (2025-12-24, post-v2.37.0)
+
+| Task | Category | Details |
+|------|----------|---------|
+| Rate limiting | Security | slowapi 5/minute on `/models/export` |
+| Route tests | Testing | 15 integration tests (test_models_routes.py) |
+| Error boundaries | UX | try-catch + showToast() notifications |
+| Export modal CSS | Refactor | ~100 lines extracted to styles.css |
+| Loading skeleton | UX | Shimmer animation for payment fetch |
+| Focus trap | A11y | Modal keyboard navigation utility |
+| Skip link | A11y | Already existed (verified) |
+
 ### ✅ Models Page Accessibility (2025-12-24, v2.37.0)
 
 | Task | Category | Details |
@@ -99,9 +111,7 @@ Use tables with consistent columns:
 
 ### Medium Priority
 
-| Task | Category | Effort | Notes |
-|------|----------|--------|-------|
-| Add rate limiting to export endpoint | Security | Low | Use slowapi limiter on `/models/export` POST |
+*All completed ✅*
 
 ### Low Priority (Future Enhancements)
 
@@ -110,14 +120,10 @@ Use tables with consistent columns:
 | Background tasks for exports | Performance | Medium | FastAPI BackgroundTasks |
 | Add full-text search | CRUD | High | Requires PostgreSQL tsvector |
 | Add API versioning | API | Medium | Only if external API consumers |
-| Add loading skeleton to payment history | UX | Low | Show skeleton while fetching `/payments.json` |
-| Extract export modal inline CSS | UI | Low | ~100 lines remaining in modal |
-| Add JS error boundary for toggleModelPayments | UX | Low | Try-catch wrapper, user-friendly error |
 | Paginate payments in expanded row | Performance | Medium | Virtual scroll for models with 100+ payouts |
 | Extract currency constant in JS | Code Quality | Low | Remove hardcoded 'USD' in formatter |
-| Add Models route integration tests | Testing | Medium | Cover export/import/edit flows |
 
-> **Removed:** "Consider async SQLAlchemy" and "Implement Redis caching" - over-engineering for current scale
+> **Removed:** Rate limiting, route tests, error boundary, skeleton loader, export modal CSS - completed this session
 
 ### UI/UX Improvements
 
@@ -137,13 +143,14 @@ Use tables with consistent columns:
 
 **Branch:** `feature/payrolldesk-v2`  
 **Current Version:** v2.37.0  
-**Test Count:** 194 tests  
+**Test Count:** 209 tests  
 **Coverage:** 86% on crud.py
 
 ### Session Achievements
 
 | Version | Category | Summary |
 |---------|----------|---------|
+| post-v2.37.0 | Models | Rate limiting, 15 route tests, error boundaries, focus trap |
 | v2.37.0 | Models | CSS extraction, keyboard nav, modal accessibility |
 | v2.36.0 | Dashboard | Status badges, summary card SVG icons |
 | v2.35.0 | Dashboard | Hero KPIs, donut chart, sparklines, count-up |
@@ -156,8 +163,8 @@ Use tables with consistent columns:
 | Priority | Status |
 |----------|--------|
 | High | ✅ Complete |
-| Medium | 1 security task |
-| Low | 9 future enhancements |
+| Medium | ✅ Complete |
+| Low | 5 future enhancements |
 | UI/UX | 1 low-priority pending |
 
 ---
