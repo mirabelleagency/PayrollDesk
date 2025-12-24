@@ -109,6 +109,17 @@ Use tables with consistent columns:
 | Dark/Light theme toggle | UX | High | Low | Pending |
 | Enhanced toast system | UX | Medium | Low | Pending |
 
+### Frontend Performance (from Assessment)
+
+| Task | Category | Effort | Priority | Notes |
+|------|----------|--------|----------|-------|
+| Minify CSS (styles.css) | Performance | Low | High | ~70KB savings (118KB→~40KB) |
+| Add `defer` to scripts | Performance | Low | Medium | Unblock render |
+| Add preload resource hints | Performance | Low | Medium | `<link rel="preload">` for CSS |
+| Configure gzip compression | Performance | Low | Medium | Reverse proxy (nginx/render) |
+| Add cache-control headers | Performance | Low | Medium | `public, immutable` for hashed files |
+| Consider CSS code splitting | Performance | Medium | Low | Per-page critical CSS |
+
 > **Note:** Sidebar a11y work completed in v2.33.1 (see CHANGELOG.md)
 
 ---
