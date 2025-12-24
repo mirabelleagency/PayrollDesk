@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.29.0 - 2024-12-24
+
+### Changed
+- refactor(database): remove legacy `ensure_schema_updates()` function (180+ lines removed)
+- refactor(database): replace print statements with proper Python logging
+- perf(database): add PostgreSQL connection pooling (pool_size=5, max_overflow=10)
+- refactor(database): extract engine initialization to `_initialize_engine()` function
+- cleanup(database): reduce file from 332 lines to ~170 lines
+
+### Removed
+- Legacy manual schema migration code - use Alembic instead
+
+### Notes
+- Schema migrations are now handled exclusively by Alembic
+- The `ensure_schema_updates()` function ran raw SQL on every startup
+- All databases already have the required columns from previous runs
+- Future schema changes: `alembic revision --autogenerate -m "description"`
+
 ## v2.28.0 - 2024-12-24
 
 ### Added
