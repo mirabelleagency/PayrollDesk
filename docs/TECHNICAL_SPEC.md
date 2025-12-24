@@ -2,7 +2,7 @@
 
 > Comprehensive technical documentation for the PayrollDesk payroll management system.
 
-**Version:** 2.32.2  
+**Version:** 2.33.0  
 **Last Updated:** December 24, 2025
 
 ---

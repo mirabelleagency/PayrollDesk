@@ -2,6 +2,45 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.33.0 - 2025-12-24
+
+### Added
+- feat(ui): comprehensive button system with BEM naming convention
+  - `.button--primary`, `--secondary`, `--success`, `--danger`, `--warning`, `--info`, `--ghost`, `--tertiary`
+  - Active and disabled states for all variants
+  - Consistent `:focus-visible` styles for accessibility
+- feat(ui): skeleton loader CSS system for async content
+  - Shimmer animation with `prefers-reduced-motion` support
+  - Variants: text, avatar, card, row, stat, button
+- feat(a11y): global focus styles for interactive elements
+  - Skip-link for keyboard navigation
+  - Focus states for links, inputs, selects, textareas
+- feat(a11y): ARIA labels on icon-only action buttons
+  - Schedule detail page action buttons
+  - Commission action buttons
+- docs: add comprehensive UI/UX guide (`docs/UI_UX_GUIDE.md`)
+  - Design system documentation (colors, typography, spacing)
+  - Component library reference
+  - Workflow diagrams for key user journeys
+  - Accessibility guidelines
+
+### Changed
+- refactor(login): extract inline styles to main stylesheet
+  - Updated login page to match app's dark navy theme
+  - Consistent form styling with rest of application
+- refactor(base): update main content landmark ID for accessibility
+
+### Documentation
+- Add TECHNICAL_SPEC.md for system architecture reference
+- Add TODO.md housekeeping guidelines to documentation guide
+- Update DOCUMENTATION_GUIDE.md with version sync checklist
+- Fix changelog dates (2024→2025 corrections)
+
+### Notes
+- All 194 tests passing
+- UI/UX improvements: 6/8 tasks complete, 2 low-priority pending
+- Login page now uses consistent dark theme
+
 ## v2.32.2 - 2025-12-24
 
 ### Added
