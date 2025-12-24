@@ -109,18 +109,9 @@ Use tables with consistent columns:
 | Dark/Light theme toggle | UX | High | Low | Pending |
 | Enhanced toast system | UX | Medium | Low | Pending |
 
-### Frontend Performance (from Assessment)
-
-| Task | Category | Effort | Priority | Status |
-|------|----------|--------|----------|--------|
-| Minify CSS (styles.css) | Performance | Low | High | ✅ Done (26% savings) |
-| Add `defer` to scripts | Performance | Low | Medium | N/A (no blocking scripts) |
-| Add preload resource hints | Performance | Low | Medium | ✅ Done |
-| Configure gzip compression | Performance | Low | Medium | ✅ Auto (Render.com) |
-| Add cache-control headers | Performance | Low | Medium | ✅ Done |
-| Consider CSS code splitting | Performance | Medium | Low | Deferred* |
-
-> \* CSS splitting deferred: 85KB minified → ~12KB gzipped; complexity outweighs marginal FCP gains across 23 templates.
+> **Note:** Frontend performance work completed in v2.33.2 (see CHANGELOG.md)
+> - CSS minification (26% savings), preload hints, cache headers
+> - CSS splitting deferred (gzip already provides ~85% compression)
 
 > **Note:** Sidebar a11y work completed in v2.33.1 (see CHANGELOG.md)
 
@@ -150,9 +141,8 @@ Use tables with consistent columns:
 | Medium | ✅ Complete |
 | Low | 5 future enhancements |
 | UI/UX | 2 low-priority pending |
-| Frontend Perf | 5/6 done, 1 deferred |
 
 ---
 
 *Last Updated: 2025-12-24*  
-*Last Housekeeping: 2025-12-24*
+*Last Housekeeping: 2025-12-24 (archived Frontend Perf section)*
