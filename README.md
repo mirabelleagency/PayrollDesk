@@ -42,6 +42,19 @@ The application stores data in `data/payroll.db` (SQLite). Override the location
 - Local development: set `ENVIRONMENT=development` (or `dev`) and run the server. If a Postgres URL is unreachable, the app now falls back to the bundled SQLite database automatically. To **force Postgres failures locally**, set `LOCAL_DEV_SQLITE_FALLBACK=0`.
 - Production/staging: set `ENVIRONMENT=production` (or leave unset) and point `PAYROLL_DATABASE_URL` to your managed Postgres instance. In these environments the SQLite fallback stays disabled unless you explicitly set `LOCAL_DEV_SQLITE_FALLBACK=1`.
 
+### Database Configuration Options
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PAYROLL_DATABASE_URL` | `sqlite:///data/payroll.db` | Database connection URL |
+| `ENVIRONMENT` | `production` | Environment mode (development/production) |
+| `DB_CONNECT_RETRIES` | `3` | Connection retry attempts |
+| `DB_RETRY_DELAY` | `1.0` | Initial retry delay in seconds |
+| `DB_POOL_SIZE` | `5` | PostgreSQL min connections |
+| `DB_MAX_OVERFLOW` | `10` | PostgreSQL max additional connections |
+| `DB_POOL_RECYCLE` | `3600` | Seconds before recycling connections |
+| `LOG_QUERIES` | `false` | Enable query timing logs (slow >100ms)
+
 ## Production database on Render (Postgres)
 
 Use PostgreSQL in production to avoid data loss across deploys and dyno restarts.

@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.32.2 - 2024-12-24
+
+### Added
+- perf(crud): add `eager_load_payouts` parameter to `list_schedule_runs()` for N+1 prevention
+- perf(schedules): add in-memory dashboard caching with 5-minute TTL
+- perf(models): add composite indexes to payouts table
+  - `idx_payout_run_status` (schedule_run_id, status)
+  - `idx_payout_run_model` (schedule_run_id, model_id)
+  - `ix_payouts_schedule_run_id` (FK index)
+  - `ix_payouts_model_id` (FK index)
+- feat(database): add configurable PostgreSQL pool settings
+  - `DB_POOL_SIZE` (default: 5)
+  - `DB_MAX_OVERFLOW` (default: 10)
+  - `DB_POOL_RECYCLE` (default: 3600)
+
+### Changed
+- perf(crud): optimize `cleanup_empty_runs()` from O(N) to O(1) queries
+  - Replace loop with subquery approach
+  - Use bulk delete instead of individual deletes
+- refactor(schedules): cache invalidation on schedule/payout modifications
+
+### Database
+- Migration `f61db652388a`: add payout composite indexes
+
+### Notes
+- Dashboard cache auto-invalidates on: schedule creation/deletion, payout updates
+- Pool settings logged at startup when using PostgreSQL
+- All 194 tests passing
+
 ## v2.32.1 - 2024-12-24
 
 ### Added
