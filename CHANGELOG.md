@@ -2627,3 +2627,84 @@ All notable changes to this project will be documented in this file.
 - Refactor: replace 'run(s)' with 'cycle(s)' and make schedules export respect year/range filters
 - Initial commit
 
+## v2.39.0 - 2025-12-24
+
+- feat(models/form): improve form to 10/10 score
+- chore(release): v2.38.0 - Models architecture improvements
+- docs: update TODO.md with pagination and currency config completion
+- feat(models): add payment pagination and currency config
+- docs: update TODO.md with completed architecture improvements
+- feat(models): add rate limiting, tests, accessibility improvements
+- docs(todo): add Models page assessment gaps to backlog
+- chore(todo): housekeeping - consolidate achievements, prune obsolete tasks
+- docs(release): v2.37.0 - Models page CSS extraction and accessibility
+- docs: bump version to v2.36.0, update CHANGELOG and TODO
+- feat(dashboard): add SVG icons to summary card headers
+- feat(dashboard): add Pending/On Hold status badges
+- refactor(dashboard): extract inline CSS to styles.css
+- chore(todo): housekeeping - archive UI/UX section, consolidate notes
+- docs: bump version to v2.35.0, update CHANGELOG and TECHNICAL_SPEC
+- feat(dashboard): add monthly trend sparkline
+- feat(dashboard): add count-up animation to hero KPIs
+- feat(dashboard): add payment status donut chart
+- feat(dashboard): add skeleton loaders to hero KPIs
+- refactor(dashboard): replace Unpaid KPI with Month Paid progress
+- feat(dashboard): add SVG icons and accent colors to hero KPIs
+- fix(ui): prevent collapse button overlap with logo
+- docs: version 2.34.0 - sidebar SVG icon redesign
+- feat(ui): redesign sidebar icons and collapse button
+- docs(guide): add single-commit note to execute workflow
+- docs(todo): archive frontend performance section
+- docs: version 2.33.2 - frontend performance improvements
+- perf(cache): add cache-control headers for static assets
+- perf(frontend): add CSS minification and preload hints
+- docs(todo): add frontend performance improvement backlog
+- docs: add 'remove fully-completed sections' to housekeeping checklist
+- chore(docs): TODO.md housekeeping - archive completed sidebar section
+- chore(release): v2.33.1 - sidebar accessibility
+- feat(a11y): sidebar accessibility enhancements
+- docs: add 'Execute Documentation Guide' workflow section
+- docs(TODO): housekeeping - archive completed tasks, fix dates
+- chore(release): v2.33.0 - UI/UX improvements and accessibility
+- docs: add TODO.md housekeeping guidelines to documentation guide
+- docs(TODO): update UI/UX task status to reflect completions
+- feat(ui): add skeleton loaders and ARIA accessibility improvements
+- feat(ui): standardize button system and improve accessibility
+- docs(TODO): add UI/UX improvement tasks from assessment
+- docs: add comprehensive UI/UX guide
+- docs: fix changelog dates (2024->2025) and add sync guidance to documentation guide
+- docs: add TECHNICAL_SPEC.md maintenance guidance to documentation guide
+- docs: add comprehensive technical specification
+- chore(release): v2.32.2 - performance optimizations
+- docs(TODO): housekeeping - consolidate completed tasks
+- perf: add medium priority performance optimizations
+- perf: optimize cleanup_empty_runs and add dashboard caching
+- docs(TODO): add performance optimization tasks from assessment
+- docs(TODO): perform housekeeping - archive completed tasks
+- docs(TODO): add usage guide and housekeeping instructions
+- refactor(database): add type hints and improve logging
+- chore(release): v2.32.1 - test coverage improvements
+- test: add error scenario tests (20 tests)
+- docs: update TODO - 86% coverage achieved
+- test: improve crud.py coverage to 86% (160 tests)
+- docs: add medium priority testing tasks to TODO.md
+- docs: update TODO.md - all high priority backlog items complete
+- test: improve crud.py test coverage from 70% to 75%
+- feat(database): add connection retry logic with exponential backoff
+- docs: update TODO.md with backlog completion status
+- feat: add health check, query logging, and soft delete (v2.31.0)
+- docs: update TODO.md with completed CommissionPayout CRUD tasks
+- feat(crud): add CommissionPayout CRUD operations with 15 tests
+- chore: update TODO.md with completed tasks and bump version to 2.29.0
+- refactor(database): remove legacy schema migrations, add proper logging
+- docs: add database.py refactor task checklist to TODO.md
+- docs: add lean QUICK_ASSESSMENT.md guide for ad-hoc assessments
+- chore: create docs/ folder and further cleanup
+- chore: project directory cleanup and reorganization
+- feat(migrations): add Alembic database migration support
+- fix(database): enable SQLite foreign key enforcement in dev mode
+- feat: add safe 'Add New Models' button to schedule view
+- fix: remove auto-refresh on schedule view to prevent data loss
+- ui(models): add 'Back to Models' in edit form and show success toast after save; remove pre-save toast; routers(models): redirect with saved flag; ui(schedules): make Select All apply only to visible/filtered rows
+- chore(release): resolve merge conflicts, bump to v2.24.1
+
