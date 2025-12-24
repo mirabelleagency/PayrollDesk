@@ -99,7 +99,9 @@ Use tables with consistent columns:
 
 ### Medium Priority
 
-*All completed ✅*
+| Task | Category | Effort | Notes |
+|------|----------|--------|-------|
+| Add rate limiting to export endpoint | Security | Low | Use slowapi limiter on `/models/export` POST |
 
 ### Low Priority (Future Enhancements)
 
@@ -108,7 +110,12 @@ Use tables with consistent columns:
 | Background tasks for exports | Performance | Medium | FastAPI BackgroundTasks |
 | Add full-text search | CRUD | High | Requires PostgreSQL tsvector |
 | Add API versioning | API | Medium | Only if external API consumers |
-| Add loading skeleton to payment history | UX | Low | Show skeleton while fetching |
+| Add loading skeleton to payment history | UX | Low | Show skeleton while fetching `/payments.json` |
+| Extract export modal inline CSS | UI | Low | ~100 lines remaining in modal |
+| Add JS error boundary for toggleModelPayments | UX | Low | Try-catch wrapper, user-friendly error |
+| Paginate payments in expanded row | Performance | Medium | Virtual scroll for models with 100+ payouts |
+| Extract currency constant in JS | Code Quality | Low | Remove hardcoded 'USD' in formatter |
+| Add Models route integration tests | Testing | Medium | Cover export/import/edit flows |
 
 > **Removed:** "Consider async SQLAlchemy" and "Implement Redis caching" - over-engineering for current scale
 
@@ -149,8 +156,8 @@ Use tables with consistent columns:
 | Priority | Status |
 |----------|--------|
 | High | ✅ Complete |
-| Medium | ✅ Complete |
-| Low | 4 future enhancements |
+| Medium | 1 security task |
+| Low | 9 future enhancements |
 | UI/UX | 1 low-priority pending |
 
 ---
