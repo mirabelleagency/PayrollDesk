@@ -117,8 +117,10 @@ Use tables with consistent columns:
 | Add `defer` to scripts | Performance | Low | Medium | N/A (no blocking scripts) |
 | Add preload resource hints | Performance | Low | Medium | ✅ Done |
 | Configure gzip compression | Performance | Low | Medium | ✅ Auto (Render.com) |
-| Add cache-control headers | Performance | Low | Medium | Pending |
-| Consider CSS code splitting | Performance | Medium | Low | Pending |
+| Add cache-control headers | Performance | Low | Medium | ✅ Done |
+| Consider CSS code splitting | Performance | Medium | Low | Deferred* |
+
+> \* CSS splitting deferred: 85KB minified → ~12KB gzipped; complexity outweighs marginal FCP gains across 23 templates.
 
 > **Note:** Sidebar a11y work completed in v2.33.1 (see CHANGELOG.md)
 

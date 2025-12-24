@@ -1,6 +1,7 @@
 """FastAPI entry point for the payroll application."""
 from __future__ import annotations
 
+import re
 import time
 from contextlib import asynccontextmanager
 from typing import Any
@@ -13,10 +14,33 @@ from urllib.parse import quote
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.database import init_db, get_session
 from app import __version__
 from app.routers import admin, auth, changelog, commissions, dashboard, models, profile, schedules
+
+
+# Pattern for hashed static files (e.g., index-DnJkF9X2.js)
+HASHED_FILE_PATTERN = re.compile(r"^/static/.*-[a-zA-Z0-9]{8,}\.(js|css|woff2?)$")
+
+
+class CacheControlMiddleware(BaseHTTPMiddleware):
+    """Add cache-control headers for static assets."""
+    
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        path = request.url.path
+        
+        if path.startswith("/static/"):
+            # Hashed files: immutable, 1 year cache
+            if HASHED_FILE_PATTERN.match(path):
+                response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            # Non-hashed static files: 1 day cache with revalidation
+            else:
+                response.headers["Cache-Control"] = "public, max-age=86400, must-revalidate"
+        
+        return response
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -25,6 +49,9 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Payroll Desk", version=__version__, lifespan=lifespan)
+
+# Add cache-control middleware for static assets
+app.add_middleware(CacheControlMiddleware)
 
 app.include_router(auth.router)
 app.include_router(profile.router)
