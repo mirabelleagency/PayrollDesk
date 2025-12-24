@@ -48,6 +48,8 @@ class Model(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now, onupdate=datetime.now, nullable=False
     )
+    # Soft delete: when set, model is considered deleted but data is preserved
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=None, index=True)
 
     # Referral & commission configuration (independent of core payroll)
     referred_by_model_id: Mapped[int | None] = mapped_column(

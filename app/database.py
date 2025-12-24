@@ -4,6 +4,7 @@ This module handles:
 - Database engine creation with dual SQLite/PostgreSQL support
 - Session management for FastAPI dependency injection
 - Initial database setup (tables and default admin user)
+- Query timing/logging (enable with LOG_QUERIES=true)
 
 Schema migrations are handled by Alembic (see migrations/ folder).
 """
@@ -11,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Generator
 from urllib.parse import urlsplit, urlunsplit
@@ -62,6 +64,34 @@ def _enable_sqlite_foreign_keys(engine) -> None:
             cursor.close()
 
 
+def _enable_query_logging(engine) -> None:
+    """Enable query timing and logging for debugging and performance monitoring.
+    
+    Logs slow queries (>100ms) at WARNING level, all queries at DEBUG level.
+    Only enabled when LOG_QUERIES environment variable is set.
+    """
+    if not os.getenv("LOG_QUERIES", "").lower() in ("1", "true", "yes"):
+        return
+    
+    @event.listens_for(engine, "before_cursor_execute")
+    def before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+        conn.info.setdefault("query_start_time", []).append(time.perf_counter())
+    
+    @event.listens_for(engine, "after_cursor_execute")
+    def after_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+        start_times = conn.info.get("query_start_time", [])
+        if start_times:
+            elapsed_ms = (time.perf_counter() - start_times.pop()) * 1000
+            # Truncate long statements for logging
+            stmt_preview = statement[:200] + "..." if len(statement) > 200 else statement
+            stmt_preview = stmt_preview.replace("\n", " ")
+            
+            if elapsed_ms > 100:  # Slow query threshold
+                logger.warning("SLOW QUERY (%.2fms): %s", elapsed_ms, stmt_preview)
+            else:
+                logger.debug("Query (%.2fms): %s", elapsed_ms, stmt_preview)
+
+
 def _create_engine(url: str):
     """Create a SQLAlchemy engine with appropriate settings.
     
@@ -104,6 +134,7 @@ def _initialize_engine():
     try:
         engine = _create_engine(DATABASE_URL)
         _enable_sqlite_foreign_keys(engine)
+        _enable_query_logging(engine)
         # Smoke-test connection
         with engine.connect():
             pass

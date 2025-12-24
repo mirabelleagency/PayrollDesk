@@ -1,16 +1,20 @@
 """FastAPI entry point for the payroll application."""
 from __future__ import annotations
 
+import time
 from contextlib import asynccontextmanager
+from typing import Any
 
-from fastapi import FastAPI, Response, Request
+from fastapi import FastAPI, Response, Request, Depends
 from fastapi.responses import RedirectResponse
 from fastapi import status, HTTPException
 from fastapi.responses import JSONResponse
 from urllib.parse import quote
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
-from app.database import init_db
+from app.database import init_db, get_session
 from app import __version__
 from app.routers import admin, auth, changelog, commissions, dashboard, models, profile, schedules
 
@@ -43,6 +47,56 @@ def root() -> RedirectResponse:
 def health() -> Response:
     """Simple health endpoint for load balancers and platform checks."""
     return Response(content='{"status":"ok"}', media_type="application/json")
+
+
+@app.get("/health/db")
+def health_db(db: Session = Depends(get_session)) -> dict[str, Any]:
+    """Database health check endpoint with connection test and timing.
+    
+    Returns:
+        JSON with database status, response time, and connection info.
+        
+    Example response:
+        {
+            "status": "healthy",
+            "database": {
+                "connected": true,
+                "response_time_ms": 2.5,
+                "engine": "postgresql"
+            }
+        }
+    """
+    start = time.perf_counter()
+    try:
+        # Execute a simple query to test the connection
+        result = db.execute(text("SELECT 1")).scalar()
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        
+        # Get database type from connection URL
+        engine_url = str(db.get_bind().url)
+        db_type = "postgresql" if "postgresql" in engine_url else "sqlite"
+        
+        return {
+            "status": "healthy",
+            "database": {
+                "connected": result == 1,
+                "response_time_ms": round(elapsed_ms, 2),
+                "engine": db_type,
+            },
+        }
+    except Exception as e:
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy",
+                "database": {
+                    "connected": False,
+                    "response_time_ms": round(elapsed_ms, 2),
+                    "error": str(e),
+                },
+            },
+        )
 
 
 # Custom handler: redirect unauthenticated HTML requests to /login instead of JSON 401

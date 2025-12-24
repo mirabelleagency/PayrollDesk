@@ -60,11 +60,21 @@ def list_models(
     frequency: str | None = None,
     payment_method: str | None = None,
     *,
+    include_deleted: bool = False,
     limit: int | None = None,
     offset: int = 0,
 ) -> Sequence[Model]:
+    """List models with optional filtering.
+    
+    By default, excludes soft-deleted models. Set include_deleted=True to include them.
+    """
     stmt = select(Model)
     filters = _model_filters(code=code, status=status, frequency=frequency, payment_method=payment_method)
+    
+    # Exclude soft-deleted models by default
+    if not include_deleted:
+        filters.append(Model.deleted_at.is_(None))
+    
     if filters:
         stmt = stmt.where(*filters)
 
@@ -82,9 +92,16 @@ def count_models(
     status: str | None = None,
     frequency: str | None = None,
     payment_method: str | None = None,
+    *,
+    include_deleted: bool = False,
 ) -> int:
+    """Count models with optional filtering. Excludes soft-deleted by default."""
     stmt = select(func.count()).select_from(Model)
     filters = _model_filters(code=code, status=status, frequency=frequency, payment_method=payment_method)
+    
+    if not include_deleted:
+        filters.append(Model.deleted_at.is_(None))
+    
     if filters:
         stmt = stmt.where(*filters)
     return int(db.execute(stmt).scalar_one())
@@ -96,9 +113,16 @@ def count_models_by_status(
     status: str | None = None,
     frequency: str | None = None,
     payment_method: str | None = None,
+    *,
+    include_deleted: bool = False,
 ) -> Dict[str, int]:
+    """Count models grouped by status. Excludes soft-deleted by default."""
     stmt = select(Model.status, func.count()).select_from(Model)
     filters = _model_filters(code=code, status=status, frequency=frequency, payment_method=payment_method)
+    
+    if not include_deleted:
+        filters.append(Model.deleted_at.is_(None))
+    
     if filters:
         stmt = stmt.where(*filters)
     stmt = stmt.group_by(Model.status)
@@ -202,8 +226,49 @@ def update_model(db: Session, model: Model, payload: ModelUpdate) -> Model:
 
 
 def delete_model(db: Session, model: Model) -> None:
+    """Hard delete a model (permanent removal)."""
     db.delete(model)
     db.commit()
+
+
+def soft_delete_model(db: Session, model: Model) -> Model:
+    """Soft delete a model by setting deleted_at timestamp.
+    
+    The model remains in the database but is excluded from normal queries.
+    Use restore_model() to undo a soft delete.
+    """
+    model.deleted_at = datetime.now()
+    model.updated_at = datetime.now()
+    db.add(model)
+    db.commit()
+    db.refresh(model)
+    return model
+
+
+def restore_model(db: Session, model: Model) -> Model:
+    """Restore a soft-deleted model by clearing deleted_at timestamp."""
+    model.deleted_at = None
+    model.updated_at = datetime.now()
+    db.add(model)
+    db.commit()
+    db.refresh(model)
+    return model
+
+
+def list_deleted_models(db: Session, limit: int | None = None, offset: int = 0) -> Sequence[Model]:
+    """List all soft-deleted models."""
+    stmt = select(Model).where(Model.deleted_at.isnot(None)).order_by(Model.deleted_at.desc())
+    if offset:
+        stmt = stmt.offset(offset)
+    if limit is not None:
+        stmt = stmt.limit(limit)
+    return db.execute(stmt).scalars().all()
+
+
+def get_deleted_model(db: Session, model_id: int) -> Model | None:
+    """Get a soft-deleted model by ID."""
+    stmt = select(Model).where(Model.id == model_id, Model.deleted_at.isnot(None))
+    return db.execute(stmt).scalars().first()
 
 
 @dataclass

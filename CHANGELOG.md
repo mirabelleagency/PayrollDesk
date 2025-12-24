@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.31.0 - 2024-12-25
+
+### Added
+- feat(api): add `/health/db` endpoint with database connection test and response time
+- feat(database): add query timing/logging (enable with LOG_QUERIES=true env var)
+- feat(models): add soft delete support via `deleted_at` column
+- feat(crud): add `soft_delete_model()`, `restore_model()`, `list_deleted_models()`, `get_deleted_model()`
+- test: add 3 health endpoint tests
+- test: add 10 soft delete tests
+
+### Changed
+- refactor(crud): `list_models()` and `count_models()` now exclude soft-deleted models by default
+- refactor(crud): add `include_deleted` parameter to model listing/counting functions
+
+### Database
+- Migration `e50dc541277e`: add `deleted_at` column with index to models table
+
+### Notes
+- Soft delete preserves model data while hiding from normal queries
+- Use `include_deleted=True` to include soft-deleted models in queries
+- Query logging logs slow queries (>100ms) at WARNING level
+
 ## v2.30.0 - 2024-12-25
 
 ### Added
