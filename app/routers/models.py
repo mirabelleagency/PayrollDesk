@@ -19,6 +19,7 @@ from app.auth import User
 from app.database import get_session
 from app.dependencies import templates
 from app.core.formatting import format_display_date
+from app.core.rate_limiter import limiter, EXPORT_LIMIT
 from app.models import COMMISSION_PAYOUT_FREQUENCY_ENUM, FREQUENCY_ENUM, STATUS_ENUM, Payout, ScheduleRun
 from app.commission import build_commission_summary, get_eligible_referrals
 from app.routers.auth import get_current_user, get_admin_user
@@ -1092,7 +1093,9 @@ def edit_model_form(model_id: int, request: Request, db: Session = Depends(get_s
 
 
 @router.post("/export")
+@limiter.limit(EXPORT_LIMIT)
 def export_models_data(
+    request: Request,
     include: list[str] | None = Form(None),
     run_id: str | None = Form(None),
     start_date: str | None = Form(None),
@@ -1105,6 +1108,8 @@ def export_models_data(
     Form fields:
     - include[]: list of dataset keys
     - run_id, start_date, end_date: optional filters applied where relevant
+    
+    Rate limited to 5 requests per minute to prevent abuse.
     """
     # Parse run_id from form: browser submits empty string when the "All runs" option is selected.
     parsed_run_id: int | None = None

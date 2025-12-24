@@ -362,65 +362,65 @@
 </div>
 
 <!-- Export Modal -->
-<div id="models-export-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle" style="display:none; width: 920px; max-width: calc(100% - 48px); background: rgba(15, 23, 42, 0.98); border: 1px solid rgba(148, 163, 184, 0.15); border-radius: 12px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);">
-    <div class="modal-header" style="border-bottom: 1px solid rgba(148, 163, 184, 0.1); padding: 20px 24px;">
+<div id="models-export-modal" class="modal export-modal" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle">
+    <div class="export-modal__header">
         <div>
-            <h2 id="exportModalTitle" style="margin: 0; color: #f8fafc; font-size: 20px; font-weight: 600;">📊 Export Data</h2>
-            <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 14px;">Select datasets and filters to include in the export</p>
+            <h2 id="exportModalTitle" class="export-modal__title">📊 Export Data</h2>
+            <p class="export-modal__subtitle">Select datasets and filters to include in the export</p>
         </div>
-        <button class="link-button" type="button" aria-label="Close export dialog" onclick="closeExportModal()" style="color: #94a3b8; font-size: 24px; padding: 4px 8px; background: transparent; border: none; cursor: pointer; transition: color 0.2s;">✕</button>
+        <button class="export-modal__close" type="button" aria-label="Close export dialog" onclick="closeExportModal()">✕</button>
     </div>
-    <form id="models-export-form" action="/models/export" method="post" style="padding: 24px;">
-        <div style="margin-bottom: 20px;">
-            <label style="display: block; margin-bottom: 12px; color: #cbd5e1; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Datasets to Export</label>
-            <div class="checkbox-row" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; padding: 16px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(148, 163, 184, 0.1); border-radius: 8px;">
-                <label style="display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 6px; cursor: pointer; transition: background 0.2s; color: #e2e8f0; font-size: 14px;" onmouseover="this.style.background='rgba(59, 130, 246, 0.1)'" onmouseout="this.style.background='transparent'">
-                    <input type="checkbox" name="include" value="models" checked style="width: 16px; height: 16px; cursor: pointer;" /> Models
+    <form id="models-export-form" action="/models/export" method="post" class="export-modal__form">
+        <div class="export-modal__section">
+            <label class="export-modal__label">Datasets to Export</label>
+            <div class="export-modal__checkboxes">
+                <label class="export-modal__checkbox-label">
+                    <input type="checkbox" name="include" value="models" checked /> Models
                 </label>
-                <label style="display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 6px; cursor: pointer; transition: background 0.2s; color: #e2e8f0; font-size: 14px;" onmouseover="this.style.background='rgba(59, 130, 246, 0.1)'" onmouseout="this.style.background='transparent'">
-                    <input type="checkbox" name="include" value="runs" style="width: 16px; height: 16px; cursor: pointer;" /> Schedule Runs
+                <label class="export-modal__checkbox-label">
+                    <input type="checkbox" name="include" value="runs" /> Schedule Runs
                 </label>
-                <label style="display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 6px; cursor: pointer; transition: background 0.2s; color: #e2e8f0; font-size: 14px;" onmouseover="this.style.background='rgba(59, 130, 246, 0.1)'" onmouseout="this.style.background='transparent'">
-                    <input type="checkbox" name="include" value="payouts" style="width: 16px; height: 16px; cursor: pointer;" /> Payouts
+                <label class="export-modal__checkbox-label">
+                    <input type="checkbox" name="include" value="payouts" /> Payouts
                 </label>
-                <label style="display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 6px; cursor: pointer; transition: background 0.2s; color: #e2e8f0; font-size: 14px;" onmouseover="this.style.background='rgba(59, 130, 246, 0.1)'" onmouseout="this.style.background='transparent'">
-                    <input type="checkbox" name="include" value="adhoc" style="width: 16px; height: 16px; cursor: pointer;" /> Adhoc Payments
+                <label class="export-modal__checkbox-label">
+                    <input type="checkbox" name="include" value="adhoc" /> Adhoc Payments
                 </label>
-                <label style="display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 6px; cursor: pointer; transition: background 0.2s; color: #e2e8f0; font-size: 14px;" onmouseover="this.style.background='rgba(59, 130, 246, 0.1)'" onmouseout="this.style.background='transparent'">
-                    <input type="checkbox" name="include" value="adjustments" style="width: 16px; height: 16px; cursor: pointer;" /> Adjustments
+                <label class="export-modal__checkbox-label">
+                    <input type="checkbox" name="include" value="adjustments" /> Adjustments
                 </label>
-                <label style="display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 6px; cursor: pointer; transition: background 0.2s; color: #e2e8f0; font-size: 14px;" onmouseover="this.style.background='rgba(59, 130, 246, 0.1)'" onmouseout="this.style.background='transparent'">
-                    <input type="checkbox" name="include" value="advances" style="width: 16px; height: 16px; cursor: pointer;" /> Advances
+                <label class="export-modal__checkbox-label">
+                    <input type="checkbox" name="include" value="advances" /> Advances
                 </label>
             </div>
         </div>
 
-        <div style="margin-bottom: 20px;">
-            <label style="display: block; margin-bottom: 12px; color: #cbd5e1; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Filters (Optional)</label>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
-                <div>
-                    <label style="display: block; margin-bottom: 6px; color: #94a3b8; font-size: 13px;">Run</label>
-                    <select name="run_id" style="width: 100%; padding: 10px 12px; background: rgba(15, 23, 42, 0.7); color: #f8fafc; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.2s;">
+        <div class="export-modal__section">
+            <label class="export-modal__label">Filters (Optional)</label>
+            <div class="export-modal__filters">
+                <div class="export-modal__filter-group">
+                    <label for="export-run-id">Run</label>
+                    <select id="export-run-id" name="run_id">
                         <option value="">All runs</option>
                         {% for run in schedule_runs %}
                         <option value="{{ run.id }}">{{ run.target_year }}-{{ '%02d'|format(run.target_month) }} (id {{ run.id }})</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div>
-                    <label style="display: block; margin-bottom: 6px; color: #94a3b8; font-size: 13px;">Start Date</label>
-                    <input type="date" name="start_date" style="width: 100%; padding: 10px 12px; background: rgba(15, 23, 42, 0.7); color: #f8fafc; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 6px; font-size: 14px; transition: all 0.2s;" />
+                <div class="export-modal__filter-group">
+                    <label for="export-start-date">Start Date</label>
+                    <input type="date" id="export-start-date" name="start_date" />
                 </div>
-                <div>
-                    <label style="display: block; margin-bottom: 6px; color: #94a3b8; font-size: 13px;">End Date</label>
-                    <input type="date" name="end_date" style="width: 100%; padding: 10px 12px; background: rgba(15, 23, 42, 0.7); color: #f8fafc; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 6px; font-size: 14px; transition: all 0.2s;" />
+                <div class="export-modal__filter-group">
+                    <label for="export-end-date">End Date</label>
+                    <input type="date" id="export-end-date" name="end_date" />
                 </div>
             </div>
         </div>
 
-        <div class="modal-actions" style="display: flex; gap: 12px; justify-content: flex-end; padding-top: 20px; border-top: 1px solid rgba(148, 163, 184, 0.1);">
-            <button class="button secondary" type="button" onclick="closeExportModal()" style="padding: 10px 20px;">Cancel</button>
-            <button class="button button--primary" type="submit" style="padding: 10px 20px;">
+        <div class="export-modal__actions">
+            <button class="button secondary" type="button" onclick="closeExportModal()">Cancel</button>
+            <button class="button button--primary" type="submit">
                 <span>📥</span>
                 <span>Generate Export</span>
             </button>
@@ -429,12 +429,77 @@
 </div>
 
 <script>
+// Focus trap utility for modals
+function createFocusTrap(modalElement) {
+    const focusableElements = modalElement.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    const firstFocusable = focusableElements[0];
+    const lastFocusable = focusableElements[focusableElements.length - 1];
+
+    function trapFocus(e) {
+        if (e.key !== 'Tab') return;
+        
+        if (e.shiftKey) {
+            if (document.activeElement === firstFocusable) {
+                e.preventDefault();
+                lastFocusable.focus();
+            }
+        } else {
+            if (document.activeElement === lastFocusable) {
+                e.preventDefault();
+                firstFocusable.focus();
+            }
+        }
+    }
+
+    function handleEscape(e) {
+        if (e.key === 'Escape') {
+            closeExportModal();
+            closeImportModal();
+        }
+    }
+
+    return {
+        activate: () => {
+            modalElement.addEventListener('keydown', trapFocus);
+            document.addEventListener('keydown', handleEscape);
+            if (firstFocusable) firstFocusable.focus();
+        },
+        deactivate: () => {
+            modalElement.removeEventListener('keydown', trapFocus);
+            document.removeEventListener('keydown', handleEscape);
+        }
+    };
+}
+
+let exportModalTrap = null;
+let importModalTrap = null;
+let previousActiveElement = null;
+
 function openExportModal() {
-    document.getElementById('models-export-modal').style.display = 'block';
+    const modal = document.getElementById('models-export-modal');
+    previousActiveElement = document.activeElement;
+    modal.style.display = 'block';
+    
+    if (!exportModalTrap) {
+        exportModalTrap = createFocusTrap(modal);
+    }
+    exportModalTrap.activate();
 }
+
 function closeExportModal() {
-    document.getElementById('models-export-modal').style.display = 'none';
+    const modal = document.getElementById('models-export-modal');
+    modal.style.display = 'none';
+    
+    if (exportModalTrap) {
+        exportModalTrap.deactivate();
+    }
+    if (previousActiveElement) {
+        previousActiveElement.focus();
+    }
 }
+
 document.addEventListener('DOMContentLoaded', function() {
     const openBtn = document.getElementById('open-export-button');
     if (openBtn) openBtn.addEventListener('click', openExportModal);
@@ -537,28 +602,62 @@ function renderStatusChip(status) {
     return `<span class="${config.cls}">${config.label}</span>`;
 }
 
+// Show user-friendly toast notification
+function showToast(message, type = 'info') {
+    // Check for existing toast container or create one
+    let toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.style.cssText = 'position: fixed; bottom: 20px; right: 20px; z-index: 10000;';
+        document.body.appendChild(toastContainer);
+    }
+    
+    const toast = document.createElement('div');
+    const bgColor = type === 'error' ? '#dc2626' : type === 'success' ? '#059669' : '#3b82f6';
+    toast.style.cssText = `background: ${bgColor}; color: white; padding: 12px 20px; border-radius: 8px; margin-top: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); font-size: 14px; animation: slideIn 0.3s ease;`;
+    toast.textContent = message;
+    toastContainer.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'fadeOut 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+}
+
 // Toggle individual model payments
 async function toggleModelPayments(modelId) {
-    const paymentRow = document.getElementById(`payments-${modelId}`);
-    const modelRow = document.querySelector(`tr[data-model-id="${modelId}"]`);
-    const expandIndicator = modelRow.querySelector('.expand-indicator');
-
-    if (expandedModels.has(modelId)) {
-        paymentRow.style.display = 'none';
-        expandIndicator.textContent = '▶';
-        modelRow.classList.remove('expanded');
-        modelRow.setAttribute('aria-expanded', 'false');
-        expandedModels.delete(modelId);
-    } else {
-        paymentRow.style.display = 'table-row';
-        expandIndicator.textContent = '▼';
-        modelRow.classList.add('expanded');
-        modelRow.setAttribute('aria-expanded', 'true');
-        expandedModels.add(modelId);
-
-        if (!paymentCache[modelId]) {
-            await loadModelPayments(modelId);
+    try {
+        const paymentRow = document.getElementById(`payments-${modelId}`);
+        const modelRow = document.querySelector(`tr[data-model-id="${modelId}"]`);
+        
+        if (!paymentRow || !modelRow) {
+            console.error(`Missing DOM elements for model ${modelId}`);
+            return;
         }
+        
+        const expandIndicator = modelRow.querySelector('.expand-indicator');
+
+        if (expandedModels.has(modelId)) {
+            paymentRow.style.display = 'none';
+            if (expandIndicator) expandIndicator.textContent = '▶';
+            modelRow.classList.remove('expanded');
+            modelRow.setAttribute('aria-expanded', 'false');
+            expandedModels.delete(modelId);
+        } else {
+            paymentRow.style.display = 'table-row';
+            if (expandIndicator) expandIndicator.textContent = '▼';
+            modelRow.classList.add('expanded');
+            modelRow.setAttribute('aria-expanded', 'true');
+            expandedModels.add(modelId);
+
+            if (!paymentCache[modelId]) {
+                await loadModelPayments(modelId);
+            }
+        }
+    } catch (error) {
+        console.error('Error toggling payment row:', error);
+        showToast('Failed to toggle payment history. Please try again.', 'error');
     }
 }
 
@@ -566,6 +665,16 @@ async function toggleModelPayments(modelId) {
 async function loadModelPayments(modelId) {
     const contentDiv = document.getElementById(`payment-content-${modelId}`);
     const summaryDiv = document.getElementById(`payment-summary-${modelId}`);
+
+    // Show loading skeleton while fetching
+    contentDiv.innerHTML = `
+        <div class="payment-skeleton">
+            <div class="skeleton-row"><div class="skeleton-cell"></div><div class="skeleton-cell"></div><div class="skeleton-cell"></div><div class="skeleton-cell"></div></div>
+            <div class="skeleton-row"><div class="skeleton-cell"></div><div class="skeleton-cell"></div><div class="skeleton-cell"></div><div class="skeleton-cell"></div></div>
+            <div class="skeleton-row"><div class="skeleton-cell"></div><div class="skeleton-cell"></div><div class="skeleton-cell"></div><div class="skeleton-cell"></div></div>
+        </div>
+    `;
+    summaryDiv.innerHTML = '<span class="skeleton-text" style="display: inline-block; width: 100px; height: 14px; background: rgba(148, 163, 184, 0.2); border-radius: 4px; animation: shimmer 1.5s infinite;"></span>';
 
     try {
         const response = await fetch(`/models/${modelId}/payments.json`, {
@@ -655,30 +764,40 @@ async function loadModelPayments(modelId) {
 }
 
 // Toggle all payments
-function toggleAllPayments() {
-    const rows = document.querySelectorAll('.model-row');
-    const toggleText = document.getElementById('toggle-all-text');
-    const allExpanded = expandedModels.size === rows.length && rows.length > 0;
+async function toggleAllPayments() {
+    try {
+        const rows = document.querySelectorAll('.model-row');
+        const toggleText = document.getElementById('toggle-all-text');
+        
+        if (!rows.length) {
+            return;
+        }
+        
+        const allExpanded = expandedModels.size === rows.length && rows.length > 0;
 
-    if (allExpanded) {
-        rows.forEach(row => {
-            const modelId = Number.parseInt(row.getAttribute('data-model-id'), 10);
-            const paymentRow = document.getElementById(`payments-${modelId}`);
-            const expandIndicator = row.querySelector('.expand-indicator');
-            paymentRow.style.display = 'none';
-            expandIndicator.textContent = '▶';
-            row.classList.remove('expanded');
-        });
-        expandedModels.clear();
-        toggleText.textContent = 'Expand All Payments';
-    } else {
-        rows.forEach(row => {
-            const modelId = Number.parseInt(row.getAttribute('data-model-id'), 10);
-            if (!expandedModels.has(modelId)) {
-                toggleModelPayments(modelId);
+        if (allExpanded) {
+            rows.forEach(row => {
+                const modelId = Number.parseInt(row.getAttribute('data-model-id'), 10);
+                const paymentRow = document.getElementById(`payments-${modelId}`);
+                const expandIndicator = row.querySelector('.expand-indicator');
+                if (paymentRow) paymentRow.style.display = 'none';
+                if (expandIndicator) expandIndicator.textContent = '▶';
+                row.classList.remove('expanded');
+            });
+            expandedModels.clear();
+            if (toggleText) toggleText.textContent = 'Expand All Payments';
+        } else {
+            for (const row of rows) {
+                const modelId = Number.parseInt(row.getAttribute('data-model-id'), 10);
+                if (!Number.isNaN(modelId) && !expandedModels.has(modelId)) {
+                    await toggleModelPayments(modelId);
+                }
             }
-        });
-        toggleText.textContent = 'Collapse All Payments';
+            if (toggleText) toggleText.textContent = 'Collapse All Payments';
+        }
+    } catch (error) {
+        console.error('Error toggling all payments:', error);
+        showToast('Failed to toggle all payment rows. Please try again.', 'error');
     }
 }
 
@@ -704,15 +823,21 @@ function openBulkActionsModal() {
     alert('Bulk actions feature coming soon! This will allow you to:\n• Update multiple models at once\n• Batch status changes\n• Bulk payment method updates\n• Export selected models');
 }
 
-// Original import modal functions
+// Original import modal functions with focus trap
 function openImportModal() {
     const overlay = document.getElementById('importModalOverlay');
     const modal = document.getElementById('importModal');
     if (!modal || !overlay) {
         return;
     }
+    previousActiveElement = document.activeElement;
     overlay.classList.add('active');
     modal.classList.add('active');
+    
+    if (!importModalTrap) {
+        importModalTrap = createFocusTrap(modal);
+    }
+    importModalTrap.activate();
 }
 
 function closeImportModal() {
@@ -723,6 +848,13 @@ function closeImportModal() {
     }
     overlay.classList.remove('active');
     modal.classList.remove('active');
+    
+    if (importModalTrap) {
+        importModalTrap.deactivate();
+    }
+    if (previousActiveElement) {
+        previousActiveElement.focus();
+    }
 }
 
 function toggleAutoRuns() {

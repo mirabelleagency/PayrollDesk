@@ -15,9 +15,12 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from starlette.middleware.base import BaseHTTPMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.database import init_db, get_session
 from app import __version__
+from app.core.rate_limiter import limiter
 from app.routers import admin, auth, changelog, commissions, dashboard, models, profile, schedules
 
 
@@ -49,6 +52,10 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Payroll Desk", version=__version__, lifespan=lifespan)
+
+# Add rate limiter state to app
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Add cache-control middleware for static assets
 app.add_middleware(CacheControlMiddleware)
