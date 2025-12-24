@@ -118,6 +118,14 @@
 | Improve test coverage for crud.py | Testing | Medium | ✅ 70% → 75% |
 | Implement connection retry logic | Database | Medium | ✅ Done v2.32.0 |
 
+### Medium Priority (Recommended)
+
+| Task | Category | Effort | Notes |
+|------|----------|--------|-------|
+| Target 80% test coverage on crud.py | Testing | Medium | Strategic tests for core business logic |
+| Integration tests for critical workflows | Testing | Medium | Payroll generation, model creation |
+| Error scenario tests for user-facing features | Testing | Low | Form validation, API error responses |
+
 ### Low Priority
 
 | Task | Category | Effort |
