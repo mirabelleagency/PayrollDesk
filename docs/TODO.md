@@ -113,14 +113,14 @@ Use tables with consistent columns:
 > - CSS minification (26% savings), preload hints, cache headers
 > - CSS splitting deferred (gzip already provides ~85% compression)
 
-> **Note:** Sidebar a11y work completed in v2.33.1 (see CHANGELOG.md)
+> **Note:** Sidebar redesign completed in v2.34.0 (see CHANGELOG.md)
 
 ---
 
 ## Session Summary
 
 **Branch:** `feature/payrolldesk-v2`  
-**Current Version:** v2.33.2  
+**Current Version:** v2.34.0  
 **Test Count:** 194 tests  
 **Coverage:** 86% on crud.py
 
@@ -133,6 +133,7 @@ Use tables with consistent columns:
 - ✅ UI/UX: Button system, accessibility, skeleton loaders
 - ✅ Sidebar: accessibility enhancements (v2.33.1)
 - ✅ Frontend perf: CSS minification, preload, cache headers (v2.33.2)
+- ✅ Sidebar: redesign with custom SVG icons (v2.34.0)
 
 ### Backlog Status
 | Priority | Status |

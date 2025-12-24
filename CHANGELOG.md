@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.34.0 - 2025-12-24
+
+### Added
+- feat(ui): redesign sidebar with custom SVG icon system
+  - Replace emoji icons with consistent stroke-based SVG icons
+  - New PayrollDesk logo (calendar with dots design)
+  - Icons: Dashboard, Models, Payroll Hub, Commissions, Changelog, Profile, User Admin, Settings, Logout
+- feat(ui): improved sidebar collapse button
+  - Move from cut-off edge position to integrated top-right placement
+  - Subtle transparent background with border styling
+  - Focus-visible accessibility support
+
+### Changed
+- refactor(ui): nav-link icon styling updated for SVG support
+  - Icon color transitions on hover/active states
+  - Active state uses accent blue (#60a5fa)
+- refactor(ui): logo container updated for SVG artwork
+  - Hover scale effect added
+  - Slightly smaller container (48px → 44px)
+
+### Notes
+- All 194 tests passing
+- Consistent design language across all sidebar icons
+
 ## v2.33.2 - 2025-12-24
 
 ### Performance
