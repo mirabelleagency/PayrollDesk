@@ -1279,6 +1279,17 @@ section {
     color: #cbd5e1;
 }
 
+.card-heading h2 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.card-heading__icon {
+    color: #60a5fa;
+    flex-shrink: 0;
+}
+
 .card h2 {
     margin-top: 0;
     font-size: 1.2rem;
