@@ -1950,30 +1950,10 @@ def view_schedule(
     if not run:
         raise HTTPException(status_code=404, detail="Schedule run not found")
 
-    # Auto-refresh: if the run corresponds to the current month, re-run payroll
-    # so newly added models for this month appear without requiring manual "Run Payroll".
-    today = date.today()
-    if run.target_year == today.year and run.target_month == today.month:
-        # Re-run payroll for this cycle. The PayrollService will reuse the existing
-        # ScheduleRun and preserve existing payout status/notes when refreshing.
-        service = PayrollService(db)
-        try:
-            # Use the existing run's currency and export path when refreshing
-            export_path = Path(run.export_path) if run.export_path else Path("exports")
-            _, _, _, _, refreshed_run_id = service.run_payroll(
-                target_year=run.target_year,
-                target_month=run.target_month,
-                currency=run.currency if getattr(run, "currency", None) else "USD",
-                include_inactive=False,
-                output_dir=export_path,
-            )
-            # If a different run record was returned, load that one instead
-            if refreshed_run_id and refreshed_run_id != run.id:
-                run = crud.get_schedule_run(db, refreshed_run_id)
-        except Exception:
-            # If refresh fails, continue to render the existing run rather than failing the page.
-            # Errors are intentionally swallowed here to avoid blocking the user from viewing the run.
-            pass
+    # NOTE: Auto-refresh was removed to prevent data loss.
+    # Previously, viewing the current month's schedule would automatically regenerate
+    # all payouts, which could lose manual status/notes updates if pay dates changed.
+    # Users should manually click "Refresh Schedule" if they need to regenerate payouts.
 
     run.cycle_display = format_display_date(date(run.target_year, run.target_month, 1))
 
