@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## v2.32.2 - 2024-12-24
+## v2.32.2 - 2025-12-24
 
 ### Added
 - perf(crud): add `eager_load_payouts` parameter to `list_schedule_runs()` for N+1 prevention
@@ -31,7 +31,7 @@ All notable changes to this project will be documented in this file.
 - Pool settings logged at startup when using PostgreSQL
 - All 194 tests passing
 
-## v2.32.1 - 2024-12-24
+## v2.32.1 - 2025-12-24
 
 ### Added
 - test: add comprehensive CRUD test coverage (80 tests)
@@ -59,7 +59,7 @@ All notable changes to this project will be documented in this file.
 - Coverage on crud.py improved from 75% → 86%
 - All medium priority testing tasks completed
 
-## v2.32.0 - 2024-12-25
+## v2.32.0 - 2025-12-25
 
 ### Added
 - feat(database): add connection retry logic with exponential backoff
@@ -73,7 +73,7 @@ All notable changes to this project will be documented in this file.
 - Falls back to SQLite in development mode only after all retries exhausted
 - Production mode fails loudly after retry exhaustion
 
-## v2.31.0 - 2024-12-25
+## v2.31.0 - 2025-12-25
 
 ### Added
 - feat(api): add `/health/db` endpoint with database connection test and response time
@@ -95,7 +95,7 @@ All notable changes to this project will be documented in this file.
 - Use `include_deleted=True` to include soft-deleted models in queries
 - Query logging logs slow queries (>100ms) at WARNING level
 
-## v2.30.0 - 2024-12-25
+## v2.30.0 - 2025-12-25
 
 ### Added
 - feat(crud): add CommissionPayout CRUD operations in `app/crud.py`
@@ -119,7 +119,7 @@ All notable changes to this project will be documented in this file.
 - CommissionPayout model existed but had no dedicated CRUD layer
 - Now follows the same patterns as Model, Payout, and AdhocPayment CRUD
 
-## v2.29.0 - 2024-12-24
+## v2.29.0 - 2025-12-24
 
 ### Changed
 - refactor(database): remove legacy `ensure_schema_updates()` function (180+ lines removed)
@@ -137,7 +137,7 @@ All notable changes to this project will be documented in this file.
 - All databases already have the required columns from previous runs
 - Future schema changes: `alembic revision --autogenerate -m "description"`
 
-## v2.28.0 - 2024-12-24
+## v2.28.0 - 2025-12-24
 
 ### Added
 - feat(migrations): add Alembic database migration support
@@ -153,7 +153,7 @@ All notable changes to this project will be documented in this file.
 - Future schema changes should use `alembic revision --autogenerate`
 - See MIGRATIONS.md for full documentation
 
-## v2.27.1 - 2024-12-24
+## v2.27.1 - 2025-12-24
 
 ### Fixed
 - fix(database): enable SQLite foreign key enforcement in development mode
@@ -164,7 +164,7 @@ All notable changes to this project will be documented in this file.
 - This fix ensures data integrity in SQLite development mode matches PostgreSQL production
 - Without this, orphaned records could be created locally that would fail on production
 
-## v2.27.0 - 2024-12-24
+## v2.27.0 - 2025-12-24
 
 ### Added
 - feat(schedules): add "Add New Models" button to safely include new models in existing schedule

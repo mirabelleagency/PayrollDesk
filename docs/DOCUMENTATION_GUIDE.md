@@ -131,6 +131,31 @@ python -c "from app import __version__; print(__version__)"
 
 ## Changelog Management
 
+### In-App Changelog Synchronization
+
+The application displays the changelog at `/changelog` by reading directly from `CHANGELOG.md` in the project root. There is **no separate in-app changelog** to maintain - the same file is used everywhere.
+
+**Important:** Any changes to `CHANGELOG.md` are immediately visible in the app when the page is refreshed.
+
+### Version Synchronization Checklist
+
+When releasing a new version, ensure these are in sync:
+
+| Location | What to Update |
+|----------|----------------|
+| `app/__init__.py` | `__version__ = "X.Y.Z"` |
+| `CHANGELOG.md` | New version entry at the top |
+| `docs/TECHNICAL_SPEC.md` | Version number at top of document |
+
+**Verification:**
+```bash
+# Check app version
+python -c "from app import __version__; print(__version__)"
+
+# Check changelog has matching version
+head -10 CHANGELOG.md
+```
+
 ### Format
 
 Use [Keep a Changelog](https://keepachangelog.com/) format:
@@ -173,11 +198,19 @@ Use [Keep a Changelog](https://keepachangelog.com/) format:
 - Include issue/PR references if applicable
 - Be concise but descriptive
 - Group related changes
+- **Use correct year in dates** (common mistake: typing previous year)
+
+### Date Format
+
+Always use `YYYY-MM-DD` format with the **correct current year**:
+- ✅ `## v2.32.2 - 2025-12-24`
+- ❌ `## v2.32.2 - 2024-12-24` (wrong year)
+- ❌ `## v2.32.2 - 12/24/2025` (wrong format)
 
 ### Example Entry
 
 ```markdown
-## [1.5.0] - 2024-12-24
+## v1.5.0 - 2025-12-24
 
 ### Added
 - Add "Add New Models" button to safely include new models in existing schedule
