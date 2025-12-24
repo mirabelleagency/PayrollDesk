@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.28.0 - 2024-12-24
+
+### Added
+- feat(migrations): add Alembic database migration support
+- feat(migrations): create initial baseline migration (0001)
+- docs: add MIGRATIONS.md with comprehensive migration guide
+
+### Changed
+- deps: add alembic>=1.17.0 to requirements.txt
+- config(migrations/env.py): configure for PayrollDesk models and dual-DB support
+
+### Notes
+- Existing databases should run `alembic stamp 0001` to mark as baseline
+- Future schema changes should use `alembic revision --autogenerate`
+- See MIGRATIONS.md for full documentation
+
 ## v2.27.1 - 2024-12-24
 
 ### Fixed
