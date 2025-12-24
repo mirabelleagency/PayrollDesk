@@ -64,6 +64,15 @@ Use tables with consistent columns:
 
 ## Completed This Session
 
+### ✅ Models/New Form 10/10 (2025-12-24, v2.39.0)
+
+| Task | Category | Details |
+|------|----------|---------|
+| Inline CSS extraction | Refactor | ~47 styles → BEM classes in styles.css |
+| Form hints accessibility | A11y | aria-describedby linking hints to inputs |
+| Submit loading state | UX | Spinner animation + button disable |
+| Form route tests | Testing | 6 tests (auth, 404, context, attributes) |
+
 ### ✅ Models Page Architecture 10/10 (2025-12-24, v2.38.0)
 
 | Task | Category | Details |
@@ -141,14 +150,15 @@ Use tables with consistent columns:
 ## Session Summary
 
 **Branch:** `feature/payrolldesk-v2`  
-**Current Version:** v2.38.0  
-**Test Count:** 212 tests  
+**Current Version:** v2.39.0  
+**Test Count:** 218 tests  
 **Coverage:** 86% on crud.py
 
 ### Session Achievements
 
 | Version | Category | Summary |
 |---------|----------|---------|
+| v2.39.0 | Forms | CSS extraction, aria-describedby, loading states, 6 tests |
 | v2.38.0 | Models | Rate limiting, 18 route tests, pagination, currency config |
 | v2.37.0 | Models | CSS extraction, keyboard nav, modal accessibility |
 | v2.36.0 | Dashboard | Status badges, summary card SVG icons |
