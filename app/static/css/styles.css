@@ -624,6 +624,17 @@ section {
     transform: rotate(180deg);
 }
 
+/* Move toggle below logo when collapsed */
+.sidebar.collapsed .sidebar__toggle {
+    top: 80px;
+    right: 50%;
+    transform: translateX(50%);
+}
+
+.sidebar.collapsed .sidebar__toggle:active {
+    transform: translateX(50%) scale(0.95);
+}
+
 @media (max-width: 768px) {
     .content {
         margin-left: 0;
