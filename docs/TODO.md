@@ -111,14 +111,14 @@ Use tables with consistent columns:
 
 ### Frontend Performance (from Assessment)
 
-| Task | Category | Effort | Priority | Notes |
-|------|----------|--------|----------|-------|
-| Minify CSS (styles.css) | Performance | Low | High | ~70KB savings (118KB→~40KB) |
-| Add `defer` to scripts | Performance | Low | Medium | Unblock render |
-| Add preload resource hints | Performance | Low | Medium | `<link rel="preload">` for CSS |
-| Configure gzip compression | Performance | Low | Medium | Reverse proxy (nginx/render) |
-| Add cache-control headers | Performance | Low | Medium | `public, immutable` for hashed files |
-| Consider CSS code splitting | Performance | Medium | Low | Per-page critical CSS |
+| Task | Category | Effort | Priority | Status |
+|------|----------|--------|----------|--------|
+| Minify CSS (styles.css) | Performance | Low | High | ✅ Done (26% savings) |
+| Add `defer` to scripts | Performance | Low | Medium | N/A (no blocking scripts) |
+| Add preload resource hints | Performance | Low | Medium | ✅ Done |
+| Configure gzip compression | Performance | Low | Medium | ✅ Auto (Render.com) |
+| Add cache-control headers | Performance | Low | Medium | Pending |
+| Consider CSS code splitting | Performance | Medium | Low | Pending |
 
 > **Note:** Sidebar a11y work completed in v2.33.1 (see CHANGELOG.md)
 

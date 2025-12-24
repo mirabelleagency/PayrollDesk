@@ -4,7 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Payroll Desk{% endblock %}</title>
-    <link rel="stylesheet" href="/static/css/styles.css">
+    <!-- Preload critical CSS for faster first paint -->
+    <link rel="preload" href="/static/css/styles.min.css" as="style">
+    <link rel="stylesheet" href="/static/css/styles.min.css">
 </head>
 <body>
 <!-- Skip link for keyboard navigation -->
