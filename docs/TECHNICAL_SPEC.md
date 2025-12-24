@@ -124,7 +124,7 @@ PayrollDesk is a web-based payroll management application designed to handle:
 | **HTML Enhancement** | HTMX |
 | **CSS Framework** | Bootstrap 5 |
 | **Icons** | Custom SVG (stroke-based) |
-| **Charts** | (Dashboard charts) |
+| **Charts** | SVG donut, sparkline (no library) |
 
 ### Development & Testing
 

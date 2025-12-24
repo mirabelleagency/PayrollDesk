@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.35.0 - 2025-12-24
+
+### Added
+- feat(dashboard): SVG icons and accent colors on hero KPI cards
+  - Calendar, checkmark, dollar, and alert triangle icons
+  - Color-coded accent top-borders (blue, green, gray, red)
+- feat(dashboard): replace "Unpaid" KPI with "Month Paid" progress
+  - Shows paid amount with percentage completion
+  - Clearer distinction between cards, eliminates redundancy
+- feat(dashboard): skeleton loading states for hero KPIs
+  - Shimmer animation placeholders during page load
+  - Smooth fade-in transition when content ready
+  - Respects `prefers-reduced-motion` (no animation)
+- feat(dashboard): payment status donut chart
+  - SVG donut showing paid/unpaid ratio in Latest Cycle card
+  - Percentage displayed in center
+  - Legend with amounts for paid (green) and unpaid (gray)
+- feat(dashboard): count-up animation for hero KPI numbers
+  - Numbers animate from $0 to final value
+  - Ease-out cubic timing for smooth deceleration
+  - Currency prefix and proper decimal formatting preserved
+- feat(dashboard): 6-month trend sparkline chart
+  - Pure SVG sparkline with area fill gradient
+  - Current month highlighted with larger dot
+  - Monthly labels displayed below chart
+  - Data from ScheduleRun historical totals
+
+### Changed
+- refactor(dashboard): YTD Paid card uses new `--secondary` variant (neutral gray)
+- refactor(dashboard): Financial Overview card shows sparkline instead of pending/on-hold counts
+- refactor(crud): `dashboard_summary()` now returns `monthly_trend` array for sparkline
+
+### Notes
+- All 194 tests passing
+- All 7 dashboard enhancement tasks complete (from B+ assessment)
+
 ## v2.34.0 - 2025-12-24
 
 ### Added
