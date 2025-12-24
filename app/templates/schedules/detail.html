@@ -136,19 +136,35 @@ document.documentElement.classList.add('js-metrics');
             <span>Currency: {{ run.currency }}</span>
         </p>
     </div>
-    <div class="header-actions">
+    <div class="header-actions" style="display: flex; gap: 8px; align-items: center;">
         <a class="button secondary" href="/schedules">
             <span>← Back to Cycles</span>
         </a>
-        <div class="export-controls" style="display: flex; gap: 8px;">
-            {# CSV export removed — Excel will export the current status filter #}
-            <a id="export-excel" data-base-href="/schedules/{{ run.id }}/download/schedule_excel" class="button button--primary" href="/schedules/{{ run.id }}/download/schedule_excel{% if filters.status %}?status={{ filters.status }}{% endif %}">
-                <span>📥</span>
-                <span>Export Excel</span>
-            </a>
-        </div>
+        {# Add New Models button - safely adds models not yet in schedule #}
+        <form action="/schedules/{{ run.id }}/add-new-models" method="POST" style="margin: 0;">
+            <button type="submit" class="button secondary" title="Add payouts for models not yet in this schedule (safe - won't modify existing payouts)">
+                <span>➕</span>
+                <span>Add New Models</span>
+            </button>
+        </form>
+        {# CSV export removed — Excel will export the current status filter #}
+        <a id="export-excel" data-base-href="/schedules/{{ run.id }}/download/schedule_excel" class="button button--primary" href="/schedules/{{ run.id }}/download/schedule_excel{% if filters.status %}?status={{ filters.status }}{% endif %}">
+            <span>📥</span>
+            <span>Export Excel</span>
+        </a>
     </div>
 </section>
+
+<!-- Success message for added models -->
+{% if request.query_params.get('added') %}
+<section class="alert-banner alert-banner--success" style="margin-bottom: 24px;">
+    <div class="alert-banner__icon">✅</div>
+    <div class="alert-banner__content">
+        <div class="alert-banner__title">Models Added</div>
+        <div class="alert-banner__message">{{ request.query_params.get('added') }} new model(s) added to this schedule</div>
+    </div>
+</section>
+{% endif %}
 
 <!-- Validation Alerts (if any) -->
 {% if validations|length > 0 %}

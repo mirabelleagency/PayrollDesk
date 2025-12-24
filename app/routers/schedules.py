@@ -2078,6 +2078,39 @@ def delete_schedule_run(run_id: int, db: Session = Depends(get_session), user: U
     return RedirectResponse(url="/schedules", status_code=303)
 
 
+@router.post("/{run_id}/add-new-models")
+def add_new_models_to_schedule(
+    run_id: int,
+    request: Request,
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    """Add payouts for models that don't have payouts in the schedule yet.
+    
+    This is a SAFE operation - it never modifies or deletes existing payouts.
+    Only models that are not yet in the schedule will be added.
+    """
+    run = crud.get_schedule_run(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Schedule run not found")
+
+    service = PayrollService(db)
+    try:
+        result = service.add_new_models_to_run(
+            run_id=run_id,
+            currency=run.currency if getattr(run, "currency", None) else "USD",
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to add new models: {str(e)}")
+
+    # Redirect back to schedule view with a success message via query param
+    added_count = result.get("added_count", 0)
+    return RedirectResponse(
+        url=f"/schedules/{run_id}?added={added_count}",
+        status_code=303,
+    )
+
+
 @router.get("/{run_id}/download/{file_type}")
 def download_export(
     run_id: int,

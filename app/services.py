@@ -159,6 +159,79 @@ class PayrollService:
 
         return schedule_df, models_df, validation_df, summary, run.id
 
+    def add_new_models_to_run(
+        self,
+        run_id: int,
+        currency: str,
+    ) -> dict:
+        """Add payouts for models that don't have payouts in the run yet.
+        
+        This is a SAFE operation - it never modifies or deletes existing payouts.
+        Only models that are not yet in the schedule will be added.
+        
+        Returns a dict with counts of models added.
+        """
+        run = crud.get_schedule_run(self.db, run_id)
+        if not run:
+            raise ValueError(f"Schedule run {run_id} not found")
+        
+        # Get codes already in the schedule
+        existing_codes = set(crud.payout_codes_for_run(self.db, run_id))
+        
+        # Get all models
+        all_models = crud.list_models(self.db)
+        
+        # Filter to only models not already in schedule
+        new_models = [m for m in all_models if m.code not in existing_codes]
+        
+        if not new_models:
+            return {"added_count": 0, "added_codes": [], "message": "No new models to add"}
+        
+        # Build records only for new models
+        records = [
+            self._to_record(index, model, run.target_year, run.target_month)
+            for index, model in enumerate(new_models, start=1)
+        ]
+        
+        # Generate schedule only for new models
+        schedule_df, _ = build_pay_schedule(records, run.target_year, run.target_month, currency)
+        
+        if schedule_df.empty:
+            return {"added_count": 0, "added_codes": [], "message": "No payouts generated for new models"}
+        
+        # Convert to payout records
+        amount_column = f"Amount ({currency})"
+        payout_records = schedule_df.to_dict(orient="records")
+        for payout in payout_records:
+            pay_date_value = payout.get("Pay Date")
+            if pay_date_value is not None and hasattr(pay_date_value, "date"):
+                payout["Pay Date"] = pay_date_value.date()
+            amount_value = payout.get(amount_column)
+            if amount_value is not None:
+                payout[amount_column] = Decimal(str(amount_value))
+            notes_value = payout.get("Notes")
+            if notes_value is None or (isinstance(notes_value, float) and pd.isna(notes_value)):
+                payout["Notes"] = None
+        
+        # Store new payouts (no old_payout_data since these are all new)
+        crud.store_payouts(
+            self.db,
+            run,
+            payout_records,
+            amount_column=amount_column,
+            old_payout_data={},  # No old data to preserve for new models
+        )
+        
+        # Store validation messages for new models
+        crud.store_validation_messages(self.db, run, records, include_inactive=False)
+        
+        added_codes = [m.code for m in new_models]
+        return {
+            "added_count": len(new_models),
+            "added_codes": added_codes,
+            "message": f"Added {len(new_models)} new model(s) to schedule",
+        }
+
     def _to_record(self, position: int, model: Model, target_year: int, target_month: int) -> ModelRecord:
         base_amount = None
         if model.amount_monthly is not None:
