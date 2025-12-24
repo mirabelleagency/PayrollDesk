@@ -133,7 +133,10 @@ Use tables with consistent columns:
 
 ### Medium Priority
 
-*All completed ✅*
+| Task | Category | Effort | Notes |
+|------|----------|--------|-------|
+| CSS extraction for schedules/detail.html | Refactor | Medium | 52 inline styles → BEM classes |
+| Add schedules router tests | Testing | High | Currently 40% coverage |
 
 ### Low Priority (Future Enhancements)
 
@@ -142,6 +145,8 @@ Use tables with consistent columns:
 | Background tasks for exports | Performance | Medium | FastAPI BackgroundTasks |
 | Add full-text search | CRUD | High | Requires PostgreSQL tsvector |
 | Add API versioning | API | Medium | Only if external API consumers |
+| Split schedules.py into sub-modules | Refactor | High | Currently 1097 lines |
+| CSS extraction for remaining templates | Refactor | Medium | 206 total inline styles remain |
 
 > **Removed:** Rate limiting, route tests, error boundary, skeleton loader, export modal CSS, pagination, currency constant - completed this session
 
@@ -156,6 +161,30 @@ Use tables with consistent columns:
 > **Note:** Frontend performance work completed in v2.33.2 (see CHANGELOG.md)
 > **Note:** Sidebar redesign completed in v2.34.0 (see CHANGELOG.md)
 > **Note:** Dashboard enhancements completed in v2.35.0 (see CHANGELOG.md)
+
+---
+
+## Assessment Summary (2025-12-24)
+
+**Overall Rating: 8.4/10**
+
+| Category | Rating | Trend |
+|----------|--------|-------|
+| CRUD | 9/10 | → |
+| Security | 8/10 | → |
+| Performance | 8/10 | ↑ |
+| Code Quality | 8/10 | ↑ |
+| UI/UX | 9/10 | ↑ |
+| Database | 9/10 | → |
+| API | 8/10 | → |
+| Testing | 7/10 | ↑ |
+| Documentation | 9/10 | → |
+
+**Key Metrics:**
+- Test Count: 218 (all passing)
+- Overall Coverage: 57%
+- crud.py Coverage: 86%
+- Inline Styles Remaining: 206
 
 ---
 
@@ -185,11 +214,11 @@ Use tables with consistent columns:
 | Priority | Status |
 |----------|--------|
 | High | ✅ Complete |
-| Medium | ✅ Complete |
-| Low | 3 future enhancements |
+| Medium | 2 tasks pending |
+| Low | 5 future enhancements |
 | UI/UX | 1 low-priority pending |
 
 ---
 
 *Last Updated: 2025-12-24*  
-*Last Housekeeping: 2025-12-24 (added v2.40.0 view.html refactor)*
+*Last Housekeeping: 2025-12-24 (added assessment results and enhancements)*
