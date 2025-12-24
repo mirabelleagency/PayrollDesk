@@ -467,6 +467,18 @@ RATE_LIMIT_WINDOW_MINUTES = 15
 | `user` | View dashboard, models, schedules |
 | `admin` | All user permissions + admin panel |
 
+### Middleware
+
+| Middleware | Location | Purpose |
+|------------|----------|---------|
+| `CacheControlMiddleware` | `app/main.py` | Static asset cache headers |
+
+**Cache-Control Policies:**
+```
+Hashed files (*.js, *.css with hash):  Cache-Control: public, max-age=31536000, immutable
+Non-hashed files:                      Cache-Control: public, max-age=86400, must-revalidate
+```
+
 ---
 
 ## Core Business Logic

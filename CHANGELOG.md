@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.33.2 - 2025-12-24
+
+### Performance
+- perf(frontend): CSS minification (115KB → 85KB, 26% savings)
+  - Add `styles.min.css` compressed stylesheet
+  - Update base.html to use minified version
+- perf(frontend): add preload resource hint for critical CSS
+- perf(cache): add CacheControlMiddleware for static assets
+  - Hashed files: `max-age=31536000, immutable` (1 year)
+  - Non-hashed files: `max-age=86400, must-revalidate` (1 day)
+- note: gzip compression automatic on Render.com platform
+
+### Documentation
+- Update TODO.md with frontend performance completion status
+- CSS code splitting deferred (85KB gzipped ~12KB, complexity > benefit)
+
+### Notes
+- All 194 tests passing
+- Frontend performance section complete (5/6 tasks done, 1 deferred)
+
 ## v2.33.1 - 2025-12-24
 
 ### Added
