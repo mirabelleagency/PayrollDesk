@@ -669,6 +669,72 @@ Always use the `### Security` section in CHANGELOG:
   - Completed: 2024-12-24
 ```
 
+### TODO.md Housekeeping
+
+Periodic maintenance keeps the TODO.md file organized and useful.
+
+#### When to Perform Housekeeping
+- At the end of major work sessions
+- Before releases
+- When completed items accumulate (5+ completed tasks)
+- At least monthly
+
+#### Housekeeping Checklist
+
+```markdown
+□ Remove or archive completed tasks older than 30 days
+□ Update session summary with current stats
+□ Verify all dates use correct year (watch for copy-paste errors)
+□ Consolidate duplicate or related tasks
+□ Re-prioritize tasks based on current project needs
+□ Update "Last Housekeeping" date at bottom
+□ Verify test count and coverage stats are current
+□ Check for blocked tasks and update their status
+□ Move tasks between priority levels if scope changed
+```
+
+#### Archive Format for Completed Tasks
+
+When archiving completed tasks, move them to a "Completed Archive" section or remove entirely if well-documented in CHANGELOG:
+
+```markdown
+## Completed Archive (2025-Q4)
+
+| Task | Completed | Notes |
+|------|-----------|-------|
+| Add soft delete | 2025-12-20 | See CHANGELOG v2.30.0 |
+| Optimize queries | 2025-12-22 | Eager loading added |
+```
+
+#### Session Summary Template
+
+Keep the Session Summary section updated:
+
+```markdown
+## Session Summary
+
+**Branch:** `feature/branch-name`  
+**Current Version:** vX.Y.Z  
+**Test Count:** N tests  
+**Coverage:** X% on module
+
+### Session Achievements
+- ✅ Achievement 1
+- ✅ Achievement 2
+
+### Backlog Status
+| Priority | Status |
+|----------|--------|
+| High | ✅ Complete / N remaining |
+| Medium | ✅ Complete / N remaining |
+| Low | N future enhancements |
+
+---
+
+*Last Updated: YYYY-MM-DD*  
+*Last Housekeeping: YYYY-MM-DD*
+```
+
 ---
 
 ## Testing Documentation
