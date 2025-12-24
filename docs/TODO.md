@@ -114,8 +114,8 @@ Use tables with consistent columns:
 | Standardize button classes | CSS | Medium | High | ✅ Complete |
 | Extract login page styles | CSS | Low | High | ✅ Complete |
 | Audit focus indicators | A11y | Medium | High | ✅ Complete |
-| Add skeleton loaders | UX | Medium | Medium | Pending |
-| Complete ARIA audit | A11y | Medium | Medium | Pending |
+| Add skeleton loaders | UX | Medium | Medium | ✅ Complete |
+| Complete ARIA audit | A11y | Medium | Medium | ✅ Complete |
 | Align login page theme | CSS | Low | Low | ✅ Complete (navy) |
 | Dark/Light theme toggle | UX | High | Low | Pending |
 | Enhanced toast system | UX | Medium | Low | Pending |
@@ -135,6 +135,7 @@ Use tables with consistent columns:
 - ✅ Test coverage: 75% → 86% (+76 tests)
 - ✅ Performance: N+1 fix, caching, indexes
 - ✅ Configuration: Pool settings, eager loading
+- ✅ UI/UX: Button system, accessibility, skeleton loaders
 
 ### Backlog Status
 | Priority | Status |
@@ -142,7 +143,7 @@ Use tables with consistent columns:
 | High | ✅ Complete |
 | Medium | ✅ Complete |
 | Low | 5 future enhancements |
-| UI/UX | 4/8 complete, 4 pending |
+| UI/UX | 6/8 complete, 2 low-priority pending |
 
 ---
 
