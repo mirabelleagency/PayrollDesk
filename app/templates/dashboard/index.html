@@ -228,13 +228,42 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
                 <div class="metric-number" style="font-size: 1rem; margin-top: 4px;">Total Cycles: {{ summary.total_runs }}</div>
             </div>
-            <div class="metric-item">
-                <div class="metric-label">{{ run_paid_title }}</div>
-                <div class="metric-number metric-number--success">${{ summary.latest_run_paid|money }}</div>
-            </div>
-            <div class="metric-item">
-                <div class="metric-label">{{ run_outstanding_title }}</div>
-                <div class="metric-number metric-number--warning">${{ summary.latest_run_unpaid|money }}</div>
+            <div class="metric-item" style="grid-column: span 2;">
+                <!-- Donut Chart: Payment Progress -->
+                {% set paid = summary.latest_run_paid|float %}
+                {% set unpaid = summary.latest_run_unpaid|float %}
+                {% set total = paid + unpaid %}
+                {% if total > 0 %}
+                    {% set pct_paid = (paid / total * 100)|round(0)|int %}
+                {% else %}
+                    {% set pct_paid = 0 %}
+                {% endif %}
+                {% set circumference = 251.2 %}
+                {% set dash_offset = circumference - (circumference * pct_paid / 100) %}
+                <div class="donut-chart">
+                    <div class="donut-chart__wrapper">
+                        <svg class="donut-chart__svg" viewBox="0 0 100 100">
+                            <circle class="donut-chart__ring donut-chart__ring--bg" cx="50" cy="50" r="40"/>
+                            <circle class="donut-chart__ring donut-chart__ring--progress" cx="50" cy="50" r="40" 
+                                    stroke-dasharray="{{ circumference }}" 
+                                    stroke-dashoffset="{{ dash_offset }}"/>
+                        </svg>
+                        <div class="donut-chart__center">
+                            <div class="donut-chart__pct">{{ pct_paid }}%</div>
+                            <div class="donut-chart__pct-label">paid</div>
+                        </div>
+                    </div>
+                    <div class="donut-chart__legend">
+                        <div class="donut-chart__legend-item">
+                            <span class="donut-chart__legend-dot donut-chart__legend-dot--paid"></span>
+                            Paid: <span class="donut-chart__legend-value">${{ summary.latest_run_paid|money }}</span>
+                        </div>
+                        <div class="donut-chart__legend-item">
+                            <span class="donut-chart__legend-dot donut-chart__legend-dot--unpaid"></span>
+                            Unpaid: <span class="donut-chart__legend-value">${{ summary.latest_run_unpaid|money }}</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

@@ -6200,6 +6200,104 @@ section {
     }
 }
 
+/* ============================================
+   DONUT CHART
+   Simple SVG-based progress donut for dashboards
+   ============================================ */
+
+.donut-chart {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.donut-chart__svg {
+    width: 100px;
+    height: 100px;
+    transform: rotate(-90deg);
+    flex-shrink: 0;
+}
+
+.donut-chart__ring {
+    fill: none;
+    stroke-width: 10;
+}
+
+.donut-chart__ring--bg {
+    stroke: rgba(100, 116, 139, 0.2);
+}
+
+.donut-chart__ring--progress {
+    stroke: #4ade80;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.6s ease;
+}
+
+.donut-chart__ring--progress--warning {
+    stroke: #facc15;
+}
+
+.donut-chart__center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+.donut-chart__wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.donut-chart__pct {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #f8fafc;
+    line-height: 1;
+}
+
+.donut-chart__pct-label {
+    font-size: 0.7rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.donut-chart__legend {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.donut-chart__legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: #cbd5e1;
+}
+
+.donut-chart__legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.donut-chart__legend-dot--paid {
+    background: #4ade80;
+}
+
+.donut-chart__legend-dot--unpaid {
+    background: rgba(100, 116, 139, 0.4);
+}
+
+.donut-chart__legend-value {
+    font-weight: 600;
+    color: #f8fafc;
+}
+
 
 
 
