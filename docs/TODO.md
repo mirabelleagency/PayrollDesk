@@ -109,6 +109,17 @@ Use tables with consistent columns:
 | Dark/Light theme toggle | UX | High | Low | Pending |
 | Enhanced toast system | UX | Medium | Low | Pending |
 
+### Dashboard Enhancements (from Assessment)
+
+| Task | Category | Effort | Priority | Status |
+|------|----------|--------|----------|--------|
+| Add SVG icons to hero KPIs | UI | Low | High | Pending |
+| Add card header accent colors | UI | Low | High | Pending |
+| Add skeleton loaders | UX | Medium | Medium | Pending |
+| Add payment status donut chart | Viz | Medium | Medium | Pending |
+| Add number count-up animation | UX | Medium | Low | Pending |
+| Add monthly trend sparklines | Viz | High | Low | Pending |
+
 > **Note:** Frontend performance work completed in v2.33.2 (see CHANGELOG.md)
 > - CSS minification (26% savings), preload hints, cache headers
 > - CSS splitting deferred (gzip already provides ~85% compression)
