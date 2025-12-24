@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.27.1 - 2024-12-24
+
+### Fixed
+- fix(database): enable SQLite foreign key enforcement in development mode
+- Previously, foreign keys were only enforced in tests via conftest.py PRAGMA
+- Now `_enable_sqlite_foreign_keys()` ensures FK constraints match PostgreSQL behavior
+
+### Notes
+- This fix ensures data integrity in SQLite development mode matches PostgreSQL production
+- Without this, orphaned records could be created locally that would fail on production
+
+## v2.27.0 - 2024-12-24
+
+### Added
+- feat(schedules): add "Add New Models" button to safely include new models in existing schedule
+- feat(services): add `add_new_models_to_run()` method for non-destructive model addition
+- docs: add comprehensive DOCUMENTATION_GUIDE.md for project documentation standards
+
+### Fixed
+- fix(schedules): remove auto-refresh on schedule view that was causing data loss
+- fix(payouts): preserve manual status/notes updates when viewing current month's schedule
+
+### Changed
+- ui(schedules/detail): "Add New Models" button added inline with Back and Export buttons
+- behavior: viewing schedule page no longer regenerates payouts automatically
+
+### Notes
+- The auto-refresh behavior was causing payout data (status, notes) to be lost when viewing the current month's schedule. This has been removed to prevent data loss.
+- To add new models to an existing schedule, use the "Add New Models" button which safely adds only models not already in the schedule without affecting existing payouts.
+
 ## v2.23.1 - 2025-11-16
 
 ### Changed

@@ -7,10 +7,25 @@ from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 from typing import Generator
 
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 DEFAULT_SQLITE_PATH = Path("data/payroll.db")
+
+
+def _enable_sqlite_foreign_keys(engine):
+    """Enable foreign key enforcement for SQLite connections.
+    
+    SQLite does not enforce foreign keys by default. This listener ensures
+    that every connection to an SQLite database has foreign keys enabled,
+    matching PostgreSQL's default behavior.
+    """
+    if "sqlite" in str(engine.url):
+        @event.listens_for(engine, "connect")
+        def set_sqlite_pragma(dbapi_conn, connection_record):
+            cursor = dbapi_conn.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
 DEFAULT_SQLITE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 DATABASE_URL = os.getenv("PAYROLL_DATABASE_URL", f"sqlite:///{DEFAULT_SQLITE_PATH}")
@@ -48,6 +63,7 @@ print(f"[database] ENVIRONMENT={os.getenv('ENVIRONMENT', 'unset')} | PAYROLL_DAT
 
 try:
     engine = _create_engine(DATABASE_URL)
+    _enable_sqlite_foreign_keys(engine)  # Ensure FK enforcement for SQLite
     # quick smoke-check connection (some DBs may reject on connect)
     with engine.connect() as _conn:  # type: ignore[var-annotated]
         pass
@@ -62,6 +78,7 @@ except Exception as e:  # pragma: no cover - environment dependent
         print(f"[database] Falling back to SQLite (dev-only) at {fallback}")
         DATABASE_URL = fallback
         engine = _create_engine(DATABASE_URL)
+        _enable_sqlite_foreign_keys(engine)  # Ensure FK enforcement for fallback SQLite
     else:
         # Re-raise for non-dev environments or when fallback not enabled so startup fails loudly
         print("[database] Fallback disabled; aborting startup")
