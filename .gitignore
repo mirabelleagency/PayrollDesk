@@ -24,11 +24,15 @@ build/
 dist/
 *.log
 
-# Generated exports
+# Generated exports (add to git selectively if needed)
 exports/
 
 # Local database state
 data/*.db
+
+# Temporary files
+data/tmp*.json
+*.tmp
 
 # OS / editor noise
 .DS_Store
