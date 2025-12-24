@@ -113,8 +113,9 @@ Use tables with consistent columns:
 
 | Task | Category | Effort | Priority | Status |
 |------|----------|--------|----------|--------|
-| Add SVG icons to hero KPIs | UI | Low | High | Pending |
-| Add card header accent colors | UI | Low | High | Pending |
+| Add SVG icons to hero KPIs | UI | Low | High | ✅ Done |
+| Add card header accent colors | UI | Low | High | ✅ Done |
+| Replace Unpaid with Month Paid | UI | Low | High | ✅ Done |
 | Add skeleton loaders | UX | Medium | Medium | Pending |
 | Add payment status donut chart | Viz | Medium | Medium | Pending |
 | Add number count-up animation | UX | Medium | Low | Pending |

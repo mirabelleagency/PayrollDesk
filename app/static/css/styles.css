@@ -3539,6 +3539,73 @@ section {
     }
 }
 
+/* Hero KPI Skeleton Loading */
+.hero-kpi-skeleton {
+    background: rgba(30, 41, 59, 0.95);
+    padding: 24px;
+    border-radius: 16px;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    position: relative;
+    overflow: hidden;
+}
+
+.hero-kpi-skeleton::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: rgba(148, 163, 184, 0.3);
+}
+
+.hero-kpi-skeleton__header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.hero-kpi-skeleton__icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+}
+
+.hero-kpi-skeleton__label {
+    height: 14px;
+    width: 120px;
+    border-radius: 4px;
+}
+
+.hero-kpi-skeleton__value {
+    height: 2.5rem;
+    width: 70%;
+    border-radius: 6px;
+}
+
+.hero-kpi-skeleton__subtitle {
+    height: 14px;
+    width: 50%;
+    border-radius: 4px;
+}
+
+/* Hide skeleton when content loaded */
+.hero-kpis--loaded .hero-kpi-skeleton {
+    display: none;
+}
+
+.hero-kpi-card {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.hero-kpis--loaded .hero-kpi-card {
+    opacity: 1;
+}
+
 /* Alert/Action Items Card */
 .alert-card {
     background: linear-gradient(135deg, rgba(251, 191, 36, 0.08), rgba(30, 41, 59, 0.95));

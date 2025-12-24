@@ -63,7 +63,42 @@ document.addEventListener('DOMContentLoaded', function () {
 {% endif %}
 
 <!-- Hero KPI Section -->
-<section class="hero-kpis" style="margin-top: 24px;">
+<section class="hero-kpis" id="heroKpis" style="margin-top: 24px;">
+    <!-- Skeleton Loaders (shown while content loads) -->
+    <div class="hero-kpi-skeleton" aria-hidden="true">
+        <div class="hero-kpi-skeleton__header">
+            <div class="hero-kpi-skeleton__icon skeleton"></div>
+            <div class="hero-kpi-skeleton__label skeleton"></div>
+        </div>
+        <div class="hero-kpi-skeleton__value skeleton"></div>
+        <div class="hero-kpi-skeleton__subtitle skeleton"></div>
+    </div>
+    <div class="hero-kpi-skeleton" aria-hidden="true">
+        <div class="hero-kpi-skeleton__header">
+            <div class="hero-kpi-skeleton__icon skeleton"></div>
+            <div class="hero-kpi-skeleton__label skeleton"></div>
+        </div>
+        <div class="hero-kpi-skeleton__value skeleton"></div>
+        <div class="hero-kpi-skeleton__subtitle skeleton"></div>
+    </div>
+    <div class="hero-kpi-skeleton" aria-hidden="true">
+        <div class="hero-kpi-skeleton__header">
+            <div class="hero-kpi-skeleton__icon skeleton"></div>
+            <div class="hero-kpi-skeleton__label skeleton"></div>
+        </div>
+        <div class="hero-kpi-skeleton__value skeleton"></div>
+        <div class="hero-kpi-skeleton__subtitle skeleton"></div>
+    </div>
+    <div class="hero-kpi-skeleton" aria-hidden="true">
+        <div class="hero-kpi-skeleton__header">
+            <div class="hero-kpi-skeleton__icon skeleton"></div>
+            <div class="hero-kpi-skeleton__label skeleton"></div>
+        </div>
+        <div class="hero-kpi-skeleton__value skeleton"></div>
+        <div class="hero-kpi-skeleton__subtitle skeleton"></div>
+    </div>
+
+    <!-- Actual KPI Cards -->
     <div class="hero-kpi-card hero-kpi-card--primary">
         <div class="hero-kpi-header">
             <svg class="hero-kpi-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -125,6 +160,15 @@ document.addEventListener('DOMContentLoaded', function () {
         <div class="hero-kpi-subtitle">{% if summary.overdue_count > 0 %}Overdue payments{% else %}All payments current{% endif %}</div>
     </div>
 </section>
+<script>
+// Reveal hero KPIs after content loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Small delay for smoother visual transition
+    requestAnimationFrame(function() {
+        document.getElementById('heroKpis').classList.add('hero-kpis--loaded');
+    });
+});
+</script>
 
 <section class="card-grid columns-3" style="margin-top: 24px;">
     <div class="card metric-card">
