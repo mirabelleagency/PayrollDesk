@@ -83,16 +83,24 @@ Use tables with consistent columns:
 
 ### High Priority
 
-*None - all high priority items completed*
+| Task | Category | Effort | Notes |
+|------|----------|--------|-------|
+| Fix N+1 in cleanup_empty_runs | Performance | Low | Batch query instead of loop |
+| Add dashboard caching | Performance | Medium | 5-min TTL for summary data |
 
 ### Medium Priority
 
-*None - all medium priority items completed*
+| Task | Category | Effort | Notes |
+|------|----------|--------|-------|
+| Add eager loading to list_schedule_runs | Performance | Low | joinedload for relationships |
+| Make pool settings configurable | Database | Low | ENV vars for pool_size/overflow |
+| Add composite index (schedule_run_id, status) | Database | Low | Improve payout queries |
 
 ### Low Priority (Future Enhancements)
 
 | Task | Category | Effort | Notes |
 |------|----------|--------|-------|
+| Background tasks for exports | Performance | Medium | FastAPI BackgroundTasks |
 | Consider async SQLAlchemy | Performance | High | Only if concurrent load increases |
 | Add full-text search | CRUD | High | Requires PostgreSQL tsvector |
 | Implement Redis caching | Performance | High | New infrastructure dependency |
