@@ -1021,6 +1021,135 @@ def top_paid_models(db: Session, limit: int = 5) -> list[tuple[Model, Decimal]]:
     return output
 
 
+def total_adhoc_paid_by_model(db: Session, model_ids: Sequence[int]) -> dict[int, Decimal]:
+    """Calculate total paid adhoc payments per model.
+    
+    Returns a dict mapping model_id -> total paid adhoc amount.
+    Only includes adhoc payments with status='paid'.
+    """
+    if not model_ids:
+        return {}
+    
+    stmt = (
+        select(AdhocPayment.model_id, func.coalesce(func.sum(AdhocPayment.amount), 0))
+        .where(AdhocPayment.model_id.in_(model_ids), AdhocPayment.status == "paid")
+        .group_by(AdhocPayment.model_id)
+    )
+    results = db.execute(stmt).all()
+    totals: dict[int, Decimal] = {}
+    for model_id, total in results:
+        totals[model_id] = Decimal(total) if not isinstance(total, Decimal) else total
+    return totals
+
+
+def total_commission_paid_by_model(db: Session, model_ids: Sequence[int]) -> dict[int, Decimal]:
+    """Calculate total paid commission payouts per model (as referrer).
+    
+    Returns a dict mapping model_id -> total paid commission amount.
+    Only includes commission payouts with status='paid'.
+    """
+    if not model_ids:
+        return {}
+    
+    stmt = (
+        select(CommissionPayout.referrer_model_id, func.coalesce(func.sum(CommissionPayout.amount), 0))
+        .where(CommissionPayout.referrer_model_id.in_(model_ids), CommissionPayout.status == "paid")
+        .group_by(CommissionPayout.referrer_model_id)
+    )
+    results = db.execute(stmt).all()
+    totals: dict[int, Decimal] = {}
+    for model_id, total in results:
+        totals[model_id] = Decimal(total) if not isinstance(total, Decimal) else total
+    return totals
+
+
+def top_paid_models_comprehensive(
+    db: Session, limit: int = 5
+) -> list[dict]:
+    """Get top paid models with breakdown of payroll, adhoc, and commission totals.
+    
+    Returns a list of dicts with:
+        - model: Model object
+        - payroll_total: Total from regular payouts
+        - adhoc_total: Total from adhoc payments  
+        - commission_total: Total from commission payouts
+        - combined_total: Sum of all three
+    """
+    # First get top models by payroll (to maintain backwards compat ordering)
+    top_models = top_paid_models(db, limit=limit)
+    if not top_models:
+        return []
+    
+    model_ids = [m.id for m, _ in top_models]
+    
+    # Get adhoc totals
+    adhoc_totals = total_adhoc_paid_by_model(db, model_ids)
+    
+    # Get commission totals
+    commission_totals = total_commission_paid_by_model(db, model_ids)
+    
+    # Build comprehensive result
+    result = []
+    for model, payroll_total in top_models:
+        adhoc = adhoc_totals.get(model.id, Decimal("0"))
+        commission = commission_totals.get(model.id, Decimal("0"))
+        combined = payroll_total + adhoc + commission
+        
+        result.append({
+            "model": model,
+            "payroll_total": payroll_total,
+            "adhoc_total": adhoc,
+            "commission_total": commission,
+            "combined_total": combined,
+        })
+    
+    return result
+
+
+def total_paid_by_model_comprehensive(
+    db: Session, model_ids: Sequence[int]
+) -> dict[int, dict[str, Decimal]]:
+    """Get comprehensive payment totals per model as a map.
+    
+    Returns a dict mapping model_id -> {
+        'payroll': Decimal,
+        'adhoc': Decimal,
+        'commission': Decimal,
+        'combined': Decimal
+    }
+    
+    Useful for the models list page to show breakdown per model.
+    """
+    if not model_ids:
+        return {}
+    
+    # Get regular payout totals
+    payroll_totals = total_paid_by_model(db, model_ids)
+    
+    # Get adhoc totals
+    adhoc_totals = total_adhoc_paid_by_model(db, model_ids)
+    
+    # Get commission totals
+    commission_totals = total_commission_paid_by_model(db, model_ids)
+    
+    # Build comprehensive result for each model
+    result: dict[int, dict[str, Decimal]] = {}
+    for model_id in model_ids:
+        payroll = payroll_totals.get(model_id, Decimal("0"))
+        adhoc = adhoc_totals.get(model_id, Decimal("0"))
+        commission = commission_totals.get(model_id, Decimal("0"))
+        combined = payroll + adhoc + commission
+        
+        result[model_id] = {
+            'payroll': payroll,
+            'adhoc': adhoc,
+            'commission': commission,
+            'combined': combined,
+        }
+    
+    return result
+
+
 def recent_validation_issues(db: Session, limit: int = 5) -> Sequence[ValidationIssue]:
     stmt = select(ValidationIssue).order_by(ValidationIssue.id.desc()).limit(limit)
     return db.execute(stmt).scalars().all()

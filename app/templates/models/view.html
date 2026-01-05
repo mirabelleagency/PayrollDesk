@@ -373,8 +373,15 @@ details[open] > .collapsible-summary::after {
         <!-- Stats Row -->
         <div class="model-view-stats">
             <div class="model-view-stat">
-                <div class="model-view-stat__value model-view-stat__value--success">${{ total_paid|money }}</div>
-                <div class="model-view-stat__label">Total Paid</div>
+                <div class="model-view-stat__value model-view-stat__value--success" title="Payroll: ${{ payroll_total|money }} | Ad Hoc: ${{ adhoc_total|money }} | Commission: ${{ commission_total|money }}">${{ total_paid|money }}</div>
+                <div class="model-view-stat__label">Total Paid (Combined)</div>
+                {% if adhoc_total > 0 or commission_total > 0 %}
+                <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">
+                    <span style="color: var(--success);">${{ payroll_total|money }} payroll</span>
+                    {% if adhoc_total > 0 %} | <span style="color: var(--info);">+${{ adhoc_total|money }} adhoc</span>{% endif %}
+                    {% if commission_total > 0 %} | <span style="color: var(--warning);">+${{ commission_total|money }} comm</span>{% endif %}
+                </div>
+                {% endif %}
             </div>
             <div class="model-view-stat">
                 <div class="model-view-stat__value model-view-stat__value--primary">${{ model.amount_monthly|money }}</div>
@@ -461,8 +468,8 @@ details[open] > .collapsible-summary::after {
                 </div>
                 {% endif %}
                 <div class="model-view-info-row">
-                    <span class="model-view-info-label">Total Paid</span>
-                    <span class="model-view-info-value model-view-info-value--success">${{ total_paid|money }}</span>
+                    <span class="model-view-info-label">Total Paid (Combined)</span>
+                    <span class="model-view-info-value model-view-info-value--success" title="Payroll: ${{ payroll_total|money }} | Ad Hoc: ${{ adhoc_total|money }} | Commission: ${{ commission_total|money }}">${{ total_paid|money }}</span>
                 </div>
                 <div class="model-view-info-row">
                     <span class="model-view-info-label">Profile Created</span>

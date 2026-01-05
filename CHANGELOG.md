@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.42.0 - 2026-01-06
+
+### Added
+- feat(crud): comprehensive payment totals functions
+  - `total_adhoc_paid_by_model()` - Sum paid adhoc payments per model
+  - `total_commission_paid_by_model()` - Sum paid commission payouts per model
+  - `top_paid_models_comprehensive()` - Top earners with payroll/adhoc/commission breakdown
+  - `total_paid_by_model_comprehensive()` - Map of comprehensive totals for all models
+
+### Changed
+- refactor(dashboard): update Top Earners to show comprehensive payment totals
+  - Combined total now includes payroll + adhoc + commission payments
+  - Inline breakdown shows adhoc/commission amounts when present
+  - Hover tooltip displays full breakdown: "Payroll: $X | Ad Hoc: $Y | Commission: $Z"
+  
+- refactor(models/list): update Lifetime Paid column with comprehensive totals
+  - Model list now shows combined total from all payment sources
+  - Color-coded breakdown: blue for adhoc, amber for commission
+  - Tooltip on hover shows full breakdown
+
+- refactor(models/view): update Total Paid stats with comprehensive breakdown
+  - Main stat shows combined total with "(Combined)" label
+  - Detailed breakdown displayed below when adhoc/commission > 0
+  - Payment Information section updated with tooltip
+
+### Fixed
+- fix(totals): adhoc payments and commission payouts now included in model total paid
+  - Previously only regular payroll payouts were counted
+  - Now all three payment types are aggregated for accurate lifetime totals
+
+### Tests
+- Test count: 218 (unchanged)
+- All tests passing
+
+---
+
 ## v2.41.0 - 2026-01-06
 
 ### Added

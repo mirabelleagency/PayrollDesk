@@ -85,7 +85,12 @@ def _build_model_list_context(
     start_index = 1 if total_count else 0
     end_index = total_count
 
-    totals_map = crud.total_paid_by_model(db, [model.id for model in models])
+    # Get comprehensive payment totals (payroll + adhoc + commission) per model
+    model_ids = [model.id for model in models]
+    totals_map_comprehensive = crud.total_paid_by_model_comprehensive(db, model_ids)
+    # For backwards compatibility, keep totals_map as combined values
+    totals_map = {mid: data['combined'] for mid, data in totals_map_comprehensive.items()}
+    
     total_paid_sum = crud.sum_paid_for_models(
         db,
         code=code_filter,
@@ -187,6 +192,7 @@ def _build_model_list_context(
         "frequency_options": FREQUENCY_ENUM,
         "frequency_counts": frequency_counts,
         "totals_map": totals_map,
+        "totals_map_comprehensive": totals_map_comprehensive,
         "total_paid_sum": total_paid_sum,
         "export_url": export_url,
         "status_counts": status_counts,
@@ -907,8 +913,18 @@ def view_model(model_id: int, request: Request, db: Session = Depends(get_sessio
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
     
-    # Get total paid amount for this model (from scheduled payouts)
-    total_paid = crud.total_paid_by_model(db, [model.id]).get(model.id, Decimal("0"))
+    # Get comprehensive payment totals for this model (payroll + adhoc + commission)
+    totals_comprehensive = crud.total_paid_by_model_comprehensive(db, [model.id])
+    model_totals = totals_comprehensive.get(model.id, {
+        'payroll': Decimal("0"),
+        'adhoc': Decimal("0"),
+        'commission': Decimal("0"),
+        'combined': Decimal("0"),
+    })
+    total_paid = model_totals['combined']
+    payroll_total = model_totals['payroll']
+    adhoc_total = model_totals['adhoc']
+    commission_total = model_totals['commission']
     
     # Get paid payouts (unified source of truth for payment history)
     paid_payouts = crud.get_paid_payouts_for_model(db, model_id)
@@ -940,6 +956,9 @@ def view_model(model_id: int, request: Request, db: Session = Depends(get_sessio
             "user": user,
             "model": model,
             "total_paid": total_paid,
+            "payroll_total": payroll_total,
+            "adhoc_total": adhoc_total,
+            "commission_total": commission_total,
             "paid_payouts": paid_payouts,
             "adhoc_payments": adhoc_payments,
             "advances": advances,

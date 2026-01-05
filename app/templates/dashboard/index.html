@@ -468,7 +468,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div class="summary-stat">
                 <div class="summary-stat-label">Combined Lifetime</div>
-                <div class="summary-stat-value">${{ (top_models|sum(attribute='total_paid'))|money }}</div>
+                <div class="summary-stat-value">${{ (top_models|sum(attribute='combined_total'))|money }}</div>
             </div>
         </div>
         {% if top_models %}
@@ -485,7 +485,16 @@ document.addEventListener('DOMContentLoaded', function() {
                         {% endif %}
                     </span>
                 </div>
-                <div class="summary-list-amount">${{ item.total_paid|money }}</div>
+                <div class="summary-list-amount">
+                    <span title="Payroll: ${{ item.payroll_total|money }} | Ad Hoc: ${{ item.adhoc_total|money }} | Commission: ${{ item.commission_total|money }}">${{ item.combined_total|money }}</span>
+                    {% if item.adhoc_total > 0 or item.commission_total > 0 %}
+                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">
+                        {% if item.adhoc_total > 0 %}<span style="color: var(--info);">+${{ item.adhoc_total|money }} adhoc</span>{% endif %}
+                        {% if item.adhoc_total > 0 and item.commission_total > 0 %} | {% endif %}
+                        {% if item.commission_total > 0 %}<span style="color: var(--warning);">+${{ item.commission_total|money }} comm</span>{% endif %}
+                    </div>
+                    {% endif %}
+                </div>
             </div>
             {% endfor %}
         </div>

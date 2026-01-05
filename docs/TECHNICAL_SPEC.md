@@ -2,7 +2,7 @@
 
 > Comprehensive technical documentation for the PayrollDesk payroll management system.
 
-**Version:** 2.40.0
+**Version:** 2.42.0
 ## Table of Contents
 
 1. [System Overview](#system-overview)
@@ -40,6 +40,7 @@ PayrollDesk is a web-based payroll management application designed to handle:
 | Commission Tracking | Per-referral commissions with configurable duration |
 | Account Lockout | Auto-lockout after failed login attempts |
 | Dashboard Caching | In-memory caching with 5-minute TTL |
+| Comprehensive Payment Totals | Aggregates payroll, adhoc, and commission payments for lifetime totals |
 
 ---
 
@@ -68,7 +69,7 @@ PayrollDesk is a web-based payroll management application designed to handle:
 │                            │                                    │
 │  ┌─────────────────────────▼─────────────────────────────────┐ │
 │  │                     CRUD Layer                            │ │
-│  │           app/crud.py (1871 lines, 86% coverage)          │ │
+│  │           app/crud.py (2034 lines, 86% coverage)          │ │
 │  └─────────────────────────┬─────────────────────────────────┘ │
 │                            │                                    │
 │  ┌─────────────────────────▼─────────────────────────────────┐ │
@@ -318,18 +319,27 @@ requested → approved → active → closed
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/dashboard` | Main dashboard with metrics |
+| GET | `/dashboard` | Main dashboard with metrics (includes comprehensive payment totals) |
 | GET | `/dashboard/export` | Export dashboard as CSV |
 | GET | `/dashboard/export-xlsx` | Export dashboard as Excel |
+
+#### Dashboard Metrics
+
+The dashboard displays comprehensive payment totals that aggregate:
+- **Payroll**: Regular scheduled payouts
+- **Adhoc**: One-time payments outside schedules  
+- **Commission**: Referral commission payouts
+
+The "Top Earners" widget shows combined lifetime totals with breakdown.
 
 ### Model Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/models/` | List all models with filtering |
+| GET | `/models/` | List all models with comprehensive lifetime totals |
 | GET | `/models/new` | New model form |
 | POST | `/models/new` | Create model |
-| GET | `/models/{id}` | Model detail view |
+| GET | `/models/{id}` | Model detail view with payment breakdown |
 | GET | `/models/{id}/edit` | Edit model form |
 | POST | `/models/{id}/edit` | Update model |
 | POST | `/models/{id}/delete` | Soft delete model |
@@ -697,7 +707,7 @@ PayrollDesk/
 │   ├── main.py              # FastAPI entry point
 │   ├── models.py            # SQLAlchemy ORM models
 │   ├── schemas.py           # Pydantic validation schemas
-│   ├── crud.py              # Database operations (1871 lines)
+│   ├── crud.py              # Database operations (2034 lines)
 │   ├── database.py          # Database configuration
 │   ├── auth.py              # User model, password hashing
 │   ├── security.py          # Rate limiting, lockout logic
@@ -738,7 +748,7 @@ PayrollDesk/
 
 | File | Lines | Coverage |
 |------|-------|----------|
-| `app/crud.py` | 1,871 | 86% |
+| `app/crud.py` | 2,034 | 86% |
 | `app/core/payroll.py` | 531 | - |
 | `app/models.py` | 397 | - |
 | `app/services.py` | 261 | - |

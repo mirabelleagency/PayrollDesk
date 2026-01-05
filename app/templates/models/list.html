@@ -262,6 +262,7 @@
             <tbody>
                 {% for model in models %}
                 {% set lifetime = totals_map.get(model.id, 0) %}
+                {% set comprehensive = totals_map_comprehensive.get(model.id, {'payroll': 0, 'adhoc': 0, 'commission': 0}) %}
                 <tr class="model-row" data-model-id="{{ model.id }}" tabindex="0" role="button" aria-expanded="false" aria-label="Expand payment history for {{ model.code }}">
                     <td class="expand-cell">
                         <span class="expand-indicator" aria-hidden="true">▶</span>
@@ -286,7 +287,16 @@
                     <td><strong>USD {{ model.amount_monthly|money }}</strong></td>
                     <td>{{ model.payment_method }}</td>
                     <td>
-                        <strong style="color: #059669;">USD {{ lifetime|money }}</strong>
+                        <div title="Payroll: ${{ comprehensive.payroll|money }} | Ad Hoc: ${{ comprehensive.adhoc|money }} | Commission: ${{ comprehensive.commission|money }}">
+                            <strong style="color: #059669;">USD {{ lifetime|money }}</strong>
+                            {% if comprehensive.adhoc > 0 or comprehensive.commission > 0 %}
+                            <div style="font-size: 0.7rem; color: #6b7280; margin-top: 2px;">
+                                {% if comprehensive.adhoc > 0 %}<span style="color: #3b82f6;">+${{ comprehensive.adhoc|money }} adhoc</span>{% endif %}
+                                {% if comprehensive.adhoc > 0 and comprehensive.commission > 0 %} | {% endif %}
+                                {% if comprehensive.commission > 0 %}<span style="color: #f59e0b;">+${{ comprehensive.commission|money }} comm</span>{% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
                     </td>
                     <td onclick="event.stopPropagation();">
                         <div class="actions">

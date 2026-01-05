@@ -54,14 +54,21 @@ def dashboard(request: Request, db: Session = Depends(get_session), user: User =
             }
         )
 
+    # Get comprehensive top models data with breakdown
     top_models_data = []
-    for model, total in crud.top_paid_models(db):
+    for entry in crud.top_paid_models_comprehensive(db):
+        model = entry["model"]
         top_models_data.append(
             {
                 "code": model.code,
                 "working_name": model.working_name,
                 "status": model.status,
-                "total_paid": total,
+                "payroll_total": entry["payroll_total"],
+                "adhoc_total": entry["adhoc_total"],
+                "commission_total": entry["commission_total"],
+                "combined_total": entry["combined_total"],
+                # Keep total_paid for backwards compatibility
+                "total_paid": entry["payroll_total"],
             }
         )
 
