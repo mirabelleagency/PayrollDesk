@@ -365,7 +365,7 @@ requested → approved → active → closed
 | POST | `/schedules/new` | Create schedule run |
 | GET | `/schedules/{run_id}` | Schedule detail with payouts |
 | POST | `/schedules/{run_id}/delete` | Delete schedule run |
-| POST | `/schedules/{run_id}/add-new-models` | Add new models to existing run |
+| POST | `/schedules/{run_id}/add-new-models` | Add new models to existing run (highlights new entries) |
 | GET | `/schedules/{run_id}/download/{type}` | Download export file |
 | POST | `/schedules/{run_id}/payouts/{pid}/status` | Update payout status |
 | POST | `/schedules/{run_id}/payouts/{pid}/note` | Update payout notes |

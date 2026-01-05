@@ -72,6 +72,7 @@ if existing_runs:
 - ✅ **Same month, same run ID:** If you generate payroll for October 2025 twice, both use run_id=1
 - ✅ **Status preservation:** Previous status marks (paid/on_hold) are preserved during refresh
 - ✅ **Notes preserved:** Admin notes on payouts survive the refresh
+- ✅ **Visual highlighting:** Newly added models are highlighted with green background and "NEW" badge
 - ❌ **No true duplicates:** Payouts table never has duplicate (schedule_run_id, model_id, pay_date) combinations
 
 **Example:**

@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.41.0 - 2026-01-06
+
+### Added
+- feat(schedules): highlight newly added models in schedule view
+  - Success banner now displays specific model codes that were added
+  - Green gradient highlight on newly added payout rows
+  - "NEW" badge displayed next to each newly added model code
+  - Auto-scroll to first highlighted row for easy visibility
+  - "Clear Highlights" button to dismiss visual indicators and clean URL
+  - URL parameters `added` and `added_codes` for tracking added models
+
+### Changed
+- refactor(schedules): update add-new-models endpoint to pass model codes
+  - Redirect now includes `added_codes` parameter for UI highlighting
+  - Maintains backward compatibility with existing `added` count parameter
+
+### Tests
+- Test count: 218 (unchanged)
+- All tests passing
+
+---
+
 ## v2.40.0 - 2025-12-24
 
 ### Changed

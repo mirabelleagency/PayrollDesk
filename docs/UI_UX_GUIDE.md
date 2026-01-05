@@ -368,6 +368,8 @@ Features:
         │           │  - Status updates            │
         │           │  - Export options            │
         │           │  - Add New Models button     │
+        │           │  - NEW badge on added models │
+        │           │  - Highlight for new entries │
         │           └──────────────────────────────┘
         │
         ▼
