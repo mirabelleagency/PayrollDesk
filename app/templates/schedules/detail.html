@@ -157,13 +157,55 @@ document.documentElement.classList.add('js-metrics');
 
 <!-- Success message for added models -->
 {% if request.query_params.get('added') %}
+{% set added_codes_param = request.query_params.get('added_codes', '') %}
+{% set added_codes_list = added_codes_param.split(',') if added_codes_param else [] %}
 <section class="alert-banner alert-banner--success" style="margin-bottom: 24px;">
     <div class="alert-banner__icon">✅</div>
     <div class="alert-banner__content">
         <div class="alert-banner__title">Models Added</div>
-        <div class="alert-banner__message">{{ request.query_params.get('added') }} new model(s) added to this schedule</div>
+        <div class="alert-banner__message">
+            {{ request.query_params.get('added') }} new model(s) added to this schedule
+            {% if added_codes_list %}
+            <br><span style="font-size: 12px; color: #86efac; margin-top: 4px; display: inline-block;">
+                Added: {% for code in added_codes_list %}<strong>{{ code }}</strong>{% if not loop.last %}, {% endif %}{% endfor %}
+            </span>
+            {% endif %}
+        </div>
     </div>
+    <button class="alert-banner__action" onclick="clearHighlights()">
+        Clear Highlights
+    </button>
 </section>
+<script>
+// Store added codes for highlighting rows
+window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{% if not loop.last %},{% endif %}{% endfor %}];
+</script>
+<style>
+/* Highlight style for newly added model rows */
+.payout-row--newly-added {
+    background: linear-gradient(90deg, rgba(34, 197, 94, 0.15), transparent 70%) !important;
+    animation: highlight-fade 3s ease-out;
+}
+.payout-row--newly-added td:first-child {
+    border-left: 3px solid #22c55e;
+}
+.payout-row--newly-added .new-badge {
+    display: inline-block;
+    background: #22c55e;
+    color: #052e16;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+@keyframes highlight-fade {
+    0% { background: linear-gradient(90deg, rgba(34, 197, 94, 0.35), transparent 70%); }
+    100% { background: linear-gradient(90deg, rgba(34, 197, 94, 0.15), transparent 70%); }
+}
+</style>
 {% endif %}
 
 <!-- Validation Alerts (if any) -->
@@ -2386,5 +2428,55 @@ th[data-drop-target="true"]::after {
     }
 }
 </style>
+
+<script>
+// Highlight newly added models when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.addedModelCodes && window.addedModelCodes.length > 0) {
+        const rows = document.querySelectorAll('.payout-row');
+        rows.forEach(function(row) {
+            const rowCode = row.getAttribute('data-code');
+            if (rowCode && window.addedModelCodes.includes(rowCode)) {
+                row.classList.add('payout-row--newly-added');
+                // Add "NEW" badge to the code cell
+                const codeCell = row.querySelector('.column-code span');
+                if (codeCell) {
+                    const badge = document.createElement('span');
+                    badge.className = 'new-badge';
+                    badge.textContent = 'NEW';
+                    codeCell.appendChild(badge);
+                }
+            }
+        });
+        // Scroll to first highlighted row
+        const firstHighlighted = document.querySelector('.payout-row--newly-added');
+        if (firstHighlighted) {
+            firstHighlighted.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+});
+
+// Clear highlights function (called from alert banner button)
+function clearHighlights() {
+    document.querySelectorAll('.payout-row--newly-added').forEach(function(row) {
+        row.classList.remove('payout-row--newly-added');
+    });
+    document.querySelectorAll('.new-badge').forEach(function(badge) {
+        badge.remove();
+    });
+    // Hide the success banner
+    const banner = document.querySelector('.alert-banner--success');
+    if (banner) {
+        banner.style.display = 'none';
+    }
+    // Clean the URL params without reloading
+    if (window.history.replaceState) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('added');
+        url.searchParams.delete('added_codes');
+        window.history.replaceState({}, '', url.pathname);
+    }
+}
+</script>
 
 {% endblock %}

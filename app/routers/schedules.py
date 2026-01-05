@@ -2154,8 +2154,16 @@ def add_new_models_to_schedule(
     
     # Redirect back to schedule view with a success message via query param
     added_count = result.get("added_count", 0)
+    added_codes = result.get("added_codes", [])
+    
+    # Build URL with added count and codes for highlighting
+    url = f"/schedules/{run_id}?added={added_count}"
+    if added_codes:
+        # Join codes with comma for URL param (will be used to highlight rows)
+        url += f"&added_codes={','.join(added_codes)}"
+    
     return RedirectResponse(
-        url=f"/schedules/{run_id}?added={added_count}",
+        url=url,
         status_code=303,
     )
 
