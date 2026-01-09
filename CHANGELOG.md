@@ -2,6 +2,70 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.43.0 - 2026-01-06
+
+### Added
+- feat(models): Compensation Alert System for mid-cycle compensation changes
+  - New `PayoutCompensationAlert` database model tracking compensation changes
+  - Alert generation when model compensation is updated after schedule generation
+  - Pro-rata calculation support for monthly/weekly/biweekly payment frequencies
+  - Effective date tracking on compensation changes
+
+- feat(schedules): Alert management UI on schedule run detail page
+  - Alert banner showing count of pending compensation alerts
+  - Collapsible table displaying affected payouts with original/new/prorated amounts
+  - Individual alert resolution: Apply New Amount, Apply Pro-rated, Dismiss, Acknowledge
+  - Bulk resolve functionality for handling multiple alerts at once
+  - Toast notifications for success/error feedback
+
+- feat(models): Effective date field on model edit form
+  - Dynamic field appears when compensation amount is changed
+  - Defaults to today's date for immediate changes
+  - Shows change preview with original → new amount
+
+- feat(api): Compensation alert API endpoints
+  - `GET /{run_id}/compensation-alerts` - List alerts for schedule run
+  - `GET /{run_id}/compensation-alerts/count` - Count pending alerts
+  - `POST /{run_id}/compensation-alerts/{alert_id}/resolve` - Resolve single alert
+  - `POST /{run_id}/compensation-alerts/bulk-resolve` - Bulk resolve alerts
+  - `GET /{run_id}/payouts/{payout_id}/alert` - Get alert for specific payout
+
+- feat(crud): Compensation alert CRUD functions
+  - `create_compensation_alert()` - Create or update alert
+  - `list_compensation_alerts()` - Query alerts with filters
+  - `get_compensation_alert()` - Get alert by ID
+  - `count_pending_alerts_for_run()` - Count pending for schedule
+  - `get_alert_for_payout()` - Get pending alert for payout
+  - `resolve_compensation_alert()` - Mark alert as applied/dismissed/acknowledged
+  - `apply_alert_to_payout()` - Apply amount change and resolve
+  - `generate_alerts_for_compensation_change()` - Auto-generate on model update
+  - `calculate_prorated_compensation()` - Pro-rata calculation engine
+  - `bulk_resolve_alerts()` - Resolve multiple alerts
+
+### Changed
+- refactor(models/update): detect compensation changes and generate alerts
+  - Model update endpoint now checks for amount changes
+  - Creates CompensationAdjustment record for audit trail
+  - Generates alerts for affected pending payouts
+
+### Database
+- Migration: `fe8ae1eb2e95_add_payout_compensation_alerts_table.py`
+  - New `payout_compensation_alerts` table
+  - Indexes on payout_id, model_id, schedule_run_id, status
+  - Foreign key constraints to payouts, models, schedule_runs
+
+### Tests
+- New: `tests/test_compensation_alerts.py` with 16 tests
+  - TestCompensationAlertCreation (3 tests)
+  - TestAlertListing (3 tests)
+  - TestAlertResolution (4 tests)
+  - TestProRataCalculation (3 tests)
+  - TestAlertGeneration (3 tests)
+- Test count: 234 (16 new)
+- All tests passing
+
+---
+
 ## v2.42.0 - 2026-01-06
 
 ### Added

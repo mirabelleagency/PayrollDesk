@@ -76,6 +76,10 @@ class Model(Base):
         back_populates="model",
         cascade="all, delete-orphan",
     )
+    compensation_alerts: Mapped[list["PayoutCompensationAlert"]] = relationship(
+        back_populates="model",
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (
         CheckConstraint("amount_monthly > 0", name="ck_models_amount_positive"),
@@ -102,6 +106,9 @@ class ScheduleRun(Base):
     validations: Mapped[list["ValidationIssue"]] = relationship(
         back_populates="schedule_run", cascade="all, delete-orphan"
     )
+    compensation_alerts: Mapped[list["PayoutCompensationAlert"]] = relationship(
+        back_populates="schedule_run", cascade="all, delete-orphan"
+    )
 
 
 class Payout(Base):
@@ -126,6 +133,9 @@ class Payout(Base):
 
     schedule_run: Mapped[ScheduleRun] = relationship(back_populates="payouts")
     model: Mapped[Model] = relationship(back_populates="payouts")
+    compensation_alerts: Mapped[list["PayoutCompensationAlert"]] = relationship(
+        back_populates="payout", cascade="all, delete-orphan"
+    )
 
 
 class ValidationIssue(Base):
@@ -354,6 +364,52 @@ Model.referral_term_config = relationship(
     back_populates="referral",
     uselist=False,
 )
+
+
+COMPENSATION_ALERT_TYPE_ENUM = ("compensation_changed", "new_adjustment")
+COMPENSATION_ALERT_STATUS_ENUM = ("pending", "acknowledged", "applied", "dismissed")
+
+
+class PayoutCompensationAlert(Base):
+    """Tracks alerts when compensation changes affect existing payouts."""
+    __tablename__ = "payout_compensation_alerts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    payout_id: Mapped[int] = mapped_column(
+        ForeignKey("payouts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    model_id: Mapped[int] = mapped_column(
+        ForeignKey("models.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    schedule_run_id: Mapped[int] = mapped_column(
+        ForeignKey("schedule_runs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    original_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    new_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    prorated_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    effective_date: Mapped[date] = mapped_column(Date, nullable=False)
+    alert_type: Mapped[str] = mapped_column(String(30), nullable=False, default="compensation_changed")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    resolved_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    payout: Mapped[Payout] = relationship("Payout", back_populates="compensation_alerts")
+    model: Mapped[Model] = relationship("Model", back_populates="compensation_alerts")
+    schedule_run: Mapped[ScheduleRun] = relationship("ScheduleRun", back_populates="compensation_alerts")
+
+    __table_args__ = (
+        UniqueConstraint("payout_id", "effective_date", name="uq_payout_alert_date"),
+        CheckConstraint(
+            "alert_type IN ('compensation_changed', 'new_adjustment')",
+            name="ck_alert_type_valid"
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'acknowledged', 'applied', 'dismissed')",
+            name="ck_alert_status_valid"
+        ),
+    )
 
 
 class CommissionPayout(Base):

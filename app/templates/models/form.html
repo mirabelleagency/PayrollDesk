@@ -87,8 +87,33 @@
             </div>
             <div class="form-row">
                 <label for="amount_monthly">Monthly Amount (USD) <span class="required-badge">Required</span></label>
-                <input id="amount_monthly" name="amount_monthly" type="number" step="0.01" min="0" required value="{{ '%.2f'|format(model.amount_monthly) if model else '' }}" />
+                <input id="amount_monthly" name="amount_monthly" type="number" step="0.01" min="0" required value="{{ '%.2f'|format(model.amount_monthly) if model else '' }}" data-original-amount="{{ '%.2f'|format(model.amount_monthly) if model else '' }}" onchange="checkCompensationChange()" />
             </div>
+            
+            {% if model %}
+            <!-- Compensation Effective Date (shown when amount changes) -->
+            <div class="form-row compensation-effective-date-row" id="compensation-effective-date-row" style="display: none;">
+                <label for="compensation_effective_date">
+                    Effective Date of Change <span class="required-badge">Required</span>
+                    <span class="help-icon" title="When should this new compensation take effect? Payouts on or after this date will be affected.">ℹ️</span>
+                </label>
+                <input id="compensation_effective_date" name="compensation_effective_date" type="date" 
+                       value="{{ today.strftime('%Y-%m-%d') }}" 
+                       min="{{ model.start_date.strftime('%Y-%m-%d') if model.start_date else '' }}" />
+                <p class="form-hint">
+                    <strong>Note:</strong> If this model has payouts in an open schedule for the current month, 
+                    alerts will be generated so you can review and apply the changes.
+                </p>
+                <div class="compensation-change-preview" id="compensation-change-preview" style="display: none;">
+                    <span class="compensation-change-preview__label">Change:</span>
+                    <span class="compensation-change-preview__old" id="compensation-old">$0.00</span>
+                    <span class="compensation-change-preview__arrow">→</span>
+                    <span class="compensation-change-preview__new" id="compensation-new">$0.00</span>
+                </div>
+            </div>
+            {% else %}
+            <input type="hidden" name="compensation_effective_date" value="" />
+            {% endif %}
         </div>
 
         <div class="form-row">
@@ -626,5 +651,100 @@ document.addEventListener('DOMContentLoaded', function () {
 
     syncCommissionState();
 });
+
+// Compensation change detection
+function checkCompensationChange() {
+    const amountInput = document.getElementById('amount_monthly');
+    const effectiveDateRow = document.getElementById('compensation-effective-date-row');
+    const previewDiv = document.getElementById('compensation-change-preview');
+    const oldSpan = document.getElementById('compensation-old');
+    const newSpan = document.getElementById('compensation-new');
+    
+    if (!amountInput || !effectiveDateRow) return;
+    
+    const originalAmount = parseFloat(amountInput.getAttribute('data-original-amount') || '0');
+    const newAmount = parseFloat(amountInput.value || '0');
+    
+    if (originalAmount !== newAmount && originalAmount > 0) {
+        // Show the effective date field
+        effectiveDateRow.style.display = 'block';
+        effectiveDateRow.style.animation = 'slideDown 0.3s ease';
+        
+        // Show the preview
+        if (previewDiv && oldSpan && newSpan) {
+            previewDiv.style.display = 'flex';
+            oldSpan.textContent = '$' + originalAmount.toFixed(2);
+            newSpan.textContent = '$' + newAmount.toFixed(2);
+            newSpan.style.color = newAmount > originalAmount ? '#22c55e' : '#ef4444';
+        }
+    } else {
+        // Hide the effective date field
+        effectiveDateRow.style.display = 'none';
+        if (previewDiv) previewDiv.style.display = 'none';
+    }
+}
+
+// Call on page load to handle any pre-filled values
+document.addEventListener('DOMContentLoaded', checkCompensationChange);
 </script>
+
+<style>
+/* Compensation change styles */
+.compensation-effective-date-row {
+    background: linear-gradient(145deg, rgba(251, 191, 36, 0.1), transparent);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 8px;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.compensation-effective-date-row label {
+    color: #fbbf24;
+}
+
+.compensation-effective-date-row .help-icon {
+    cursor: help;
+    margin-left: 6px;
+}
+
+.compensation-change-preview {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: rgba(15, 23, 42, 0.6);
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.compensation-change-preview__label {
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+.compensation-change-preview__old {
+    color: #94a3b8;
+    text-decoration: line-through;
+}
+
+.compensation-change-preview__arrow {
+    color: #64748b;
+}
+
+.compensation-change-preview__new {
+    font-weight: 700;
+}
+</style>
 {% endblock %}

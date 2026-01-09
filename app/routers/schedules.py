@@ -2080,6 +2080,10 @@ def view_schedule(
             overdue_count += 1
             overdue_amount += payout.amount or Decimal("0")
 
+    # Get pending compensation alerts count for this run
+    pending_alerts_count = crud.count_pending_alerts_for_run(db, run_id)
+    compensation_alerts = crud.list_compensation_alerts(db, schedule_run_id=run_id, status="pending") if pending_alerts_count > 0 else []
+
     return templates.TemplateResponse(
         request,
         "schedules/detail.html",
@@ -2097,6 +2101,8 @@ def view_schedule(
             "status_counts": status_counts,
             "overdue_count": overdue_count,
             "overdue_amount": overdue_amount,
+            "pending_alerts_count": pending_alerts_count,
+            "compensation_alerts": compensation_alerts,
             "today": today,
             "filters": {
                 "code": code_filter or "",
@@ -2489,3 +2495,236 @@ def api_bulk_update_payouts(
         "overdue_flags": overdue_flags,
     })
 
+
+# ============================================================================
+# Compensation Alert Management Endpoints
+# ============================================================================
+
+@router.get("/{run_id}/compensation-alerts")
+def list_compensation_alerts_for_run(
+    run_id: int,
+    request: Request,
+    status: str | None = Query(None, description="Filter by alert status"),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """List compensation alerts for a specific schedule run."""
+    run = crud.get_schedule_run(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Schedule run not found")
+    
+    alerts = crud.list_compensation_alerts(db, schedule_run_id=run_id, status=status)
+    pending_count = crud.count_pending_alerts_for_run(db, run_id)
+    
+    # Build response with alert details
+    alert_data = []
+    for alert in alerts:
+        payout = alert.payout
+        alert_data.append({
+            "id": alert.id,
+            "payout_id": alert.payout_id,
+            "model_id": alert.model_id,
+            "code": payout.code if payout else None,
+            "real_name": payout.real_name if payout else None,
+            "pay_date": payout.pay_date.isoformat() if payout and payout.pay_date else None,
+            "original_amount": float(alert.original_amount),
+            "new_amount": float(alert.new_amount),
+            "prorated_amount": float(alert.prorated_amount) if alert.prorated_amount else None,
+            "effective_date": alert.effective_date.isoformat() if alert.effective_date else None,
+            "alert_type": alert.alert_type,
+            "status": alert.status,
+            "created_at": alert.created_at.isoformat() if alert.created_at else None,
+        })
+    
+    return JSONResponse({
+        "ok": True,
+        "run_id": run_id,
+        "pending_count": pending_count,
+        "alerts": alert_data,
+    })
+
+
+@router.get("/{run_id}/compensation-alerts/count")
+def get_compensation_alerts_count(
+    run_id: int,
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Get count of pending compensation alerts for a schedule run."""
+    run = crud.get_schedule_run(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Schedule run not found")
+    
+    count = crud.count_pending_alerts_for_run(db, run_id)
+    return JSONResponse({
+        "ok": True,
+        "run_id": run_id,
+        "pending_count": count,
+    })
+
+
+@router.post("/{run_id}/compensation-alerts/{alert_id}/resolve")
+def resolve_compensation_alert(
+    run_id: int,
+    alert_id: int,
+    action: str = Form(...),  # apply_new, apply_prorated, dismiss, acknowledge
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    """Resolve a compensation alert by applying a change or dismissing it."""
+    run = crud.get_schedule_run(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Schedule run not found")
+    
+    alert = crud.get_compensation_alert(db, alert_id)
+    if not alert or alert.schedule_run_id != run_id:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    
+    if alert.status != "pending":
+        raise HTTPException(status_code=400, detail="Alert has already been resolved")
+    
+    action = action.strip().lower()
+    username = user.username if user else "system"
+    
+    if action == "apply_new":
+        # Apply the new (full) amount
+        payout, resolved_alert = crud.apply_alert_to_payout(
+            db, alert, alert.new_amount, resolved_by=username
+        )
+        db.commit()
+        _invalidate_dashboard_cache()
+        return JSONResponse({
+            "ok": True,
+            "alert_id": alert_id,
+            "action": "applied",
+            "amount_applied": float(alert.new_amount),
+            "payout_id": payout.id,
+        })
+    
+    elif action == "apply_prorated":
+        # Apply prorated amount if available, otherwise fall back to new amount
+        amount_to_apply = alert.prorated_amount if alert.prorated_amount else alert.new_amount
+        payout, resolved_alert = crud.apply_alert_to_payout(
+            db, alert, amount_to_apply, resolved_by=username
+        )
+        db.commit()
+        _invalidate_dashboard_cache()
+        return JSONResponse({
+            "ok": True,
+            "alert_id": alert_id,
+            "action": "applied_prorated",
+            "amount_applied": float(amount_to_apply),
+            "payout_id": payout.id,
+        })
+    
+    elif action == "dismiss":
+        # Dismiss the alert without changing the payout
+        crud.resolve_compensation_alert(db, alert, "dismissed", resolved_by=username)
+        db.commit()
+        return JSONResponse({
+            "ok": True,
+            "alert_id": alert_id,
+            "action": "dismissed",
+        })
+    
+    elif action == "acknowledge":
+        # Acknowledge but don't change anything - for review later
+        crud.resolve_compensation_alert(db, alert, "acknowledged", resolved_by=username)
+        db.commit()
+        return JSONResponse({
+            "ok": True,
+            "alert_id": alert_id,
+            "action": "acknowledged",
+        })
+    
+    else:
+        raise HTTPException(status_code=400, detail=f"Invalid action: {action}")
+
+
+@router.post("/{run_id}/compensation-alerts/bulk-resolve")
+def bulk_resolve_alerts(
+    run_id: int,
+    alert_ids: str = Form(""),
+    action: str = Form(...),  # apply_new, apply_prorated, dismiss
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    """Bulk resolve multiple compensation alerts."""
+    run = crud.get_schedule_run(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Schedule run not found")
+    
+    if not alert_ids.strip():
+        return JSONResponse({"ok": True, "resolved_count": 0})
+    
+    try:
+        ids = [int(aid.strip()) for aid in alert_ids.split(",") if aid.strip()]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid alert IDs")
+    
+    action = action.strip().lower()
+    username = user.username if user else "system"
+    resolved_count = 0
+    
+    for aid in ids:
+        alert = crud.get_compensation_alert(db, aid)
+        if not alert or alert.schedule_run_id != run_id or alert.status != "pending":
+            continue
+        
+        if action == "apply_new":
+            crud.apply_alert_to_payout(db, alert, alert.new_amount, resolved_by=username)
+            resolved_count += 1
+        elif action == "apply_prorated":
+            amount = alert.prorated_amount if alert.prorated_amount else alert.new_amount
+            crud.apply_alert_to_payout(db, alert, amount, resolved_by=username)
+            resolved_count += 1
+        elif action == "dismiss":
+            crud.resolve_compensation_alert(db, alert, "dismissed", resolved_by=username)
+            resolved_count += 1
+    
+    if resolved_count > 0:
+        db.commit()
+        _invalidate_dashboard_cache()
+    
+    return JSONResponse({
+        "ok": True,
+        "resolved_count": resolved_count,
+        "action": action,
+    })
+
+
+@router.get("/{run_id}/payouts/{payout_id}/alert")
+def get_payout_alert(
+    run_id: int,
+    payout_id: int,
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Get pending compensation alert for a specific payout."""
+    payout = crud.get_payout(db, payout_id)
+    if not payout or payout.schedule_run_id != run_id:
+        raise HTTPException(status_code=404, detail="Payout not found")
+    
+    alert = crud.get_alert_for_payout(db, payout_id)
+    
+    if not alert:
+        return JSONResponse({
+            "ok": True,
+            "has_alert": False,
+            "payout_id": payout_id,
+        })
+    
+    return JSONResponse({
+        "ok": True,
+        "has_alert": True,
+        "payout_id": payout_id,
+        "alert": {
+            "id": alert.id,
+            "original_amount": float(alert.original_amount),
+            "new_amount": float(alert.new_amount),
+            "prorated_amount": float(alert.prorated_amount) if alert.prorated_amount else None,
+            "effective_date": alert.effective_date.isoformat() if alert.effective_date else None,
+            "alert_type": alert.alert_type,
+            "status": alert.status,
+        }
+    })

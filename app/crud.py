@@ -19,6 +19,7 @@ from app.models import (
     ModelCompensationAdjustment,
     ModelReferralTerm,
     Payout,
+    PayoutCompensationAlert,
     ScheduleRun,
     ValidationIssue,
     AuditLog,
@@ -2032,3 +2033,323 @@ def delete_commission_payouts_by_model(db: Session, model_id: int) -> int:
     ).delete(synchronize_session=False)
     db.commit()
     return int(deleted or 0)
+
+
+# ============================================================================
+# PayoutCompensationAlert CRUD Operations
+# ============================================================================
+
+def create_compensation_alert(
+    db: Session,
+    payout: Payout,
+    original_amount: Decimal,
+    new_amount: Decimal,
+    effective_date: date,
+    alert_type: str = "compensation_changed",
+    prorated_amount: Decimal | None = None,
+    notes: str | None = None,
+) -> PayoutCompensationAlert:
+    """Create a new compensation alert for a payout."""
+    # Check if an alert already exists for this payout and effective date
+    existing = (
+        db.query(PayoutCompensationAlert)
+        .filter(
+            PayoutCompensationAlert.payout_id == payout.id,
+            PayoutCompensationAlert.effective_date == effective_date,
+        )
+        .first()
+    )
+    if existing:
+        # Update existing alert
+        existing.original_amount = original_amount
+        existing.new_amount = new_amount
+        existing.prorated_amount = prorated_amount
+        existing.alert_type = alert_type
+        existing.notes = notes
+        existing.status = "pending"  # Reset to pending on update
+        db.flush()
+        return existing
+    
+    alert = PayoutCompensationAlert(
+        payout_id=payout.id,
+        model_id=payout.model_id,
+        schedule_run_id=payout.schedule_run_id,
+        original_amount=original_amount,
+        new_amount=new_amount,
+        prorated_amount=prorated_amount,
+        effective_date=effective_date,
+        alert_type=alert_type,
+        notes=notes,
+    )
+    db.add(alert)
+    db.flush()
+    return alert
+
+
+def list_compensation_alerts(
+    db: Session,
+    schedule_run_id: int | None = None,
+    model_id: int | None = None,
+    status: str | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+) -> Sequence[PayoutCompensationAlert]:
+    """List compensation alerts with optional filters."""
+    filters = []
+    if schedule_run_id is not None:
+        filters.append(PayoutCompensationAlert.schedule_run_id == schedule_run_id)
+    if model_id is not None:
+        filters.append(PayoutCompensationAlert.model_id == model_id)
+    if status:
+        filters.append(PayoutCompensationAlert.status == status)
+    
+    stmt = (
+        select(PayoutCompensationAlert)
+        .where(*filters)
+        .order_by(PayoutCompensationAlert.created_at.desc())
+    )
+    if offset:
+        stmt = stmt.offset(offset)
+    if limit:
+        stmt = stmt.limit(limit)
+    
+    return db.execute(stmt).scalars().all()
+
+
+def get_compensation_alert(db: Session, alert_id: int) -> PayoutCompensationAlert | None:
+    """Get a compensation alert by ID."""
+    return db.get(PayoutCompensationAlert, alert_id)
+
+
+def count_pending_alerts_for_run(db: Session, schedule_run_id: int) -> int:
+    """Count pending compensation alerts for a schedule run."""
+    stmt = (
+        select(func.count())
+        .select_from(PayoutCompensationAlert)
+        .where(
+            PayoutCompensationAlert.schedule_run_id == schedule_run_id,
+            PayoutCompensationAlert.status == "pending",
+        )
+    )
+    return db.execute(stmt).scalar() or 0
+
+
+def get_alert_for_payout(db: Session, payout_id: int) -> PayoutCompensationAlert | None:
+    """Get pending alert for a specific payout."""
+    stmt = (
+        select(PayoutCompensationAlert)
+        .where(
+            PayoutCompensationAlert.payout_id == payout_id,
+            PayoutCompensationAlert.status == "pending",
+        )
+        .order_by(PayoutCompensationAlert.created_at.desc())
+    )
+    return db.execute(stmt).scalars().first()
+
+
+def resolve_compensation_alert(
+    db: Session,
+    alert: PayoutCompensationAlert,
+    status: str,
+    resolved_by: str | None = None,
+) -> PayoutCompensationAlert:
+    """Resolve a compensation alert (apply, dismiss, or acknowledge)."""
+    if status not in ("applied", "dismissed", "acknowledged"):
+        raise ValueError(f"Invalid resolution status: {status}")
+    
+    alert.status = status
+    alert.resolved_at = datetime.now()
+    alert.resolved_by = resolved_by
+    db.flush()
+    return alert
+
+
+def apply_alert_to_payout(
+    db: Session,
+    alert: PayoutCompensationAlert,
+    amount_to_apply: Decimal,
+    resolved_by: str | None = None,
+) -> tuple[Payout, PayoutCompensationAlert]:
+    """Apply an alert by updating the payout amount and resolving the alert."""
+    payout = alert.payout
+    payout.amount = amount_to_apply
+    
+    alert.status = "applied"
+    alert.resolved_at = datetime.now()
+    alert.resolved_by = resolved_by
+    
+    db.flush()
+    return payout, alert
+
+
+def generate_alerts_for_compensation_change(
+    db: Session,
+    model: Model,
+    new_amount: Decimal,
+    effective_date: date,
+) -> list[PayoutCompensationAlert]:
+    """
+    Generate alerts for all affected payouts when a model's compensation changes.
+    
+    This scans open schedule runs that include the effective date's month
+    and creates alerts for any payouts that would be affected.
+    """
+    import calendar
+    
+    alerts_created = []
+    
+    # Get the month/year of the effective date
+    eff_year = effective_date.year
+    eff_month = effective_date.month
+    
+    # Find schedule runs for this month (and potentially future months if planning ahead)
+    affected_runs = (
+        db.query(ScheduleRun)
+        .filter(
+            ScheduleRun.target_year == eff_year,
+            ScheduleRun.target_month == eff_month,
+        )
+        .all()
+    )
+    
+    for run in affected_runs:
+        # Get payouts for this model in this run that haven't been paid yet
+        affected_payouts = (
+            db.query(Payout)
+            .filter(
+                Payout.schedule_run_id == run.id,
+                Payout.model_id == model.id,
+                Payout.status.in_(["not_paid", "on_hold"]),  # Only unpaid payouts
+            )
+            .all()
+        )
+        
+        for payout in affected_payouts:
+            # Only create alert if the payout is on or after the effective date
+            if payout.pay_date >= effective_date:
+                # Calculate prorated amount if effective date is mid-month
+                prorated = calculate_prorated_compensation(
+                    original_amount=payout.amount,
+                    new_amount=new_amount,
+                    effective_date=effective_date,
+                    pay_date=payout.pay_date,
+                    target_year=run.target_year,
+                    target_month=run.target_month,
+                    payment_frequency=payout.payment_frequency,
+                )
+                
+                alert = create_compensation_alert(
+                    db=db,
+                    payout=payout,
+                    original_amount=payout.amount,
+                    new_amount=new_amount,
+                    effective_date=effective_date,
+                    prorated_amount=prorated,
+                    alert_type="compensation_changed",
+                )
+                alerts_created.append(alert)
+    
+    db.flush()
+    return alerts_created
+
+
+def calculate_prorated_compensation(
+    original_amount: Decimal,
+    new_amount: Decimal,
+    effective_date: date,
+    pay_date: date,
+    target_year: int,
+    target_month: int,
+    payment_frequency: str,
+) -> Decimal:
+    """
+    Calculate prorated compensation when a rate change happens mid-period.
+    
+    For monthly payments: prorate based on days in month
+    For weekly/biweekly: use the rate active on pay date (simpler)
+    """
+    import calendar
+    from decimal import ROUND_HALF_UP
+    
+    if payment_frequency.lower() == "monthly":
+        # For monthly, calculate pro-rata based on days
+        days_in_month = calendar.monthrange(target_year, target_month)[1]
+        
+        # Days at old rate (before effective date)
+        if effective_date.month == target_month and effective_date.year == target_year:
+            days_old_rate = effective_date.day - 1  # Days before effective date
+        else:
+            days_old_rate = 0  # Effective date is before this month
+        
+        days_new_rate = days_in_month - days_old_rate
+        
+        # Calculate monthly amounts based on original and new rates
+        # original_amount is already the payout amount for this period
+        # We need to derive what the original monthly rate was
+        old_daily = original_amount / Decimal(days_in_month)
+        new_daily = new_amount / Decimal(days_in_month)
+        
+        prorated = (old_daily * days_old_rate) + (new_daily * days_new_rate)
+        return prorated.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    else:
+        # For weekly/biweekly, if the pay date is on or after effective date,
+        # use the new rate for that entire payment
+        if pay_date >= effective_date:
+            # Calculate what portion of monthly this payment represents
+            if payment_frequency.lower() == "weekly":
+                divisor = 4
+            else:  # biweekly
+                divisor = 2
+            return (new_amount / divisor).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        else:
+            return original_amount
+
+
+def get_payouts_with_alerts(
+    db: Session,
+    schedule_run_id: int,
+) -> Sequence[tuple[Payout, PayoutCompensationAlert | None]]:
+    """Get all payouts for a run with their pending alerts (if any)."""
+    from sqlalchemy.orm import aliased
+    
+    # Get payouts with left join to alerts
+    stmt = (
+        select(Payout, PayoutCompensationAlert)
+        .outerjoin(
+            PayoutCompensationAlert,
+            (PayoutCompensationAlert.payout_id == Payout.id) &
+            (PayoutCompensationAlert.status == "pending")
+        )
+        .where(Payout.schedule_run_id == schedule_run_id)
+        .order_by(Payout.pay_date, Payout.code)
+    )
+    
+    results = db.execute(stmt).all()
+    return [(row[0], row[1]) for row in results]
+
+
+def bulk_resolve_alerts(
+    db: Session,
+    alert_ids: Sequence[int],
+    status: str,
+    resolved_by: str | None = None,
+) -> int:
+    """Bulk resolve multiple alerts."""
+    if status not in ("applied", "dismissed", "acknowledged"):
+        raise ValueError(f"Invalid resolution status: {status}")
+    if not alert_ids:
+        return 0
+    
+    from sqlalchemy import update
+    stmt = (
+        update(PayoutCompensationAlert)
+        .where(PayoutCompensationAlert.id.in_(alert_ids))
+        .values(
+            status=status,
+            resolved_at=datetime.now(),
+            resolved_by=resolved_by,
+        )
+    )
+    result = db.execute(stmt)
+    db.commit()
+    return result.rowcount

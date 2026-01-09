@@ -76,7 +76,8 @@ def run_migrations_online() -> None:
     with connectable.connect() as connection:
         # Enable SQLite foreign keys if using SQLite
         if "sqlite" in str(connectable.url):
-            connection.execute("PRAGMA foreign_keys=ON")
+            from sqlalchemy import text
+            connection.execute(text("PRAGMA foreign_keys=ON"))
         
         context.configure(
             connection=connection,

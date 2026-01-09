@@ -1144,6 +1144,7 @@ def edit_model_form(model_id: int, request: Request, db: Session = Depends(get_s
             "referrable_models": _referrable_model_options(db, exclude_model_id=model.id),
             "commission_frequency_options": COMMISSION_PAYOUT_FREQUENCY_ENUM,
             "referral_terms": referral_terms,
+            "today": date.today(),
         },
     )
 
@@ -1318,6 +1319,7 @@ def update_model(
     payment_method: str = Form(...),
     payment_frequency: str = Form(...),
     amount_monthly: Decimal = Form(...),
+    compensation_effective_date: str | None = Form(None),  # New field for effective date of compensation change
     crypto_wallet: str | None = Form(None),
     referred_by_model_id: str | None = Form(None),
     commission_active: str | None = Form(None),
@@ -1401,7 +1403,44 @@ def update_model(
     if existing and existing.id != model.id:
         raise HTTPException(status_code=400, detail="Another model already uses this code.")
 
+    # Track compensation changes for alert generation
+    old_amount = model.amount_monthly
+    new_amount = payload.amount_monthly
+    compensation_changed = old_amount != new_amount
+    
+    # Parse effective date if provided
+    effective_date_for_change: date | None = None
+    if compensation_effective_date and compensation_effective_date.strip():
+        try:
+            from dateutil import parser as date_parser
+            effective_date_for_change = date_parser.parse(compensation_effective_date.strip()).date()
+        except (ValueError, TypeError):
+            effective_date_for_change = date.today()
+    elif compensation_changed:
+        # Default to today if compensation changed but no date specified
+        effective_date_for_change = date.today()
+
     updated_model = crud.update_model(db, model, payload)
+
+    # If compensation changed, create adjustment record and generate alerts
+    if compensation_changed and effective_date_for_change:
+        # Create a compensation adjustment for tracking history
+        crud.create_compensation_adjustment(
+            db=db,
+            model=updated_model,
+            effective_date=effective_date_for_change,
+            amount_monthly=new_amount,
+            notes=f"Updated from {old_amount} to {new_amount}",
+        )
+        
+        # Generate alerts for affected payouts
+        alerts_created = crud.generate_alerts_for_compensation_change(
+            db=db,
+            model=updated_model,
+            new_amount=new_amount,
+            effective_date=effective_date_for_change,
+        )
+        db.commit()
 
     adjustments = _parse_adjustment_rows(
         adjustment_effective_dates,
