@@ -484,7 +484,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
                 {% for alert in compensation_alerts %}
                 <tr data-alert-id="{{ alert.id }}" data-payout-id="{{ alert.payout_id }}">
                     <td>
-                        <a href="/models/{{ alert.model_id }}" class="model-link" title="View model profile">
+                        <a href="/models/{{ alert.model_id }}/edit" class="model-link" title="Edit model">
                             <strong>{{ alert.payout.code }}</strong>
                         </a><br>
                         <small style="color: #94a3b8;">{{ alert.payout.real_name }}</small>
@@ -688,7 +688,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
                     </td>
                     <td data-column-key="code" class="column-code">
                         {% if payout.model_id %}
-                        <a href="/models/{{ payout.model_id }}" class="model-link" title="View model profile">{{ payout.code }}</a>
+                        <a href="/models/{{ payout.model_id }}/edit" class="model-link" title="Edit model">{{ payout.code }}</a>
                         {% else %}
                         <span style="font-weight: 600; color: #60a5fa;">{{ payout.code }}</span>
                         {% endif %}
@@ -2780,6 +2780,11 @@ async function resolveAlert(alertId, action) {
             }
             
             showToast(`Alert ${action === 'dismiss' ? 'dismissed' : 'resolved successfully'}`, 'success');
+            
+            // Reload the page to show updated values
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
         }
     } catch (error) {
         console.error('Error resolving alert:', error);
