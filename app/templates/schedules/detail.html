@@ -209,6 +209,25 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
 {% endif %}
 
 <style>
+/* Model Link Styles */
+.model-link {
+    font-weight: 600;
+    color: #60a5fa;
+    text-decoration: none;
+    transition: color 0.2s ease, text-decoration 0.2s ease;
+}
+
+.model-link:hover {
+    color: #93c5fd;
+    text-decoration: underline;
+}
+
+.model-link:focus-visible {
+    outline: 2px solid #60a5fa;
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
 /* Compensation Alert Banner Styles */
 .compensation-alert-banner {
     background: linear-gradient(145deg, rgba(251, 191, 36, 0.15), rgba(15, 23, 42, 0.95));
@@ -465,7 +484,9 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
                 {% for alert in compensation_alerts %}
                 <tr data-alert-id="{{ alert.id }}" data-payout-id="{{ alert.payout_id }}">
                     <td>
-                        <strong>{{ alert.payout.code }}</strong><br>
+                        <a href="/models/{{ alert.model_id }}" class="model-link" title="View model profile">
+                            <strong>{{ alert.payout.code }}</strong>
+                        </a><br>
                         <small style="color: #94a3b8;">{{ alert.payout.real_name }}</small>
                     </td>
                     <td>{{ alert.payout.pay_date.strftime('%b %d') }}</td>
@@ -674,7 +695,11 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
                         {% endif %}
                     </td>
                     <td data-column-key="code" class="column-code">
+                        {% if payout.model_id %}
+                        <a href="/models/{{ payout.model_id }}" class="model-link" title="View model profile">{{ payout.code }}</a>
+                        {% else %}
                         <span style="font-weight: 600; color: #60a5fa;">{{ payout.code }}</span>
+                        {% endif %}
                     </td>
                     <td data-column-key="working_name" class="column-working_name">{{ payout.working_name or '—' }}</td>
                     <td data-column-key="payment_method" class="column-payment_method">{{ payout.payment_method or '—' }}</td>
