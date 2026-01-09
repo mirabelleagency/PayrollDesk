@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Dashboard · Payroll Desk{% endblock %}
 {% block content %}
+<div class="dashboard-page">
 <section class="page-header">
     <div>
         <h1 class="page-title">Executive Dashboard</h1>
@@ -63,10 +64,53 @@ document.addEventListener('DOMContentLoaded', function () {
 {% endif %}
 
 <!-- Hero KPI Section -->
-<section class="hero-kpis" style="margin-top: 24px;">
+<section class="hero-kpis" id="heroKpis" style="margin-top: 24px;">
+    <!-- Skeleton Loaders (shown while content loads) -->
+    <div class="hero-kpi-skeleton" aria-hidden="true">
+        <div class="hero-kpi-skeleton__header">
+            <div class="hero-kpi-skeleton__icon skeleton"></div>
+            <div class="hero-kpi-skeleton__label skeleton"></div>
+        </div>
+        <div class="hero-kpi-skeleton__value skeleton"></div>
+        <div class="hero-kpi-skeleton__subtitle skeleton"></div>
+    </div>
+    <div class="hero-kpi-skeleton" aria-hidden="true">
+        <div class="hero-kpi-skeleton__header">
+            <div class="hero-kpi-skeleton__icon skeleton"></div>
+            <div class="hero-kpi-skeleton__label skeleton"></div>
+        </div>
+        <div class="hero-kpi-skeleton__value skeleton"></div>
+        <div class="hero-kpi-skeleton__subtitle skeleton"></div>
+    </div>
+    <div class="hero-kpi-skeleton" aria-hidden="true">
+        <div class="hero-kpi-skeleton__header">
+            <div class="hero-kpi-skeleton__icon skeleton"></div>
+            <div class="hero-kpi-skeleton__label skeleton"></div>
+        </div>
+        <div class="hero-kpi-skeleton__value skeleton"></div>
+        <div class="hero-kpi-skeleton__subtitle skeleton"></div>
+    </div>
+    <div class="hero-kpi-skeleton" aria-hidden="true">
+        <div class="hero-kpi-skeleton__header">
+            <div class="hero-kpi-skeleton__icon skeleton"></div>
+            <div class="hero-kpi-skeleton__label skeleton"></div>
+        </div>
+        <div class="hero-kpi-skeleton__value skeleton"></div>
+        <div class="hero-kpi-skeleton__subtitle skeleton"></div>
+    </div>
+
+    <!-- Actual KPI Cards -->
     <div class="hero-kpi-card hero-kpi-card--primary">
-        <div class="hero-kpi-label">{{ current_month_name }} Total to pay</div>
-        <div class="hero-kpi-value">${{ summary.monthly_burn|money }}</div>
+        <div class="hero-kpi-header">
+            <svg class="hero-kpi-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            <span class="hero-kpi-label">{{ current_month_name }} Total to pay</span>
+        </div>
+        <div class="hero-kpi-value" data-countup="{{ summary.monthly_burn }}" data-prefix="$">${{ summary.monthly_burn|money }}</div>
         {% if summary.burn_change_pct is not none %}
         <div class="hero-kpi-trend {% if summary.burn_change_pct > 0 %}hero-kpi-trend--up{% else %}hero-kpi-trend--down{% endif %}">
             {% if summary.burn_change_pct > 0 %}↑{% else %}↓{% endif %} {{ summary.burn_change_pct|abs|round(1) }}% from last month
@@ -74,24 +118,104 @@ document.addEventListener('DOMContentLoaded', function () {
         {% endif %}
     </div>
     
-    <div class="hero-kpi-card">
-        <div class="hero-kpi-label">{{ current_month_name }} Total Unpaid</div>
-        <div class="hero-kpi-value hero-kpi-value--warning">${{ summary.latest_run_unpaid|money }}</div>
-        <div class="hero-kpi-subtitle">Current month outstanding</div>
+    <div class="hero-kpi-card hero-kpi-card--success">
+        <div class="hero-kpi-header">
+            <svg class="hero-kpi-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            <span class="hero-kpi-label">{{ current_month_name }} Paid</span>
+        </div>
+        <div class="hero-kpi-value hero-kpi-value--success" data-countup="{{ summary.latest_run_paid }}" data-prefix="$">${{ summary.latest_run_paid|money }}</div>
+        {% set month_total = summary.monthly_burn|float %}
+        {% set month_paid = summary.latest_run_paid|float %}
+        {% if month_total > 0 %}
+            {% set pct_complete = (month_paid / month_total * 100)|round(0)|int %}
+        <div class="hero-kpi-subtitle">{{ pct_complete }}% of month complete</div>
+        {% else %}
+        <div class="hero-kpi-subtitle">No payments scheduled</div>
+        {% endif %}
     </div>
     
-    <div class="hero-kpi-card">
-        <div class="hero-kpi-label">{{ current_year }} Total Paid</div>
-        <div class="hero-kpi-value hero-kpi-value--secondary">${{ summary.year_total_paid|money }}</div>
+    <div class="hero-kpi-card hero-kpi-card--secondary">
+        <div class="hero-kpi-header">
+            <svg class="hero-kpi-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="1" x2="12" y2="23"/>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+            <span class="hero-kpi-label">{{ current_year }} Total Paid</span>
+        </div>
+        <div class="hero-kpi-value" data-countup="{{ summary.year_total_paid }}" data-prefix="$">${{ summary.year_total_paid|money }}</div>
         <div class="hero-kpi-subtitle">Year to date</div>
     </div>
     
     <div class="hero-kpi-card {% if summary.overdue_count > 0 %}hero-kpi-card--alert{% endif %}">
-        <div class="hero-kpi-label">Requires Attention</div>
-        <div class="hero-kpi-value hero-kpi-value--secondary">{{ summary.overdue_count }}</div>
+        <div class="hero-kpi-header">
+            <svg class="hero-kpi-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <span class="hero-kpi-label">Requires Attention</span>
+        </div>
+        <div class="hero-kpi-value hero-kpi-value--secondary" data-countup="{{ summary.overdue_count }}" data-decimals="0">{{ summary.overdue_count }}</div>
         <div class="hero-kpi-subtitle">{% if summary.overdue_count > 0 %}Overdue payments{% else %}All payments current{% endif %}</div>
     </div>
 </section>
+<script>
+// Reveal hero KPIs and animate count-up
+document.addEventListener('DOMContentLoaded', function() {
+    const heroSection = document.getElementById('heroKpis');
+    
+    // Count-up animation function
+    function animateCountUp(el) {
+        const target = parseFloat(el.dataset.countup) || 0;
+        const prefix = el.dataset.prefix || '';
+        const decimals = parseInt(el.dataset.decimals) || (target % 1 === 0 ? 0 : 2);
+        const duration = 800;
+        const start = performance.now();
+        
+        // Skip animation for reduced motion or zero values
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || target === 0) {
+            return;
+        }
+        
+        function formatNumber(num) {
+            return num.toLocaleString('en-US', {
+                minimumFractionDigits: decimals,
+                maximumFractionDigits: decimals
+            });
+        }
+        
+        function update(now) {
+            const elapsed = now - start;
+            const progress = Math.min(elapsed / duration, 1);
+            // Ease-out quad
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const current = target * eased;
+            el.textContent = prefix + formatNumber(current);
+            
+            if (progress < 1) {
+                requestAnimationFrame(update);
+            } else {
+                el.textContent = prefix + formatNumber(target);
+            }
+        }
+        
+        el.textContent = prefix + formatNumber(0);
+        requestAnimationFrame(update);
+    }
+    
+    // Reveal content then animate numbers
+    requestAnimationFrame(function() {
+        heroSection.classList.add('hero-kpis--loaded');
+        
+        // Start count-up after cards fade in (300ms transition)
+        setTimeout(function() {
+            heroSection.querySelectorAll('[data-countup]').forEach(animateCountUp);
+        }, 150);
+    });
+});
+</script>
 
 <section class="card-grid columns-3" style="margin-top: 24px;">
     <div class="card metric-card">
@@ -127,13 +251,55 @@ document.addEventListener('DOMContentLoaded', function () {
                 <div class="metric-label">Total Outstanding</div>
                 <div class="metric-number metric-number--warning">${{ summary.outstanding_total|money }}</div>
             </div>
-            <div class="metric-item">
-                <div class="metric-label">Pending</div>
-                <div class="metric-number">{{ summary.pending_count }}</div>
-            </div>
-            <div class="metric-item">
-                <div class="metric-label">On Hold</div>
-                <div class="metric-number metric-number--muted">{{ summary.on_hold_count }}</div>
+            <div class="metric-item" style="grid-column: span 2;">
+                <!-- Monthly Trend Sparkline -->
+                <div class="sparkline">
+                    <span class="sparkline__title">6-Month Trend</span>
+                    {% set trend_data = summary.monthly_trend %}
+                    {% set max_amount = namespace(val=1) %}
+                    {% for t in trend_data %}
+                        {% if t.amount > max_amount.val %}
+                            {% set max_amount.val = t.amount %}
+                        {% endif %}
+                    {% endfor %}
+                    <svg class="sparkline__svg" viewBox="0 0 200 50" preserveAspectRatio="none">
+                        <defs>
+                            <linearGradient id="sparklineGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" style="stop-color:#60a5fa;stop-opacity:0.4"/>
+                                <stop offset="100%" style="stop-color:#60a5fa;stop-opacity:0"/>
+                            </linearGradient>
+                        </defs>
+                        {% set points = [] %}
+                        {% for t in trend_data %}
+                            {% set x = loop.index0 * 40 %}
+                            {% set y = 45 - (t.amount / max_amount.val * 40) if max_amount.val > 0 else 45 %}
+                            {% set _ = points.append(x|string ~ ',' ~ y|string) %}
+                        {% endfor %}
+                        <polyline class="sparkline__area" points="{{ points|join(' ') }} 200,50 0,50" />
+                        <polyline class="sparkline__line" points="{{ points|join(' ') }}" />
+                        {% for t in trend_data %}
+                            {% set x = loop.index0 * 40 %}
+                            {% set y = 45 - (t.amount / max_amount.val * 40) if max_amount.val > 0 else 45 %}
+                            <circle class="sparkline__dot{% if loop.last %} sparkline__dot--current{% endif %}" cx="{{ x }}" cy="{{ y }}" r="{{ '4' if loop.last else '2' }}"/>
+                        {% endfor %}
+                    </svg>
+                    <div class="sparkline__labels">
+                        {% for t in trend_data %}
+                        <span>{{ t.month }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                <!-- Status indicators -->
+                <div class="status-badges" style="display: flex; gap: 16px; margin-top: 12px;">
+                    <div class="status-badge">
+                        <span class="status-badge__label">Pending</span>
+                        <span class="status-badge__value">{{ summary.pending_count }}</span>
+                    </div>
+                    <div class="status-badge">
+                        <span class="status-badge__label">On Hold</span>
+                        <span class="status-badge__value {% if summary.on_hold_count > 0 %}status-badge__value--warning{% endif %}">{{ summary.on_hold_count }}</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -151,13 +317,42 @@ document.addEventListener('DOMContentLoaded', function () {
                 </div>
                 <div class="metric-number" style="font-size: 1rem; margin-top: 4px;">Total Cycles: {{ summary.total_runs }}</div>
             </div>
-            <div class="metric-item">
-                <div class="metric-label">{{ run_paid_title }}</div>
-                <div class="metric-number metric-number--success">${{ summary.latest_run_paid|money }}</div>
-            </div>
-            <div class="metric-item">
-                <div class="metric-label">{{ run_outstanding_title }}</div>
-                <div class="metric-number metric-number--warning">${{ summary.latest_run_unpaid|money }}</div>
+            <div class="metric-item" style="grid-column: span 2;">
+                <!-- Donut Chart: Payment Progress -->
+                {% set paid = summary.latest_run_paid|float %}
+                {% set unpaid = summary.latest_run_unpaid|float %}
+                {% set total = paid + unpaid %}
+                {% if total > 0 %}
+                    {% set pct_paid = (paid / total * 100)|round(0)|int %}
+                {% else %}
+                    {% set pct_paid = 0 %}
+                {% endif %}
+                {% set circumference = 251.2 %}
+                {% set dash_offset = circumference - (circumference * pct_paid / 100) %}
+                <div class="donut-chart">
+                    <div class="donut-chart__wrapper">
+                        <svg class="donut-chart__svg" viewBox="0 0 100 100">
+                            <circle class="donut-chart__ring donut-chart__ring--bg" cx="50" cy="50" r="40"/>
+                            <circle class="donut-chart__ring donut-chart__ring--progress" cx="50" cy="50" r="40" 
+                                    stroke-dasharray="{{ circumference }}" 
+                                    stroke-dashoffset="{{ dash_offset }}"/>
+                        </svg>
+                        <div class="donut-chart__center">
+                            <div class="donut-chart__pct">{{ pct_paid }}%</div>
+                            <div class="donut-chart__pct-label">paid</div>
+                        </div>
+                    </div>
+                    <div class="donut-chart__legend">
+                        <div class="donut-chart__legend-item">
+                            <span class="donut-chart__legend-dot donut-chart__legend-dot--paid"></span>
+                            Paid: <span class="donut-chart__legend-value">${{ summary.latest_run_paid|money }}</span>
+                        </div>
+                        <div class="donut-chart__legend-item">
+                            <span class="donut-chart__legend-dot donut-chart__legend-dot--unpaid"></span>
+                            Unpaid: <span class="donut-chart__legend-value">${{ summary.latest_run_unpaid|money }}</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -218,7 +413,12 @@ document.addEventListener('DOMContentLoaded', function () {
 <section class="card-grid columns-3" style="margin-top: 32px;">
     <div class="card summary-card">
         <div class="card-heading">
-            <h2>Recent Activity</h2>
+            <h2>
+                <svg class="card-heading__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                </svg>
+                Recent Activity
+            </h2>
             <a class="button secondary button--compact" href="/schedules/all-table">View All Cycles</a>
         </div>
         <div class="summary-stats">
@@ -250,7 +450,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
     <div class="card summary-card">
         <div class="card-heading">
-            <h2>Top Earners</h2>
+            <h2>
+                <svg class="card-heading__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+                Top Earners
+            </h2>
             <a class="button secondary button--compact" href="/models">View All Models</a>
         </div>
         <div class="summary-stats">
@@ -260,7 +468,7 @@ document.addEventListener('DOMContentLoaded', function () {
             </div>
             <div class="summary-stat">
                 <div class="summary-stat-label">Combined Lifetime</div>
-                <div class="summary-stat-value">${{ (top_models|sum(attribute='total_paid'))|money }}</div>
+                <div class="summary-stat-value">${{ (top_models|sum(attribute='combined_total'))|money }}</div>
             </div>
         </div>
         {% if top_models %}
@@ -277,7 +485,16 @@ document.addEventListener('DOMContentLoaded', function () {
                         {% endif %}
                     </span>
                 </div>
-                <div class="summary-list-amount">${{ item.total_paid|money }}</div>
+                <div class="summary-list-amount">
+                    <span title="Payroll: ${{ item.payroll_total|money }} | Ad Hoc: ${{ item.adhoc_total|money }} | Commission: ${{ item.commission_total|money }}">${{ item.combined_total|money }}</span>
+                    {% if item.adhoc_total > 0 or item.commission_total > 0 %}
+                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">
+                        {% if item.adhoc_total > 0 %}<span style="color: var(--info);">+${{ item.adhoc_total|money }} adhoc</span>{% endif %}
+                        {% if item.adhoc_total > 0 and item.commission_total > 0 %} | {% endif %}
+                        {% if item.commission_total > 0 %}<span style="color: var(--warning);">+${{ item.commission_total|money }} comm</span>{% endif %}
+                    </div>
+                    {% endif %}
+                </div>
             </div>
             {% endfor %}
         </div>
@@ -288,7 +505,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
     <div class="card summary-card">
         <div class="card-heading">
-            <h2>Ad Hoc Payments</h2>
+            <h2>
+                <svg class="card-heading__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                    <polyline points="10 9 9 9 8 9"/>
+                </svg>
+                Ad Hoc Payments
+            </h2>
             <a class="button secondary button--compact" href="/schedules">Manage</a>
         </div>
         <div class="summary-stats">
@@ -318,186 +544,6 @@ document.addEventListener('DOMContentLoaded', function () {
         {% endif %}
     </div>
 </section>
-
-<style>
-/* Highlight styles */
-.hero-kpi-value--warning {
-    color: #eab308; /* matches warning/yellow used elsewhere */
-}
-
-/* Responsive styles for dashboard cards */
-@media (max-width: 1024px) {
-    .card-grid.columns-3 {
-        grid-template-columns: 1fr;
-        gap: 20px;
-    }
-    
-    /* Hero KPI cards stack on tablet */
-    .hero-kpis {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (max-width: 640px) {
-    /* Hero KPI cards - center align */
-    .hero-kpis {
-        grid-template-columns: 1fr;
-        gap: 16px;
-    }
-    
-    .hero-kpi-card {
-        text-align: center;
-    }
-    
-    .hero-kpi-label {
-        text-align: center;
-    }
-    
-    .hero-kpi-value {
-        text-align: center;
-    }
-    
-    .hero-kpi-subtitle,
-    .hero-kpi-trend {
-        text-align: center !important;
-        display: block;
-        width: 100%;
-    }
-    
-    .hero-kpi-trend--up,
-    .hero-kpi-trend--down {
-        text-align: center !important;
-    }
-    
-    .card-grid.columns-3 {
-        grid-template-columns: 1fr;
-        gap: 16px;
-        margin-top: 20px !important;
-    }
-    
-    /* Metric cards - Model Roster, Financial Overview, Current Month Cycle */
-    .metric-card {
-        text-align: center;
-    }
-    
-    .metric-card-title {
-        text-align: center;
-    }
-    
-    .metric-grid {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-        align-items: center;
-    }
-    
-    .metric-item {
-        text-align: center;
-        width: 100%;
-        grid-column: span 1 !important;
-    }
-    
-    .metric-label {
-        text-align: center;
-    }
-    
-    .metric-number {
-        text-align: center;
-    }
-    
-    /* Card heading adjustments */
-    .card-heading {
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-        gap: 8px;
-    }
-    
-    .card-heading h2 {
-        text-align: center;
-        width: 100%;
-        margin-bottom: 0;
-    }
-    
-    .card-heading .button {
-        width: 100%;
-        justify-content: center;
-        margin-top: 4px;
-        margin-bottom: 0;
-    }
-    
-    /* Summary stats adjustments */
-    .summary-stats {
-        flex-direction: column;
-        gap: 12px;
-        align-items: center;
-        margin-top: 8px;
-        margin-bottom: 12px;
-        padding-top: 0;
-    }
-    
-    .summary-card .card-heading + .summary-stats {
-        margin-top: 8px;
-    }
-    
-    .summary-stat {
-        text-align: center;
-        width: 100%;
-    }
-    
-    .summary-stat-label,
-    .summary-stat-value {
-        text-align: center;
-    }
-    
-    /* Summary list items */
-    .summary-list {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-    }
-    
-    .summary-list-item {
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-        gap: 8px;
-    }
-    
-    .summary-list-main {
-        width: 100%;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 4px;
-    }
-    
-    .summary-list-title,
-    .summary-list-meta {
-        text-align: center;
-    }
-    
-    .summary-list-amount {
-        font-size: 18px;
-        align-self: center;
-    }
-    
-    /* Empty state center */
-    .empty-state {
-        text-align: center !important;
-    }
-    
-    /* Page header on mobile */
-    .page-header .header-actions {
-        width: 100%;
-    }
-    
-    .page-header .header-actions .button {
-        width: 100%;
-        justify-content: center;
-    }
-}
-</style>
-
+</div>
 {% endblock %}
 

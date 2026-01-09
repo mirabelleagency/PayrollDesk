@@ -1,29 +1,45 @@
-"""Database configuration for the payroll web application."""
+"""Database configuration for the payroll web application.
+
+This module handles:
+- Database engine creation with dual SQLite/PostgreSQL support
+- Session management for FastAPI dependency injection
+- Initial database setup (tables and default admin user)
+- Query timing/logging (enable with LOG_QUERIES=true)
+
+Schema migrations are handled by Alembic (see migrations/ folder).
+"""
 from __future__ import annotations
 
+import logging
 import os
-from datetime import date, datetime
+import time
 from pathlib import Path
+from typing import Any, Generator
 from urllib.parse import urlsplit, urlunsplit
-from typing import Generator
 
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import Engine, create_engine, event, text
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
+logger = logging.getLogger(__name__)
+
+# Default SQLite path for local development
 DEFAULT_SQLITE_PATH = Path("data/payroll.db")
 DEFAULT_SQLITE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+# Database URL from environment or default to SQLite
 DATABASE_URL = os.getenv("PAYROLL_DATABASE_URL", f"sqlite:///{DEFAULT_SQLITE_PATH}")
 
 
 def _mask_db_url(url: str) -> str:
-    """Redact credentials when logging database URLs."""
+    """Redact credentials when logging database URLs.
+    
+    Transforms 'postgresql://user:secret@host/db' to 'postgresql://user:****@host/db'
+    """
     try:
         parts = urlsplit(url)
-        netloc = parts.netloc
-        if "@" not in netloc:
+        if "@" not in parts.netloc:
             return url
-        creds, _, host_part = netloc.partition("@")
+        creds, _, host_part = parts.netloc.partition("@")
         if ":" not in creds:
             return url
         username = creds.split(":", 1)[0]
@@ -33,48 +49,168 @@ def _mask_db_url(url: str) -> str:
         return url
 
 
-def _create_engine(url: str):
-    """Create a SQLAlchemy engine for the given URL, handling sqlite connect args."""
-    connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {}
-    return create_engine(url, connect_args=connect_args, future=True)
+def _enable_sqlite_foreign_keys(engine: Engine) -> None:
+    """Enable foreign key enforcement for SQLite connections.
+    
+    SQLite does not enforce foreign keys by default. This listener ensures
+    that every connection to an SQLite database has foreign keys enabled,
+    matching PostgreSQL's default behavior.
+    """
+    if "sqlite" in str(engine.url):
+        @event.listens_for(engine, "connect")
+        def set_sqlite_pragma(dbapi_conn, connection_record):
+            cursor = dbapi_conn.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
 
 
-# Try to create the engine and verify a quick connection. On local development
-# environments, if the configured database (commonly PostgreSQL) is unreachable
-# we fall back to the SQLite file so developers can run the app without a
-# running Postgres instance. In production we re-raise the exception.
-masked_url = 'sqlite:///*' if DATABASE_URL.startswith('sqlite') else _mask_db_url(DATABASE_URL)
-print(f"[database] ENVIRONMENT={os.getenv('ENVIRONMENT', 'unset')} | PAYROLL_DATABASE_URL={masked_url}")
+def _enable_query_logging(engine: Engine) -> None:
+    """Enable query timing and logging for debugging and performance monitoring.
+    
+    Logs slow queries (>100ms) at WARNING level, all queries at DEBUG level.
+    Only enabled when LOG_QUERIES environment variable is set.
+    """
+    if not os.getenv("LOG_QUERIES", "").lower() in ("1", "true", "yes"):
+        return
+    
+    @event.listens_for(engine, "before_cursor_execute")
+    def before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+        conn.info.setdefault("query_start_time", []).append(time.perf_counter())
+    
+    @event.listens_for(engine, "after_cursor_execute")
+    def after_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+        start_times = conn.info.get("query_start_time", [])
+        if start_times:
+            elapsed_ms = (time.perf_counter() - start_times.pop()) * 1000
+            # Truncate long statements for logging
+            stmt_preview = statement[:200] + "..." if len(statement) > 200 else statement
+            stmt_preview = stmt_preview.replace("\n", " ")
+            
+            if elapsed_ms > 100:  # Slow query threshold
+                logger.warning("SLOW QUERY (%.2fms): %s", elapsed_ms, stmt_preview)
+            else:
+                logger.debug("Query (%.2fms): %s", elapsed_ms, stmt_preview)
 
-try:
-    engine = _create_engine(DATABASE_URL)
-    # quick smoke-check connection (some DBs may reject on connect)
-    with engine.connect() as _conn:  # type: ignore[var-annotated]
-        pass
-except Exception as e:  # pragma: no cover - environment dependent
-    env = os.getenv("ENVIRONMENT", "production").lower()
-    default_fallback_flag = "true" if env in ("development", "dev", "local") else "false"
-    allow_dev_fallback = os.getenv("LOCAL_DEV_SQLITE_FALLBACK", default_fallback_flag).lower() in ("1", "true", "yes")
-    print(f"[database] Could not connect to database at {DATABASE_URL!r}: {e}")
-    if env in ("development", "dev", "local") and allow_dev_fallback:
-        # Use local SQLite for development if Postgres is not available and fallback is explicitly enabled
-        fallback = f"sqlite:///{DEFAULT_SQLITE_PATH}"
-        print(f"[database] Falling back to SQLite (dev-only) at {fallback}")
-        DATABASE_URL = fallback
-        engine = _create_engine(DATABASE_URL)
+
+def _create_engine(url: str) -> Engine:
+    """Create a SQLAlchemy engine with appropriate settings.
+    
+    Configures:
+    - SQLite: check_same_thread=False for FastAPI compatibility
+    - PostgreSQL: connection pooling for production workloads
+    
+    Environment Variables (PostgreSQL only):
+        DB_POOL_SIZE: Min connections in pool (default: 5)
+        DB_MAX_OVERFLOW: Max additional connections (default: 10)
+        DB_POOL_RECYCLE: Seconds before recycling connections (default: 3600)
+    """
+    is_sqlite = url.startswith("sqlite")
+    
+    if is_sqlite:
+        return create_engine(
+            url,
+            connect_args={"check_same_thread": False},
+            future=True,
+        )
     else:
-        # Re-raise for non-dev environments or when fallback not enabled so startup fails loudly
-        print("[database] Fallback disabled; aborting startup")
-        raise
+        # PostgreSQL with configurable connection pooling
+        pool_size = int(os.getenv("DB_POOL_SIZE", "5"))
+        max_overflow = int(os.getenv("DB_MAX_OVERFLOW", "10"))
+        pool_recycle = int(os.getenv("DB_POOL_RECYCLE", "3600"))
+        
+        logger.info(
+            "PostgreSQL pool config: pool_size=%d, max_overflow=%d, recycle=%ds",
+            pool_size, max_overflow, pool_recycle
+        )
+        
+        return create_engine(
+            url,
+            pool_size=pool_size,
+            max_overflow=max_overflow,
+            pool_recycle=pool_recycle,
+            pool_pre_ping=True,  # Verify connections before use
+            future=True,
+        )
 
+
+def _initialize_engine() -> Engine:
+    """Initialize the database engine with retry and fallback support.
+    
+    Retries connection with exponential backoff before falling back.
+    In development, falls back to SQLite if PostgreSQL is unavailable.
+    In production, fails loudly if the database is unreachable.
+    
+    Environment Variables:
+        DB_CONNECT_RETRIES: Number of retry attempts (default: 3)
+        DB_RETRY_DELAY: Initial delay between retries in seconds (default: 1.0)
+    """
+    global DATABASE_URL
+    
+    masked_url = 'sqlite:///*' if DATABASE_URL.startswith('sqlite') else _mask_db_url(DATABASE_URL)
+    env = os.getenv("ENVIRONMENT", "production").lower()
+    logger.info("ENVIRONMENT=%s | DATABASE_URL=%s", env, masked_url)
+    
+    # Retry configuration
+    max_retries = int(os.getenv("DB_CONNECT_RETRIES", "3"))
+    base_delay = float(os.getenv("DB_RETRY_DELAY", "1.0"))
+    
+    last_error: Exception | None = None
+    
+    for attempt in range(1, max_retries + 1):
+        try:
+            engine = _create_engine(DATABASE_URL)
+            _enable_sqlite_foreign_keys(engine)
+            _enable_query_logging(engine)
+            # Smoke-test connection
+            with engine.connect():
+                pass
+            if attempt > 1:
+                logger.info("Database connection succeeded on attempt %d", attempt)
+            return engine
+        except Exception as e:
+            last_error = e
+            if attempt < max_retries:
+                delay = base_delay * (2 ** (attempt - 1))  # Exponential backoff
+                logger.warning(
+                    "Database connection attempt %d/%d failed: %s. Retrying in %.1fs...",
+                    attempt, max_retries, e, delay
+                )
+                time.sleep(delay)
+            else:
+                logger.warning(
+                    "Database connection attempt %d/%d failed: %s",
+                    attempt, max_retries, e
+                )
+    
+    # All retries exhausted - try fallback
+    is_dev = env in ("development", "dev", "local")
+    allow_fallback = os.getenv("LOCAL_DEV_SQLITE_FALLBACK", str(is_dev)).lower() in ("1", "true", "yes")
+    
+    if is_dev and allow_fallback:
+        DATABASE_URL = f"sqlite:///{DEFAULT_SQLITE_PATH}"
+        logger.info("Falling back to SQLite (dev-only): %s", DATABASE_URL)
+        engine = _create_engine(DATABASE_URL)
+        _enable_sqlite_foreign_keys(engine)
+        return engine
+    else:
+        logger.error("Database connection failed after %d attempts; aborting startup", max_retries)
+        raise last_error or RuntimeError("Database connection failed")
+
+
+# Initialize engine and session factory
+engine = _initialize_engine()
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
-
 Base = declarative_base()
 
 
 def get_session() -> Generator[Session, None, None]:
-    """FastAPI dependency that yields a database session."""
-
+    """FastAPI dependency that yields a database session.
+    
+    Usage:
+        @app.get("/items")
+        def get_items(db: Session = Depends(get_session)):
+            return db.query(Item).all()
+    """
     session = SessionLocal()
     try:
         yield session
@@ -83,171 +219,35 @@ def get_session() -> Generator[Session, None, None]:
 
 
 def init_db() -> None:
-    """Ensure database tables exist and create default admin user if needed."""
-
-    from app import models  # noqa: F401  (import ensures model metadata is registered)
+    """Initialize database tables and create default admin user.
+    
+    This is called on application startup. For schema migrations,
+    use Alembic: `alembic upgrade head`
+    """
+    from app import models  # noqa: F401 - registers models with Base.metadata
     from app.auth import User
 
-    # Try to create all tables; if they already exist, skip
+    # Create tables (no-op if they exist)
     try:
         Base.metadata.create_all(bind=engine, checkfirst=True)
     except Exception as e:
-        # If table creation fails due to existing tables, just log and continue
         if "already exists" in str(e).lower():
-            print(f"[init_db] Tables already exist, skipping creation: {e}")
+            logger.debug("Table already exists (normal on restart): %s", e)
         else:
-            print(f"[init_db] Warning during table creation: {e}")
-    
-    # Create default admin user if it doesn't exist
+            logger.warning("Table creation warning: %s", e)
+
+    # Create default admin user if needed
     session = SessionLocal()
     try:
-        # Check if admin user exists
-        admin_count = session.query(User).filter(User.username == "admin").count()
-        if admin_count == 0:
-            # Admin doesn't exist, create it
+        admin_exists = session.query(User).filter(User.username == "admin").first()
+        if not admin_exists:
             admin_user = User.create_user("admin", "admin", role="admin")
             session.add(admin_user)
             session.commit()
-            print("[init_db] Created default admin user (username: admin, password: admin, role: admin)")
-        else:
-            print("[init_db] Admin user already exists, skipping creation")
+            logger.info("Created default admin user (username: admin)")
     except Exception as e:
-        print(f"[init_db] Error with admin user: {type(e).__name__}: {e}")
-        try:
-            session.rollback()
-        except:
-            pass
+        logger.error("Error creating admin user: %s", e)
+        session.rollback()
     finally:
-        try:
-            session.close()
-        except:
-            pass
-    
-        ensure_schema_updates()
-
-
-def ensure_schema_updates() -> None:
-    """Ensure all required columns exist in the database tables."""
-    from app.models import Model, ModelCompensationAdjustment
-
-    inspector = inspect(engine)
-    
-    # Remove is_active column from users table (migration from soft-delete to hard-delete)
-    try:
-        users_columns = {column["name"] for column in inspector.get_columns("users")}
-        if "is_active" in users_columns:
-            print("[ensure_schema_updates] Removing deprecated is_active column from users table")
-            with engine.begin() as connection:
-                connection.execute(text("ALTER TABLE users DROP COLUMN is_active"))
-                print("[ensure_schema_updates] Successfully removed is_active column")
-    except Exception as e:
-        print(f"[ensure_schema_updates] Error removing is_active column: {e}")
-    
-    # Ensure users table has role column
-    try:
-        users_columns = {column["name"] for column in inspector.get_columns("users")}
-        if "role" not in users_columns:
-            print("[ensure_schema_updates] Adding role column to users table")
-            with engine.begin() as connection:
-                connection.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(50) NOT NULL DEFAULT 'user'"))
-                print("[ensure_schema_updates] Successfully added role column to users table")
-        else:
-            # Column exists, but make sure admin user has admin role
-            print("[ensure_schema_updates] Checking and fixing admin user role")
-            with engine.begin() as connection:
-                # Update any admin user to have admin role
-                connection.execute(text("UPDATE users SET role = 'admin' WHERE username = 'admin' AND role != 'admin'"))
-                # Ensure no NULL roles exist
-                connection.execute(text("UPDATE users SET role = 'user' WHERE role IS NULL"))
-    except Exception as e:
-        print(f"[ensure_schema_updates] Error updating users table: {e}")
-    
-    # Ensure payouts table has status column
-    try:
-        payouts_columns = {column["name"] for column in inspector.get_columns("payouts")}
-        if "status" not in payouts_columns:
-            print("[ensure_schema_updates] Adding status column to payouts table")
-            with engine.begin() as connection:
-                connection.execute(text("ALTER TABLE payouts ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'not_paid'"))
-                print("[ensure_schema_updates] Successfully added status column to payouts table")
-    except Exception as e:
-        print(f"[ensure_schema_updates] Error updating payouts table: {e}")
-    
-    # Ensure models table has crypto_wallet column
-    try:
-        models_columns = {column["name"] for column in inspector.get_columns("models")}
-        if "crypto_wallet" not in models_columns:
-            print("[ensure_schema_updates] Adding crypto_wallet column to models table")
-            with engine.begin() as connection:
-                connection.execute(text("ALTER TABLE models ADD COLUMN crypto_wallet VARCHAR(200)"))
-                print("[ensure_schema_updates] Successfully added crypto_wallet column to models table")
-    except Exception as e:
-        print(f"[ensure_schema_updates] Error updating models table: {e}")
-    
-    # Ensure users table has security fields
-    try:
-        users_columns = {column["name"] for column in inspector.get_columns("users")}
-        if "is_locked" not in users_columns:
-            print("[ensure_schema_updates] Adding security fields to users table")
-            with engine.begin() as connection:
-                is_postgres = DATABASE_URL.startswith("postgresql")
-                
-                # Add is_locked column
-                connection.execute(text("ALTER TABLE users ADD COLUMN is_locked BOOLEAN NOT NULL DEFAULT false"))
-                
-                # Add locked_until column (use TIMESTAMP for PostgreSQL, DATETIME for SQLite)
-                datetime_type = "TIMESTAMP" if is_postgres else "DATETIME"
-                connection.execute(text(f"ALTER TABLE users ADD COLUMN locked_until {datetime_type}"))
-                
-                # Add failed_login_count column
-                connection.execute(text("ALTER TABLE users ADD COLUMN failed_login_count INTEGER NOT NULL DEFAULT 0"))
-                
-                # Add last_failed_login column
-                connection.execute(text(f"ALTER TABLE users ADD COLUMN last_failed_login {datetime_type}"))
-                
-                print("[ensure_schema_updates] Successfully added security fields to users table")
-    except Exception as e:
-        print(f"[ensure_schema_updates] Error updating users table: {e}")
-
-        # Ensure compensation adjustments table exists and is populated from existing models
-        try:
-            tables = inspector.get_table_names()
-        except Exception as e:
-            print(f"[ensure_schema_updates] Error listing tables: {e}")
-            tables = []
-
-        try:
-            if "model_compensation_adjustments" not in tables:
-                print("[ensure_schema_updates] Creating model_compensation_adjustments table")
-                ModelCompensationAdjustment.__table__.create(bind=engine, checkfirst=True)
-        except Exception as e:
-            print(f"[ensure_schema_updates] Error creating model_compensation_adjustments table: {e}")
-
-        session = SessionLocal()
-        try:
-            for model in session.query(Model).all():
-                existing = (
-                    session.query(ModelCompensationAdjustment)
-                    .filter(ModelCompensationAdjustment.model_id == model.id)
-                    .first()
-                )
-                if existing:
-                    continue
-                effective_date = model.start_date or date.today()
-                adjustment = ModelCompensationAdjustment(
-                    model_id=model.id,
-                    effective_date=effective_date,
-                    amount_monthly=model.amount_monthly,
-                    notes="Seeded from existing model record",
-                )
-                session.add(adjustment)
-            session.commit()
-        except Exception as e:
-            print(f"[ensure_schema_updates] Error seeding compensation adjustments: {e}")
-            try:
-                session.rollback()
-            except Exception:
-                pass
-        finally:
-            session.close()
+        session.close()
 

@@ -44,4 +44,4 @@ def changelog(
         "user": user,
         "changelog_html": _render_changelog(),
     }
-    return templates.TemplateResponse("changelog.html", context)
+    return templates.TemplateResponse(request, "changelog.html", context)

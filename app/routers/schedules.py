@@ -6,6 +6,7 @@ import calendar
 import csv
 import io
 import json
+import time
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Sequence, cast, Any
@@ -28,6 +29,36 @@ from app.routers.auth import get_current_user, get_admin_user
 from app.services import PayrollService
 
 router = APIRouter(prefix="/schedules", tags=["Schedules"])
+
+DEFAULT_EXPORT_DIR = Path("exports")
+
+# Simple in-memory cache for dashboard data
+# Key: (month, year) -> (timestamp, data)
+_dashboard_cache: dict[tuple[str | None, int | None], tuple[float, dict[str, Any]]] = {}
+_CACHE_TTL_SECONDS = 300  # 5 minutes
+
+
+def _invalidate_dashboard_cache() -> None:
+    """Clear the dashboard cache. Call after schedule/payout modifications."""
+    _dashboard_cache.clear()
+
+
+def _get_cached_dashboard(month: str | None, year: int | None) -> dict[str, Any] | None:
+    """Get cached dashboard data if still valid."""
+    cache_key = (month, year)
+    if cache_key in _dashboard_cache:
+        cached_time, cached_data = _dashboard_cache[cache_key]
+        if time.time() - cached_time < _CACHE_TTL_SECONDS:
+            return cached_data
+        # Expired - remove it
+        del _dashboard_cache[cache_key]
+    return None
+
+
+def _set_cached_dashboard(month: str | None, year: int | None, data: dict[str, Any]) -> None:
+    """Store dashboard data in cache."""
+    cache_key = (month, year)
+    _dashboard_cache[cache_key] = (time.time(), data)
 
 DEFAULT_EXPORT_DIR = Path("exports")
 
@@ -285,7 +316,15 @@ def _format_frequency_summary(frequency_counts: object | None) -> str:
 
 
 def _gather_dashboard_data(db: Session, month: str | None, year: int | None = None) -> dict[str, object]:
-    """Collect the datasets needed to render or export the schedules dashboard."""
+    """Collect the datasets needed to render or export the schedules dashboard.
+    
+    Uses in-memory caching with 5-minute TTL to reduce database load.
+    Cache is invalidated on schedule/payout modifications.
+    """
+    # Check cache first
+    cached = _get_cached_dashboard(month, year)
+    if cached is not None:
+        return cached
 
     today = date.today()
     display_year = year if year else today.year
@@ -568,7 +607,7 @@ def _gather_dashboard_data(db: Session, month: str | None, year: int | None = No
         "currency": table_currency,
     }
 
-    return {
+    result = {
         "today": today,
         "current_year": current_year,
         "current_month_label": format_display_date(today),
@@ -596,6 +635,11 @@ def _gather_dashboard_data(db: Session, month: str | None, year: int | None = No
         "month_candidate": month_candidate,
         "normalized_month": normalized_month,
     }
+    
+    # Cache the result for subsequent requests
+    _set_cached_dashboard(month, year, result)
+    
+    return result
 
 
 @router.get("/")
@@ -984,6 +1028,7 @@ def list_runs(
             })
 
     return templates.TemplateResponse(
+        request,
         "schedules/list.html",
         {
             "request": request,
@@ -1231,6 +1276,7 @@ def view_adhoc_payments(
     quick_range_options = QUICK_RANGE_OPTIONS
 
     return templates.TemplateResponse(
+        request,
         "schedules/adhoc.html",
         {
             "request": request,
@@ -1616,6 +1662,7 @@ def list_runs_all(
         )
 
     return templates.TemplateResponse(
+        request,
         "schedules/all.html",
         {
             "request": request,
@@ -1753,6 +1800,7 @@ def list_runs_all_table(
         run.month_year_label = date(run.target_year, run.target_month, 1).strftime("%b %Y")
 
     return templates.TemplateResponse(
+        request,
         "schedules/all_table.html",
         {
             "request": request,
@@ -1884,6 +1932,7 @@ def new_schedule_form(request: Request, user: User = Depends(get_admin_user)):
     today = date.today()
     default_month = f"{today.year:04d}-{today.month:02d}"
     return templates.TemplateResponse(
+        request,
         "schedules/form.html",
         {
             "request": request,
@@ -1926,6 +1975,8 @@ def run_schedule(
         output_dir=export_path,
     )
 
+    _invalidate_dashboard_cache()  # Clear cache after creating new schedule
+    
     return RedirectResponse(url=f"/schedules/{run_id}", status_code=303)
 
 
@@ -1945,30 +1996,10 @@ def view_schedule(
     if not run:
         raise HTTPException(status_code=404, detail="Schedule run not found")
 
-    # Auto-refresh: if the run corresponds to the current month, re-run payroll
-    # so newly added models for this month appear without requiring manual "Run Payroll".
-    today = date.today()
-    if run.target_year == today.year and run.target_month == today.month:
-        # Re-run payroll for this cycle. The PayrollService will reuse the existing
-        # ScheduleRun and preserve existing payout status/notes when refreshing.
-        service = PayrollService(db)
-        try:
-            # Use the existing run's currency and export path when refreshing
-            export_path = Path(run.export_path) if run.export_path else Path("exports")
-            _, _, _, _, refreshed_run_id = service.run_payroll(
-                target_year=run.target_year,
-                target_month=run.target_month,
-                currency=run.currency if getattr(run, "currency", None) else "USD",
-                include_inactive=False,
-                output_dir=export_path,
-            )
-            # If a different run record was returned, load that one instead
-            if refreshed_run_id and refreshed_run_id != run.id:
-                run = crud.get_schedule_run(db, refreshed_run_id)
-        except Exception:
-            # If refresh fails, continue to render the existing run rather than failing the page.
-            # Errors are intentionally swallowed here to avoid blocking the user from viewing the run.
-            pass
+    # NOTE: Auto-refresh was removed to prevent data loss.
+    # Previously, viewing the current month's schedule would automatically regenerate
+    # all payouts, which could lose manual status/notes updates if pay dates changed.
+    # Users should manually click "Refresh Schedule" if they need to regenerate payouts.
 
     run.cycle_display = format_display_date(date(run.target_year, run.target_month, 1))
 
@@ -2049,7 +2080,12 @@ def view_schedule(
             overdue_count += 1
             overdue_amount += payout.amount or Decimal("0")
 
+    # Get pending compensation alerts count for this run
+    pending_alerts_count = crud.count_pending_alerts_for_run(db, run_id)
+    compensation_alerts = crud.list_compensation_alerts(db, schedule_run_id=run_id, status="pending") if pending_alerts_count > 0 else []
+
     return templates.TemplateResponse(
+        request,
         "schedules/detail.html",
         {
             "request": request,
@@ -2065,6 +2101,8 @@ def view_schedule(
             "status_counts": status_counts,
             "overdue_count": overdue_count,
             "overdue_amount": overdue_amount,
+            "pending_alerts_count": pending_alerts_count,
+            "compensation_alerts": compensation_alerts,
             "today": today,
             "filters": {
                 "code": code_filter or "",
@@ -2089,7 +2127,51 @@ def delete_schedule_run(run_id: int, db: Session = Depends(get_session), user: U
         raise HTTPException(status_code=404, detail="Schedule run not found")
 
     crud.delete_schedule_run(db, run)
+    _invalidate_dashboard_cache()  # Clear cache after deletion
     return RedirectResponse(url="/schedules", status_code=303)
+
+
+@router.post("/{run_id}/add-new-models")
+def add_new_models_to_schedule(
+    run_id: int,
+    request: Request,
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    """Add payouts for models that don't have payouts in the schedule yet.
+    
+    This is a SAFE operation - it never modifies or deletes existing payouts.
+    Only models that are not yet in the schedule will be added.
+    """
+    run = crud.get_schedule_run(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Schedule run not found")
+
+    service = PayrollService(db)
+    try:
+        result = service.add_new_models_to_run(
+            run_id=run_id,
+            currency=run.currency if getattr(run, "currency", None) else "USD",
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to add new models: {str(e)}")
+
+    _invalidate_dashboard_cache()  # Clear cache after adding models
+    
+    # Redirect back to schedule view with a success message via query param
+    added_count = result.get("added_count", 0)
+    added_codes = result.get("added_codes", [])
+    
+    # Build URL with added count and codes for highlighting
+    url = f"/schedules/{run_id}?added={added_count}"
+    if added_codes:
+        # Join codes with comma for URL param (will be used to highlight rows)
+        url += f"&added_codes={','.join(added_codes)}"
+    
+    return RedirectResponse(
+        url=url,
+        status_code=303,
+    )
 
 
 @router.get("/{run_id}/download/{file_type}")
@@ -2257,6 +2339,7 @@ def update_payout_record(
 
     trimmed = notes.strip()
     crud.update_payout(db, payout, trimmed if trimmed else None, status_value)
+    _invalidate_dashboard_cache()  # Clear cache after payout update
 
     wants_json = request.headers.get("x-requested-with", "").lower() == "fetch"
     if wants_json:
@@ -2319,6 +2402,8 @@ def bulk_update_payouts(
             # Preserve existing notes, only update status
             crud.update_payout(db, payout, payout.notes, status_value)
     
+    _invalidate_dashboard_cache()  # Clear cache after bulk update
+    
     target_url = redirect_to or f"/schedules/{run_id}"
     if not target_url.startswith("/schedules/"):
         target_url = f"/schedules/{run_id}"
@@ -2347,6 +2432,7 @@ def api_update_payout_status(
 
     # Preserve existing notes, only update status
     crud.update_payout(db, payout, payout.notes, status_value)
+    _invalidate_dashboard_cache()  # Clear cache after status update
 
     # Compute overdue flag server-side to reduce client logic differences
     today = date.today()
@@ -2399,6 +2485,9 @@ def api_bulk_update_payouts(
             updated.append(pid)
             overdue_flags[pid] = bool(payout.pay_date and payout.pay_date < today and status_value in ("not_paid", "on_hold"))
 
+    if updated:
+        _invalidate_dashboard_cache()  # Clear cache after bulk status update
+    
     return JSONResponse({
         "ok": True,
         "updated_ids": updated,
@@ -2406,3 +2495,236 @@ def api_bulk_update_payouts(
         "overdue_flags": overdue_flags,
     })
 
+
+# ============================================================================
+# Compensation Alert Management Endpoints
+# ============================================================================
+
+@router.get("/{run_id}/compensation-alerts")
+def list_compensation_alerts_for_run(
+    run_id: int,
+    request: Request,
+    status: str | None = Query(None, description="Filter by alert status"),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """List compensation alerts for a specific schedule run."""
+    run = crud.get_schedule_run(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Schedule run not found")
+    
+    alerts = crud.list_compensation_alerts(db, schedule_run_id=run_id, status=status)
+    pending_count = crud.count_pending_alerts_for_run(db, run_id)
+    
+    # Build response with alert details
+    alert_data = []
+    for alert in alerts:
+        payout = alert.payout
+        alert_data.append({
+            "id": alert.id,
+            "payout_id": alert.payout_id,
+            "model_id": alert.model_id,
+            "code": payout.code if payout else None,
+            "real_name": payout.real_name if payout else None,
+            "pay_date": payout.pay_date.isoformat() if payout and payout.pay_date else None,
+            "original_amount": float(alert.original_amount),
+            "new_amount": float(alert.new_amount),
+            "prorated_amount": float(alert.prorated_amount) if alert.prorated_amount else None,
+            "effective_date": alert.effective_date.isoformat() if alert.effective_date else None,
+            "alert_type": alert.alert_type,
+            "status": alert.status,
+            "created_at": alert.created_at.isoformat() if alert.created_at else None,
+        })
+    
+    return JSONResponse({
+        "ok": True,
+        "run_id": run_id,
+        "pending_count": pending_count,
+        "alerts": alert_data,
+    })
+
+
+@router.get("/{run_id}/compensation-alerts/count")
+def get_compensation_alerts_count(
+    run_id: int,
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Get count of pending compensation alerts for a schedule run."""
+    run = crud.get_schedule_run(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Schedule run not found")
+    
+    count = crud.count_pending_alerts_for_run(db, run_id)
+    return JSONResponse({
+        "ok": True,
+        "run_id": run_id,
+        "pending_count": count,
+    })
+
+
+@router.post("/{run_id}/compensation-alerts/{alert_id}/resolve")
+def resolve_compensation_alert(
+    run_id: int,
+    alert_id: int,
+    action: str = Form(...),  # apply_new, apply_prorated, dismiss, acknowledge
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    """Resolve a compensation alert by applying a change or dismissing it."""
+    run = crud.get_schedule_run(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Schedule run not found")
+    
+    alert = crud.get_compensation_alert(db, alert_id)
+    if not alert or alert.schedule_run_id != run_id:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    
+    if alert.status != "pending":
+        raise HTTPException(status_code=400, detail="Alert has already been resolved")
+    
+    action = action.strip().lower()
+    username = user.username if user else "system"
+    
+    if action == "apply_new":
+        # Apply the new (full) amount
+        payout, resolved_alert = crud.apply_alert_to_payout(
+            db, alert, alert.new_amount, resolved_by=username
+        )
+        db.commit()
+        _invalidate_dashboard_cache()
+        return JSONResponse({
+            "ok": True,
+            "alert_id": alert_id,
+            "action": "applied",
+            "amount_applied": float(alert.new_amount),
+            "payout_id": payout.id,
+        })
+    
+    elif action == "apply_prorated":
+        # Apply prorated amount if available, otherwise fall back to new amount
+        amount_to_apply = alert.prorated_amount if alert.prorated_amount else alert.new_amount
+        payout, resolved_alert = crud.apply_alert_to_payout(
+            db, alert, amount_to_apply, resolved_by=username
+        )
+        db.commit()
+        _invalidate_dashboard_cache()
+        return JSONResponse({
+            "ok": True,
+            "alert_id": alert_id,
+            "action": "applied_prorated",
+            "amount_applied": float(amount_to_apply),
+            "payout_id": payout.id,
+        })
+    
+    elif action == "dismiss":
+        # Dismiss the alert without changing the payout
+        crud.resolve_compensation_alert(db, alert, "dismissed", resolved_by=username)
+        db.commit()
+        return JSONResponse({
+            "ok": True,
+            "alert_id": alert_id,
+            "action": "dismissed",
+        })
+    
+    elif action == "acknowledge":
+        # Acknowledge but don't change anything - for review later
+        crud.resolve_compensation_alert(db, alert, "acknowledged", resolved_by=username)
+        db.commit()
+        return JSONResponse({
+            "ok": True,
+            "alert_id": alert_id,
+            "action": "acknowledged",
+        })
+    
+    else:
+        raise HTTPException(status_code=400, detail=f"Invalid action: {action}")
+
+
+@router.post("/{run_id}/compensation-alerts/bulk-resolve")
+def bulk_resolve_alerts(
+    run_id: int,
+    alert_ids: str = Form(""),
+    action: str = Form(...),  # apply_new, apply_prorated, dismiss
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    """Bulk resolve multiple compensation alerts."""
+    run = crud.get_schedule_run(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Schedule run not found")
+    
+    if not alert_ids.strip():
+        return JSONResponse({"ok": True, "resolved_count": 0})
+    
+    try:
+        ids = [int(aid.strip()) for aid in alert_ids.split(",") if aid.strip()]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid alert IDs")
+    
+    action = action.strip().lower()
+    username = user.username if user else "system"
+    resolved_count = 0
+    
+    for aid in ids:
+        alert = crud.get_compensation_alert(db, aid)
+        if not alert or alert.schedule_run_id != run_id or alert.status != "pending":
+            continue
+        
+        if action == "apply_new":
+            crud.apply_alert_to_payout(db, alert, alert.new_amount, resolved_by=username)
+            resolved_count += 1
+        elif action == "apply_prorated":
+            amount = alert.prorated_amount if alert.prorated_amount else alert.new_amount
+            crud.apply_alert_to_payout(db, alert, amount, resolved_by=username)
+            resolved_count += 1
+        elif action == "dismiss":
+            crud.resolve_compensation_alert(db, alert, "dismissed", resolved_by=username)
+            resolved_count += 1
+    
+    if resolved_count > 0:
+        db.commit()
+        _invalidate_dashboard_cache()
+    
+    return JSONResponse({
+        "ok": True,
+        "resolved_count": resolved_count,
+        "action": action,
+    })
+
+
+@router.get("/{run_id}/payouts/{payout_id}/alert")
+def get_payout_alert(
+    run_id: int,
+    payout_id: int,
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Get pending compensation alert for a specific payout."""
+    payout = crud.get_payout(db, payout_id)
+    if not payout or payout.schedule_run_id != run_id:
+        raise HTTPException(status_code=404, detail="Payout not found")
+    
+    alert = crud.get_alert_for_payout(db, payout_id)
+    
+    if not alert:
+        return JSONResponse({
+            "ok": True,
+            "has_alert": False,
+            "payout_id": payout_id,
+        })
+    
+    return JSONResponse({
+        "ok": True,
+        "has_alert": True,
+        "payout_id": payout_id,
+        "alert": {
+            "id": alert.id,
+            "original_amount": float(alert.original_amount),
+            "new_amount": float(alert.new_amount),
+            "prorated_amount": float(alert.prorated_amount) if alert.prorated_amount else None,
+            "effective_date": alert.effective_date.isoformat() if alert.effective_date else None,
+            "alert_type": alert.alert_type,
+            "status": alert.status,
+        }
+    })

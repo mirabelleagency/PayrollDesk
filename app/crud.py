@@ -1,21 +1,25 @@
 """Database access helpers."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Iterable, Sequence, Dict
 
 import json
 
-from sqlalchemy import case, distinct, func, select
+from sqlalchemy import case, delete, distinct, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.payroll import ModelRecord, ValidationMessage
 from app.models import (
     AdhocPayment,
+    CommissionPayout,
     Model,
     ModelCompensationAdjustment,
+    ModelReferralTerm,
     Payout,
+    PayoutCompensationAlert,
     ScheduleRun,
     ValidationIssue,
     AuditLog,
@@ -57,11 +61,21 @@ def list_models(
     frequency: str | None = None,
     payment_method: str | None = None,
     *,
+    include_deleted: bool = False,
     limit: int | None = None,
     offset: int = 0,
 ) -> Sequence[Model]:
+    """List models with optional filtering.
+    
+    By default, excludes soft-deleted models. Set include_deleted=True to include them.
+    """
     stmt = select(Model)
     filters = _model_filters(code=code, status=status, frequency=frequency, payment_method=payment_method)
+    
+    # Exclude soft-deleted models by default
+    if not include_deleted:
+        filters.append(Model.deleted_at.is_(None))
+    
     if filters:
         stmt = stmt.where(*filters)
 
@@ -79,9 +93,16 @@ def count_models(
     status: str | None = None,
     frequency: str | None = None,
     payment_method: str | None = None,
+    *,
+    include_deleted: bool = False,
 ) -> int:
+    """Count models with optional filtering. Excludes soft-deleted by default."""
     stmt = select(func.count()).select_from(Model)
     filters = _model_filters(code=code, status=status, frequency=frequency, payment_method=payment_method)
+    
+    if not include_deleted:
+        filters.append(Model.deleted_at.is_(None))
+    
     if filters:
         stmt = stmt.where(*filters)
     return int(db.execute(stmt).scalar_one())
@@ -93,9 +114,16 @@ def count_models_by_status(
     status: str | None = None,
     frequency: str | None = None,
     payment_method: str | None = None,
+    *,
+    include_deleted: bool = False,
 ) -> Dict[str, int]:
+    """Count models grouped by status. Excludes soft-deleted by default."""
     stmt = select(Model.status, func.count()).select_from(Model)
     filters = _model_filters(code=code, status=status, frequency=frequency, payment_method=payment_method)
+    
+    if not include_deleted:
+        filters.append(Model.deleted_at.is_(None))
+    
     if filters:
         stmt = stmt.where(*filters)
     stmt = stmt.group_by(Model.status)
@@ -199,8 +227,110 @@ def update_model(db: Session, model: Model, payload: ModelUpdate) -> Model:
 
 
 def delete_model(db: Session, model: Model) -> None:
+    """Hard delete a model (permanent removal)."""
     db.delete(model)
     db.commit()
+
+
+def soft_delete_model(db: Session, model: Model) -> Model:
+    """Soft delete a model by setting deleted_at timestamp.
+    
+    The model remains in the database but is excluded from normal queries.
+    Use restore_model() to undo a soft delete.
+    """
+    model.deleted_at = datetime.now()
+    model.updated_at = datetime.now()
+    db.add(model)
+    db.commit()
+    db.refresh(model)
+    return model
+
+
+def restore_model(db: Session, model: Model) -> Model:
+    """Restore a soft-deleted model by clearing deleted_at timestamp."""
+    model.deleted_at = None
+    model.updated_at = datetime.now()
+    db.add(model)
+    db.commit()
+    db.refresh(model)
+    return model
+
+
+def list_deleted_models(db: Session, limit: int | None = None, offset: int = 0) -> Sequence[Model]:
+    """List all soft-deleted models."""
+    stmt = select(Model).where(Model.deleted_at.isnot(None)).order_by(Model.deleted_at.desc())
+    if offset:
+        stmt = stmt.offset(offset)
+    if limit is not None:
+        stmt = stmt.limit(limit)
+    return db.execute(stmt).scalars().all()
+
+
+def get_deleted_model(db: Session, model_id: int) -> Model | None:
+    """Get a soft-deleted model by ID."""
+    stmt = select(Model).where(Model.id == model_id, Model.deleted_at.isnot(None))
+    return db.execute(stmt).scalars().first()
+
+
+@dataclass
+class ReferralTermPayload:
+    referral_model_id: int
+    commission_per_referral: Decimal
+    commission_payout_frequency: str
+    commission_duration_months: int | None
+    is_active: bool
+
+
+def list_referral_terms(db: Session, referrer_id: int) -> Sequence[ModelReferralTerm]:
+    return (
+        db.query(ModelReferralTerm)
+        .filter(ModelReferralTerm.referrer_model_id == referrer_id)
+        .order_by(ModelReferralTerm.referral_model_id.asc())
+        .all()
+    )
+
+
+def upsert_referral_terms(db: Session, referrer: Model, terms: Sequence[ReferralTermPayload]) -> None:
+    if not referrer.id:
+        return
+
+    existing = {
+        term.referral_model_id: term
+        for term in db.query(ModelReferralTerm).filter(ModelReferralTerm.referrer_model_id == referrer.id).all()
+    }
+    seen: set[int] = set()
+
+    for payload in terms:
+        seen.add(payload.referral_model_id)
+        record = existing.get(payload.referral_model_id)
+        if record:
+            record.commission_per_referral = payload.commission_per_referral
+            record.commission_payout_frequency = payload.commission_payout_frequency
+            record.commission_duration_months = payload.commission_duration_months
+            record.is_active = payload.is_active
+            db.add(record)
+        else:
+            db.add(
+                ModelReferralTerm(
+                    referrer_model_id=referrer.id,
+                    referral_model_id=payload.referral_model_id,
+                    commission_per_referral=payload.commission_per_referral,
+                    commission_payout_frequency=payload.commission_payout_frequency,
+                    commission_duration_months=payload.commission_duration_months,
+                    is_active=payload.is_active,
+                )
+            )
+
+    for referral_id, record in existing.items():
+        if referral_id not in seen:
+            db.delete(record)
+
+    db.flush()
+
+
+def delete_referral_term_for_referral(db: Session, referral_model_id: int) -> None:
+    db.query(ModelReferralTerm).filter(ModelReferralTerm.referral_model_id == referral_model_id).delete(synchronize_session=False)
+    db.flush()
 
 
 def get_effective_compensation_amount(db: Session, model: Model, target_date: date) -> Decimal:
@@ -371,9 +501,24 @@ def _lookup_model_id(db: Session, code: str) -> int | None:
 
 
 def list_schedule_runs(
-    db: Session, target_year: int | None = None, target_month: int | None = None
+    db: Session,
+    target_year: int | None = None,
+    target_month: int | None = None,
+    eager_load_payouts: bool = False,
 ) -> Sequence[ScheduleRun]:
+    """List schedule runs with optional filtering.
+    
+    Args:
+        db: Database session
+        target_year: Filter by year (optional)
+        target_month: Filter by month (optional)
+        eager_load_payouts: If True, eagerly load payouts relationship
+                           to avoid N+1 queries when accessing payouts
+    """
     stmt = select(ScheduleRun)
+    
+    if eager_load_payouts:
+        stmt = stmt.options(selectinload(ScheduleRun.payouts))
 
     if target_year is not None:
         stmt = stmt.where(ScheduleRun.target_year == target_year)
@@ -794,6 +939,40 @@ def dashboard_summary(db: Session) -> dict[str, Decimal | int | date | None]:
     if active_models > 0 and monthly_burn > 0:
         avg_per_model = monthly_burn / active_models
 
+    # Get monthly trend data for sparkline (last 6 months)
+    monthly_trend = []
+    for months_back in range(5, -1, -1):  # 5,4,3,2,1,0 (oldest to newest)
+        trend_month = today.month - months_back
+        trend_year = today.year
+        while trend_month <= 0:
+            trend_month += 12
+            trend_year -= 1
+        
+        trend_run = (
+            db.execute(
+                select(ScheduleRun)
+                .where(
+                    ScheduleRun.target_year == trend_year,
+                    ScheduleRun.target_month == trend_month,
+                )
+                .order_by(ScheduleRun.created_at.desc())
+            )
+            .scalars()
+            .first()
+        )
+        
+        trend_total = Decimal("0")
+        if trend_run:
+            trend_total = trend_run.summary_total_payout or Decimal("0")
+        
+        import calendar
+        month_name = calendar.month_abbr[trend_month]
+        monthly_trend.append({
+            "month": month_name,
+            "year": trend_year,
+            "amount": float(trend_total),
+        })
+
     return {
         "total_models": int(total_models),
         "active_models": int(active_models),
@@ -815,6 +994,7 @@ def dashboard_summary(db: Session) -> dict[str, Decimal | int | date | None]:
         "avg_per_model": avg_per_model,
         "overdue_payments": overdue_payments_data,
         "on_hold_payments": on_hold_payments_data,
+        "monthly_trend": monthly_trend,
     }
 
 
@@ -840,6 +1020,135 @@ def top_paid_models(db: Session, limit: int = 5) -> list[tuple[Model, Decimal]]:
         else:
             output.append((model, Decimal(total)))
     return output
+
+
+def total_adhoc_paid_by_model(db: Session, model_ids: Sequence[int]) -> dict[int, Decimal]:
+    """Calculate total paid adhoc payments per model.
+    
+    Returns a dict mapping model_id -> total paid adhoc amount.
+    Only includes adhoc payments with status='paid'.
+    """
+    if not model_ids:
+        return {}
+    
+    stmt = (
+        select(AdhocPayment.model_id, func.coalesce(func.sum(AdhocPayment.amount), 0))
+        .where(AdhocPayment.model_id.in_(model_ids), AdhocPayment.status == "paid")
+        .group_by(AdhocPayment.model_id)
+    )
+    results = db.execute(stmt).all()
+    totals: dict[int, Decimal] = {}
+    for model_id, total in results:
+        totals[model_id] = Decimal(total) if not isinstance(total, Decimal) else total
+    return totals
+
+
+def total_commission_paid_by_model(db: Session, model_ids: Sequence[int]) -> dict[int, Decimal]:
+    """Calculate total paid commission payouts per model (as referrer).
+    
+    Returns a dict mapping model_id -> total paid commission amount.
+    Only includes commission payouts with status='paid'.
+    """
+    if not model_ids:
+        return {}
+    
+    stmt = (
+        select(CommissionPayout.referrer_model_id, func.coalesce(func.sum(CommissionPayout.amount), 0))
+        .where(CommissionPayout.referrer_model_id.in_(model_ids), CommissionPayout.status == "paid")
+        .group_by(CommissionPayout.referrer_model_id)
+    )
+    results = db.execute(stmt).all()
+    totals: dict[int, Decimal] = {}
+    for model_id, total in results:
+        totals[model_id] = Decimal(total) if not isinstance(total, Decimal) else total
+    return totals
+
+
+def top_paid_models_comprehensive(
+    db: Session, limit: int = 5
+) -> list[dict]:
+    """Get top paid models with breakdown of payroll, adhoc, and commission totals.
+    
+    Returns a list of dicts with:
+        - model: Model object
+        - payroll_total: Total from regular payouts
+        - adhoc_total: Total from adhoc payments  
+        - commission_total: Total from commission payouts
+        - combined_total: Sum of all three
+    """
+    # First get top models by payroll (to maintain backwards compat ordering)
+    top_models = top_paid_models(db, limit=limit)
+    if not top_models:
+        return []
+    
+    model_ids = [m.id for m, _ in top_models]
+    
+    # Get adhoc totals
+    adhoc_totals = total_adhoc_paid_by_model(db, model_ids)
+    
+    # Get commission totals
+    commission_totals = total_commission_paid_by_model(db, model_ids)
+    
+    # Build comprehensive result
+    result = []
+    for model, payroll_total in top_models:
+        adhoc = adhoc_totals.get(model.id, Decimal("0"))
+        commission = commission_totals.get(model.id, Decimal("0"))
+        combined = payroll_total + adhoc + commission
+        
+        result.append({
+            "model": model,
+            "payroll_total": payroll_total,
+            "adhoc_total": adhoc,
+            "commission_total": commission,
+            "combined_total": combined,
+        })
+    
+    return result
+
+
+def total_paid_by_model_comprehensive(
+    db: Session, model_ids: Sequence[int]
+) -> dict[int, dict[str, Decimal]]:
+    """Get comprehensive payment totals per model as a map.
+    
+    Returns a dict mapping model_id -> {
+        'payroll': Decimal,
+        'adhoc': Decimal,
+        'commission': Decimal,
+        'combined': Decimal
+    }
+    
+    Useful for the models list page to show breakdown per model.
+    """
+    if not model_ids:
+        return {}
+    
+    # Get regular payout totals
+    payroll_totals = total_paid_by_model(db, model_ids)
+    
+    # Get adhoc totals
+    adhoc_totals = total_adhoc_paid_by_model(db, model_ids)
+    
+    # Get commission totals
+    commission_totals = total_commission_paid_by_model(db, model_ids)
+    
+    # Build comprehensive result for each model
+    result: dict[int, dict[str, Decimal]] = {}
+    for model_id in model_ids:
+        payroll = payroll_totals.get(model_id, Decimal("0"))
+        adhoc = adhoc_totals.get(model_id, Decimal("0"))
+        commission = commission_totals.get(model_id, Decimal("0"))
+        combined = payroll + adhoc + commission
+        
+        result[model_id] = {
+            'payroll': payroll,
+            'adhoc': adhoc,
+            'commission': commission,
+            'combined': combined,
+        }
+    
+    return result
 
 
 def recent_validation_issues(db: Session, limit: int = 5) -> Sequence[ValidationIssue]:
@@ -1130,20 +1439,34 @@ def log_admin_action(db: Session, user_id: int | None, action: str, details: dic
 
 
 def cleanup_empty_runs(db: Session) -> dict[str, int | list[int]]:
-    """Delete schedule runs that have zero payouts. Returns count and ids."""
-    runs = db.execute(select(ScheduleRun.id)).scalars().all()
-    deleted_ids: list[int] = []
-    for run_id in runs:
-        count = db.execute(
-            select(func.count()).where(Payout.schedule_run_id == run_id)
-        ).scalar_one() or 0
-        if count == 0:
-            run = get_schedule_run(db, run_id)
-            if run:
-                db.delete(run)
-                deleted_ids.append(run_id)
+    """Delete schedule runs that have zero payouts. Returns count and ids.
+    
+    Uses a single subquery to find empty runs instead of N+1 queries.
+    """
+    # Subquery: get run IDs that have at least one payout
+    runs_with_payouts = (
+        select(Payout.schedule_run_id)
+        .where(Payout.schedule_run_id.isnot(None))
+        .distinct()
+        .scalar_subquery()
+    )
+    
+    # Find runs NOT in the subquery (i.e., runs with zero payouts)
+    empty_runs_stmt = (
+        select(ScheduleRun)
+        .where(ScheduleRun.id.notin_(runs_with_payouts))
+    )
+    empty_runs = db.execute(empty_runs_stmt).scalars().all()
+    
+    deleted_ids = [run.id for run in empty_runs]
+    
     if deleted_ids:
+        # Bulk delete using the IDs
+        db.execute(
+            delete(ScheduleRun).where(ScheduleRun.id.in_(deleted_ids))
+        )
         db.commit()
+    
     return {"deleted_runs": len(deleted_ids), "run_ids": deleted_ids}
 
 
@@ -1468,3 +1791,565 @@ def reset_application_data(db: Session) -> dict[str, int]:
         raise
 
     return deleted
+
+
+# ---------------------------------------------------------------------------
+# CommissionPayout CRUD Operations
+# ---------------------------------------------------------------------------
+
+
+def _commission_payout_filters(
+    referrer_model_id: int | None = None,
+    referral_model_id: int | None = None,
+    status: str | None = None,
+    schedule_type: str | None = None,
+    pay_date_from: date | None = None,
+    pay_date_to: date | None = None,
+) -> list:
+    """Build filter list for commission payout queries."""
+    filters: list = []
+    if referrer_model_id is not None:
+        filters.append(CommissionPayout.referrer_model_id == referrer_model_id)
+    if referral_model_id is not None:
+        filters.append(CommissionPayout.referral_model_id == referral_model_id)
+    if status:
+        filters.append(CommissionPayout.status == status)
+    if schedule_type:
+        filters.append(CommissionPayout.schedule_type == schedule_type)
+    if pay_date_from:
+        filters.append(CommissionPayout.pay_date >= pay_date_from)
+    if pay_date_to:
+        filters.append(CommissionPayout.pay_date <= pay_date_to)
+    return filters
+
+
+def get_commission_payout(db: Session, payout_id: int) -> CommissionPayout | None:
+    """Get a commission payout by ID."""
+    return db.get(CommissionPayout, payout_id)
+
+
+def list_commission_payouts(
+    db: Session,
+    referrer_model_id: int | None = None,
+    referral_model_id: int | None = None,
+    status: str | None = None,
+    schedule_type: str | None = None,
+    pay_date_from: date | None = None,
+    pay_date_to: date | None = None,
+    *,
+    limit: int | None = None,
+    offset: int = 0,
+) -> Sequence[CommissionPayout]:
+    """List commission payouts with optional filtering."""
+    stmt = select(CommissionPayout)
+    filters = _commission_payout_filters(
+        referrer_model_id=referrer_model_id,
+        referral_model_id=referral_model_id,
+        status=status,
+        schedule_type=schedule_type,
+        pay_date_from=pay_date_from,
+        pay_date_to=pay_date_to,
+    )
+    if filters:
+        stmt = stmt.where(*filters)
+    stmt = stmt.order_by(CommissionPayout.pay_date.desc(), CommissionPayout.id.desc())
+    if offset:
+        stmt = stmt.offset(offset)
+    if limit is not None:
+        stmt = stmt.limit(limit)
+    return db.execute(stmt).scalars().all()
+
+
+def count_commission_payouts(
+    db: Session,
+    referrer_model_id: int | None = None,
+    referral_model_id: int | None = None,
+    status: str | None = None,
+    schedule_type: str | None = None,
+    pay_date_from: date | None = None,
+    pay_date_to: date | None = None,
+) -> int:
+    """Count commission payouts with optional filtering."""
+    stmt = select(func.count()).select_from(CommissionPayout)
+    filters = _commission_payout_filters(
+        referrer_model_id=referrer_model_id,
+        referral_model_id=referral_model_id,
+        status=status,
+        schedule_type=schedule_type,
+        pay_date_from=pay_date_from,
+        pay_date_to=pay_date_to,
+    )
+    if filters:
+        stmt = stmt.where(*filters)
+    return int(db.execute(stmt).scalar_one())
+
+
+def sum_commission_payouts(
+    db: Session,
+    referrer_model_id: int | None = None,
+    referral_model_id: int | None = None,
+    status: str | None = None,
+    schedule_type: str | None = None,
+    pay_date_from: date | None = None,
+    pay_date_to: date | None = None,
+) -> Decimal:
+    """Sum commission payout amounts with optional filtering."""
+    stmt = select(func.coalesce(func.sum(CommissionPayout.amount), 0)).select_from(CommissionPayout)
+    filters = _commission_payout_filters(
+        referrer_model_id=referrer_model_id,
+        referral_model_id=referral_model_id,
+        status=status,
+        schedule_type=schedule_type,
+        pay_date_from=pay_date_from,
+        pay_date_to=pay_date_to,
+    )
+    if filters:
+        stmt = stmt.where(*filters)
+    result = db.execute(stmt).scalar_one()
+    return Decimal(result or 0)
+
+
+@dataclass
+class CommissionPayoutCreate:
+    """Payload for creating a commission payout."""
+    referrer_model_id: int
+    referral_model_id: int
+    pay_date: date
+    schedule_type: str  # 'monthly' or 'mid-month'
+    amount: Decimal
+    status: str = "unpaid"
+
+
+def create_commission_payout(db: Session, payload: CommissionPayoutCreate) -> CommissionPayout:
+    """Create a new commission payout record."""
+    payout = CommissionPayout(
+        referrer_model_id=payload.referrer_model_id,
+        referral_model_id=payload.referral_model_id,
+        pay_date=payload.pay_date,
+        schedule_type=payload.schedule_type,
+        amount=payload.amount,
+        status=payload.status,
+    )
+    db.add(payout)
+    db.commit()
+    db.refresh(payout)
+    return payout
+
+
+def get_or_create_commission_payout(
+    db: Session,
+    referrer_model_id: int,
+    referral_model_id: int,
+    pay_date: date,
+    schedule_type: str,
+    amount: Decimal,
+) -> tuple[CommissionPayout, bool]:
+    """
+    Get existing or create new commission payout.
+    
+    Returns tuple of (payout, created) where created is True if new record.
+    Uses the unique constraint on (referrer, referral, pay_date, schedule_type).
+    """
+    stmt = select(CommissionPayout).where(
+        CommissionPayout.referrer_model_id == referrer_model_id,
+        CommissionPayout.referral_model_id == referral_model_id,
+        CommissionPayout.pay_date == pay_date,
+        CommissionPayout.schedule_type == schedule_type,
+    )
+    existing = db.execute(stmt).scalars().first()
+    if existing:
+        return existing, False
+    
+    payout = CommissionPayout(
+        referrer_model_id=referrer_model_id,
+        referral_model_id=referral_model_id,
+        pay_date=pay_date,
+        schedule_type=schedule_type,
+        amount=amount,
+        status="unpaid",
+    )
+    db.add(payout)
+    db.flush()
+    return payout, True
+
+
+def update_commission_payout_status(
+    db: Session,
+    payout: CommissionPayout,
+    status: str,
+) -> CommissionPayout:
+    """Update a commission payout's status."""
+    if status not in ("paid", "unpaid"):
+        raise ValueError(f"Invalid status: {status}. Must be 'paid' or 'unpaid'.")
+    payout.status = status
+    payout.updated_at = datetime.now()
+    db.add(payout)
+    db.commit()
+    db.refresh(payout)
+    return payout
+
+
+def bulk_update_commission_payout_status(
+    db: Session,
+    payout_ids: Sequence[int],
+    status: str,
+) -> int:
+    """
+    Bulk update status for multiple commission payouts.
+    
+    Returns the number of records updated.
+    """
+    if status not in ("paid", "unpaid"):
+        raise ValueError(f"Invalid status: {status}. Must be 'paid' or 'unpaid'.")
+    if not payout_ids:
+        return 0
+    
+    from sqlalchemy import update
+    stmt = (
+        update(CommissionPayout)
+        .where(CommissionPayout.id.in_(payout_ids))
+        .values(status=status, updated_at=datetime.now())
+    )
+    result = db.execute(stmt)
+    db.commit()
+    return result.rowcount
+
+
+def delete_commission_payout(db: Session, payout: CommissionPayout) -> None:
+    """Delete a commission payout record."""
+    db.delete(payout)
+    db.commit()
+
+
+def delete_commission_payouts_by_model(db: Session, model_id: int) -> int:
+    """
+    Delete all commission payouts for a model (as referrer or referral).
+    
+    Returns the number of records deleted.
+    """
+    deleted = db.query(CommissionPayout).filter(
+        (CommissionPayout.referrer_model_id == model_id) |
+        (CommissionPayout.referral_model_id == model_id)
+    ).delete(synchronize_session=False)
+    db.commit()
+    return int(deleted or 0)
+
+
+# ============================================================================
+# PayoutCompensationAlert CRUD Operations
+# ============================================================================
+
+def create_compensation_alert(
+    db: Session,
+    payout: Payout,
+    original_amount: Decimal,
+    new_amount: Decimal,
+    effective_date: date,
+    alert_type: str = "compensation_changed",
+    prorated_amount: Decimal | None = None,
+    notes: str | None = None,
+) -> PayoutCompensationAlert:
+    """Create a new compensation alert for a payout."""
+    # Check if an alert already exists for this payout and effective date
+    existing = (
+        db.query(PayoutCompensationAlert)
+        .filter(
+            PayoutCompensationAlert.payout_id == payout.id,
+            PayoutCompensationAlert.effective_date == effective_date,
+        )
+        .first()
+    )
+    if existing:
+        # Update existing alert
+        existing.original_amount = original_amount
+        existing.new_amount = new_amount
+        existing.prorated_amount = prorated_amount
+        existing.alert_type = alert_type
+        existing.notes = notes
+        existing.status = "pending"  # Reset to pending on update
+        db.flush()
+        return existing
+    
+    alert = PayoutCompensationAlert(
+        payout_id=payout.id,
+        model_id=payout.model_id,
+        schedule_run_id=payout.schedule_run_id,
+        original_amount=original_amount,
+        new_amount=new_amount,
+        prorated_amount=prorated_amount,
+        effective_date=effective_date,
+        alert_type=alert_type,
+        notes=notes,
+    )
+    db.add(alert)
+    db.flush()
+    return alert
+
+
+def list_compensation_alerts(
+    db: Session,
+    schedule_run_id: int | None = None,
+    model_id: int | None = None,
+    status: str | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+) -> Sequence[PayoutCompensationAlert]:
+    """List compensation alerts with optional filters."""
+    filters = []
+    if schedule_run_id is not None:
+        filters.append(PayoutCompensationAlert.schedule_run_id == schedule_run_id)
+    if model_id is not None:
+        filters.append(PayoutCompensationAlert.model_id == model_id)
+    if status:
+        filters.append(PayoutCompensationAlert.status == status)
+    
+    stmt = (
+        select(PayoutCompensationAlert)
+        .where(*filters)
+        .order_by(PayoutCompensationAlert.created_at.desc())
+    )
+    if offset:
+        stmt = stmt.offset(offset)
+    if limit:
+        stmt = stmt.limit(limit)
+    
+    return db.execute(stmt).scalars().all()
+
+
+def get_compensation_alert(db: Session, alert_id: int) -> PayoutCompensationAlert | None:
+    """Get a compensation alert by ID."""
+    return db.get(PayoutCompensationAlert, alert_id)
+
+
+def count_pending_alerts_for_run(db: Session, schedule_run_id: int) -> int:
+    """Count pending compensation alerts for a schedule run."""
+    stmt = (
+        select(func.count())
+        .select_from(PayoutCompensationAlert)
+        .where(
+            PayoutCompensationAlert.schedule_run_id == schedule_run_id,
+            PayoutCompensationAlert.status == "pending",
+        )
+    )
+    return db.execute(stmt).scalar() or 0
+
+
+def get_alert_for_payout(db: Session, payout_id: int) -> PayoutCompensationAlert | None:
+    """Get pending alert for a specific payout."""
+    stmt = (
+        select(PayoutCompensationAlert)
+        .where(
+            PayoutCompensationAlert.payout_id == payout_id,
+            PayoutCompensationAlert.status == "pending",
+        )
+        .order_by(PayoutCompensationAlert.created_at.desc())
+    )
+    return db.execute(stmt).scalars().first()
+
+
+def resolve_compensation_alert(
+    db: Session,
+    alert: PayoutCompensationAlert,
+    status: str,
+    resolved_by: str | None = None,
+) -> PayoutCompensationAlert:
+    """Resolve a compensation alert (apply, dismiss, or acknowledge)."""
+    if status not in ("applied", "dismissed", "acknowledged"):
+        raise ValueError(f"Invalid resolution status: {status}")
+    
+    alert.status = status
+    alert.resolved_at = datetime.now()
+    alert.resolved_by = resolved_by
+    db.flush()
+    return alert
+
+
+def apply_alert_to_payout(
+    db: Session,
+    alert: PayoutCompensationAlert,
+    amount_to_apply: Decimal,
+    resolved_by: str | None = None,
+) -> tuple[Payout, PayoutCompensationAlert]:
+    """Apply an alert by updating the payout amount and resolving the alert."""
+    payout = alert.payout
+    payout.amount = amount_to_apply
+    
+    alert.status = "applied"
+    alert.resolved_at = datetime.now()
+    alert.resolved_by = resolved_by
+    
+    db.flush()
+    return payout, alert
+
+
+def generate_alerts_for_compensation_change(
+    db: Session,
+    model: Model,
+    new_amount: Decimal,
+    effective_date: date,
+) -> list[PayoutCompensationAlert]:
+    """
+    Generate alerts for all affected payouts when a model's compensation changes.
+    
+    This scans open schedule runs that include the effective date's month
+    and creates alerts for any payouts that would be affected.
+    """
+    import calendar
+    
+    alerts_created = []
+    
+    # Get the month/year of the effective date
+    eff_year = effective_date.year
+    eff_month = effective_date.month
+    
+    # Find schedule runs for this month (and potentially future months if planning ahead)
+    affected_runs = (
+        db.query(ScheduleRun)
+        .filter(
+            ScheduleRun.target_year == eff_year,
+            ScheduleRun.target_month == eff_month,
+        )
+        .all()
+    )
+    
+    for run in affected_runs:
+        # Get payouts for this model in this run that haven't been paid yet
+        affected_payouts = (
+            db.query(Payout)
+            .filter(
+                Payout.schedule_run_id == run.id,
+                Payout.model_id == model.id,
+                Payout.status.in_(["not_paid", "on_hold"]),  # Only unpaid payouts
+            )
+            .all()
+        )
+        
+        for payout in affected_payouts:
+            # Only create alert if the payout is on or after the effective date
+            if payout.pay_date >= effective_date:
+                # Calculate prorated amount if effective date is mid-month
+                prorated = calculate_prorated_compensation(
+                    original_amount=payout.amount,
+                    new_amount=new_amount,
+                    effective_date=effective_date,
+                    pay_date=payout.pay_date,
+                    target_year=run.target_year,
+                    target_month=run.target_month,
+                    payment_frequency=payout.payment_frequency,
+                )
+                
+                alert = create_compensation_alert(
+                    db=db,
+                    payout=payout,
+                    original_amount=payout.amount,
+                    new_amount=new_amount,
+                    effective_date=effective_date,
+                    prorated_amount=prorated,
+                    alert_type="compensation_changed",
+                )
+                alerts_created.append(alert)
+    
+    db.flush()
+    return alerts_created
+
+
+def calculate_prorated_compensation(
+    original_amount: Decimal,
+    new_amount: Decimal,
+    effective_date: date,
+    pay_date: date,
+    target_year: int,
+    target_month: int,
+    payment_frequency: str,
+) -> Decimal:
+    """
+    Calculate prorated compensation when a rate change happens mid-period.
+    
+    For monthly payments: prorate based on days in month
+    For weekly/biweekly: use the rate active on pay date (simpler)
+    """
+    import calendar
+    from decimal import ROUND_HALF_UP
+    
+    if payment_frequency.lower() == "monthly":
+        # For monthly, calculate pro-rata based on days
+        days_in_month = calendar.monthrange(target_year, target_month)[1]
+        
+        # Days at old rate (before effective date)
+        if effective_date.month == target_month and effective_date.year == target_year:
+            days_old_rate = effective_date.day - 1  # Days before effective date
+        else:
+            days_old_rate = 0  # Effective date is before this month
+        
+        days_new_rate = days_in_month - days_old_rate
+        
+        # Calculate monthly amounts based on original and new rates
+        # original_amount is already the payout amount for this period
+        # We need to derive what the original monthly rate was
+        old_daily = original_amount / Decimal(days_in_month)
+        new_daily = new_amount / Decimal(days_in_month)
+        
+        prorated = (old_daily * days_old_rate) + (new_daily * days_new_rate)
+        return prorated.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    else:
+        # For weekly/biweekly, if the pay date is on or after effective date,
+        # use the new rate for that entire payment
+        if pay_date >= effective_date:
+            # Calculate what portion of monthly this payment represents
+            if payment_frequency.lower() == "weekly":
+                divisor = 4
+            else:  # biweekly
+                divisor = 2
+            return (new_amount / divisor).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        else:
+            return original_amount
+
+
+def get_payouts_with_alerts(
+    db: Session,
+    schedule_run_id: int,
+) -> Sequence[tuple[Payout, PayoutCompensationAlert | None]]:
+    """Get all payouts for a run with their pending alerts (if any)."""
+    from sqlalchemy.orm import aliased
+    
+    # Get payouts with left join to alerts
+    stmt = (
+        select(Payout, PayoutCompensationAlert)
+        .outerjoin(
+            PayoutCompensationAlert,
+            (PayoutCompensationAlert.payout_id == Payout.id) &
+            (PayoutCompensationAlert.status == "pending")
+        )
+        .where(Payout.schedule_run_id == schedule_run_id)
+        .order_by(Payout.pay_date, Payout.code)
+    )
+    
+    results = db.execute(stmt).all()
+    return [(row[0], row[1]) for row in results]
+
+
+def bulk_resolve_alerts(
+    db: Session,
+    alert_ids: Sequence[int],
+    status: str,
+    resolved_by: str | None = None,
+) -> int:
+    """Bulk resolve multiple alerts."""
+    if status not in ("applied", "dismissed", "acknowledged"):
+        raise ValueError(f"Invalid resolution status: {status}")
+    if not alert_ids:
+        return 0
+    
+    from sqlalchemy import update
+    stmt = (
+        update(PayoutCompensationAlert)
+        .where(PayoutCompensationAlert.id.in_(alert_ids))
+        .values(
+            status=status,
+            resolved_at=datetime.now(),
+            resolved_by=resolved_by,
+        )
+    )
+    result = db.execute(stmt)
+    db.commit()
+    return result.rowcount

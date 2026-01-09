@@ -1,11 +1,48 @@
 {% extends "base.html" %}
 {% block title %}{{ 'Edit Model' if action == 'edit' else 'Add Model' }} · Payroll Desk{% endblock %}
+{% set referrable_models = referrable_models if referrable_models is defined else [] %}
+{% set model_display_name = (model.working_name or model.real_name or model.code) if model else 'This model' %}
+{% set referrer_display_name = (model.referred_by.working_name or model.referred_by.real_name or model.referred_by.code) if model and model.referred_by else None %}
+{% set default_commission_duration = 12 %}
+{% set referrer_picker_label = '' %}
+{% set referral_terms = referral_terms if referral_terms is defined else {} %}
+{% if model and model.referred_by %}
+    {% set referrer_picker_label = (model.referred_by.working_name or model.referred_by.real_name or model.referred_by.code) ~ ' (' ~ model.referred_by.code ~ ')' %}
+{% endif %}
 {% block content %}
+<style>
+.form-toast {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    padding: 12px 18px;
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.9);
+    color: #f8fafc;
+    font-weight: 600;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.35);
+    opacity: 0;
+    transform: translateY(-8px);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    pointer-events: none;
+    z-index: 1200;
+}
+
+.form-toast.toast--visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+</style>
 <section class="page-header">
     <div>
         <h1 class="page-title">{{ 'Edit Model' if action == 'edit' else 'Add Model' }}</h1>
         <p>Capture roster information used for automated payroll scheduling.</p>
     </div>
+    {% if action == 'edit' and model %}
+    <div class="header-actions">
+        <a class="button secondary" href="/models/{{ model.id }}" target="_blank" rel="noopener">View Model Profile</a>
+    </div>
+    {% endif %}
 </section>
 
 <section class="card card--form">
@@ -52,6 +89,12 @@
                 <label for="amount_monthly">Monthly Amount (USD) <span class="required-badge">Required</span></label>
                 <input id="amount_monthly" name="amount_monthly" type="number" step="0.01" min="0" required value="{{ '%.2f'|format(model.amount_monthly) if model else '' }}" />
             </div>
+        </div>
+
+        <div class="form-row">
+            <label for="crypto_wallet">Crypto Wallet Address (Optional)</label>
+            <input id="crypto_wallet" name="crypto_wallet" type="text" value="{{ model.crypto_wallet if model else '' }}" placeholder="e.g., 0x742d35Cc6634C0532925a3b844Bc9e7595f42e" aria-describedby="crypto_wallet_hint" />
+            <p id="crypto_wallet_hint" class="form-hint form-hint--no-margin sr-only">Enter a valid cryptocurrency wallet address</p>
         </div>
 
         {% set adjustments = model.compensation_adjustments if model and model.compensation_adjustments else [] %}
@@ -122,16 +165,155 @@
             </div>
         </details>
 
-        <div class="form-row">
-            <label for="crypto_wallet">Crypto Wallet Address (Optional)</label>
-            <input id="crypto_wallet" name="crypto_wallet" type="text" value="{{ model.crypto_wallet if model else '' }}" placeholder="e.g., 0x742d35Cc6634C0532925a3b844Bc9e7595f42e" />
+        {% set commission_frequency_labels = {
+            'monthly': 'Monthly · 1st',
+            'mid_month': 'Mid-Month · 14th',
+            'dual': '1st & 14th'
+        } %}
+
+        <div class="commission-card" data-commission-card aria-labelledby="referral-source-title" aria-describedby="referral-source-desc">
+            <div class="commission-card__header">
+                <div>
+                    <h2 id="referral-source-title" class="commission-card__title">Referral Source</h2>
+                    <p id="referral-source-desc" class="form-hint form-hint--no-margin form-hint--max-width">
+                        Select which model (if any) referred {{ model_display_name }} into the roster. Changing this keeps both sides of the relationship in sync.
+                    </p>
+                </div>
+            </div>
+            <div class="commission-card__panel"
+                data-referrer-picker
+                data-selected-id="{{ model.referred_by_model_id if model and model.referred_by_model_id else '' }}">
+                <div class="referrer-picker">
+                    <div class="referrer-picker__field">
+                        <div class="referrer-picker__label-row">
+                            <label for="referrer_search" class="referrer-picker__label">Referred By</label>
+                            <span class="referrer-picker__optional">Optional</span>
+                        </div>
+                        <div class="referrer-picker__input-wrapper" data-referrer-input-wrapper>
+                            <svg class="referrer-picker__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                            <input id="referrer_search" class="referrer-picker__input" data-referrer-search type="text" list="referrer-search-options" placeholder="Start typing to search" value="{{ referrer_picker_label }}" autocomplete="off" aria-describedby="referrer_hint" />
+                            <datalist id="referrer-search-options">
+                                {% for option in referrable_models %}
+                                    <option value="{{ option.label }}" data-id="{{ option.id }}"></option>
+                                {% endfor %}
+                            </datalist>
+                            <input type="hidden" id="referred_by_model_id" name="referred_by_model_id" data-referrer-value value="{{ model.referred_by_model_id if model and model.referred_by_model_id else '' }}" />
+                            <button type="button" class="button tertiary referrer-picker__clear-btn" data-clear-referrer aria-label="Clear referrer selection">Clear</button>
+                        </div>
+                        <p id="referrer_hint" class="form-hint form-hint--no-margin">Type to filter the roster and select a referrer. Leave blank for self-sourced models.</p>
+                    </div>
+                    <div class="referrer-chip" data-referrer-chip>
+                        <div class="referrer-chip__content">
+                            <p class="referrer-chip__label" data-referrer-chip-label>{% if referrer_picker_label %}{{ referrer_picker_label }}{% else %}No referrer selected{% endif %}</p>
+                            <span class="referrer-chip__subtext" data-referrer-chip-subtext>{% if referrer_picker_label %}Linked referrer{% else %}Self-sourced referral{% endif %}</span>
+                        </div>
+                        {% set referrer_view_btn_classes = 'button tertiary referrer-view-btn' %}
+                        {% if not (model and model.referred_by_model_id) %}
+                            {% set referrer_view_btn_classes = referrer_view_btn_classes ~ ' referrer-view-btn--disabled' %}
+                        {% endif %}
+                        <a data-referrer-view-btn class="{{ referrer_view_btn_classes }}" href="{% if model and model.referred_by_model_id %}/models/{{ model.referred_by_model_id }}/edit{% else %}#{% endif %}" target="_blank" rel="noopener">Edit Profile</a>
+                    </div>
+                </div>
+            </div>
+
+            {% if action == 'edit' %}
+            <div class="commission-card__panel" data-commission-panel>
+                    <div class="commission-card__panel-header">
+                        <div>
+                            <h3 class="commission-card__subtitle">Per-Referral Terms</h3>
+                            <p class="form-hint form-hint--no-margin">Control commission settings for each referred model individually.</p>
+                        </div>
+                        {% if model and model.referrals %}
+                        <span class="model-view-table-count referrals-count-badge">{{ model.referrals|length }} total</span>
+                        {% endif %}
+                    </div>
+                    <div class="commission-card__lock-notice" data-commission-lock {% if not (model and model.referred_by_model_id) %}hidden{% endif %}>
+                        <p>
+                            Heads up: {{ model_display_name }} was referred by {{ referrer_display_name or 'their recruiter' }}, but you can still manage the terms for the models they refer below.
+                        </p>
+                    </div>
+                    <div data-commission-fields>
+                        {% if model and model.referrals %}
+                        <div class="referral-terms-panel" data-referral-terms-panel>
+                            {% for referral in model.referrals %}
+                            {% set term = referral_terms.get(referral.id) %}
+                            {% set term_amount = term.commission_per_referral if term and term.commission_per_referral is not none else model.commission_per_referral %}
+                            {% set amount_value = ('%.2f'|format(term_amount)) if term_amount is not none else '' %}
+                            {% set term_frequency = (term.commission_payout_frequency if term else (model.commission_payout_frequency or 'dual')) %}
+                            {% set term_duration = term.commission_duration_months if term and term.commission_duration_months else (model.commission_duration_months if model and model.commission_duration_months else default_commission_duration) %}
+                            {% set term_active = term.is_active if term is not none else True %}
+                            <div class="referral-term-card {% if not term_active %}referral-term-card--inactive{% endif %}" data-referral-term-card>
+                                <div class="referral-term-card__header">
+                                    <div class="referral-term-card__info">
+                                        <strong class="referral-term-card__name">{{ referral.working_name or referral.real_name }}</strong>
+                                        <span class="referral-term-card__code">{{ referral.code }}</span>
+                                        <span class="referral-term-status" data-referral-term-status>{% if term_active %}Active{% else %}Inactive{% endif %}</span>
+                                    </div>
+                                    <a class="button tertiary referral-term-card__edit-btn" href="/models/{{ referral.id }}/edit" target="_blank" rel="noopener">Edit Model</a>
+                                </div>
+                                <div class="referral-term-card__controls">
+                                    <label class="referral-term-card__active-toggle">
+                                        <input type="checkbox" data-referral-active-toggle {% if term_active %}checked{% endif %} />
+                                        Commission Active
+                                    </label>
+                                </div>
+                                <input type="hidden" name="referral_term_referral_ids" value="{{ referral.id }}" />
+                                <input type="hidden" name="referral_term_actives" value="{% if term_active %}1{% else %}0{% endif %}" data-referral-active-value />
+                                <div class="form-grid two-column referral-term-card__fields" data-referral-term-fields>
+                                    <div class="form-row">
+                                        <label>Commission Amount (USD)</label>
+                                        <input name="referral_term_amounts" type="number" step="0.01" min="0" value="{{ amount_value }}" data-referral-term-field />
+                                    </div>
+                                    <div class="form-row">
+                                        <label>Payout Frequency</label>
+                                        <select name="referral_term_frequencies" data-referral-term-field>
+                                            {% for option in commission_frequency_options %}
+                                                <option value="{{ option }}" {% if (term_frequency or 'dual') == option %}selected{% endif %}>{{ commission_frequency_labels.get(option, option|replace('_', ' ')|title) }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="form-row">
+                                        <label>Duration (months)</label>
+                                        <input name="referral_term_durations" type="number" min="1" max="36" step="1" value="{{ term_duration }}" data-referral-term-field />
+                                    </div>
+                                    <div class="form-row">
+                                        <p class="form-hint form-hint--spaced">Changes only affect this referral relationship.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="form-hint form-hint--no-margin">No referrals yet. Once {{ model_display_name }} brings talent, customize their terms here.</p>
+                        {% endif %}
+                    </div>
+            </div>
+            {% else %}
+            <div class="commission-card__panel">
+                <div class="commission-card__panel-header">
+                    <div>
+                        <h3 class="commission-card__subtitle">Per-Referral Terms</h3>
+                        <p class="form-hint form-hint--no-margin">Set up referral configurations after saving and linking referred models.</p>
+                    </div>
+                </div>
+                <p class="form-hint form-hint--top-margin">This section appears once {{ model_display_name }} has referred someone.</p>
+            </div>
+            {% endif %}
         </div>
+
         <div class="form-actions form-actions--end">
-            <button class="button" type="submit">Save</button>
+            <a class="button secondary" href="/models" data-back-button>Back to Models</a>
+            <button class="button" type="submit" data-submit-btn>
+                <span data-submit-text>Save</span>
+                <span data-submit-loading class="sr-only" aria-hidden="true">Saving...</span>
+            </button>
             <a class="button secondary" href="/models">Cancel</a>
         </div>
     </form>
 </section>
+<div class="form-toast" data-toast role="status" aria-live="polite"></div>
 <template id="adjustment-row-template">
     <div class="adjustment-row">
         <div class="form-row">
@@ -151,6 +333,27 @@
 </template>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    // Form submit loading state
+    const form = document.querySelector('.form--wide');
+    const submitBtn = form ? form.querySelector('[data-submit-btn]') : null;
+    const submitText = submitBtn ? submitBtn.querySelector('[data-submit-text]') : null;
+    const submitLoading = submitBtn ? submitBtn.querySelector('[data-submit-loading]') : null;
+    
+    if (form && submitBtn) {
+        form.addEventListener('submit', function() {
+            submitBtn.disabled = true;
+            submitBtn.classList.add('button--loading');
+            if (submitText) {
+                submitText.classList.add('sr-only');
+                submitText.setAttribute('aria-hidden', 'true');
+            }
+            if (submitLoading) {
+                submitLoading.classList.remove('sr-only');
+                submitLoading.removeAttribute('aria-hidden');
+            }
+        });
+    }
+
     const panel = document.querySelector('[data-adjustments-panel]');
     const container = panel ? panel.querySelector('[data-adjustments]') : null;
     const addButton = document.getElementById('add-adjustment');
@@ -243,6 +446,280 @@ document.addEventListener('DOMContentLoaded', function () {
     container.addEventListener('input', updateSummary);
 
     syncRemoveButtons();
+
+    const referrerPicker = document.querySelector('[data-referrer-picker]');
+    const referrerSearch = referrerPicker ? referrerPicker.querySelector('[data-referrer-search]') : null;
+    const referrerClearBtn = referrerPicker ? referrerPicker.querySelector('[data-clear-referrer]') : null;
+    const referrerChipLabel = referrerPicker ? referrerPicker.querySelector('[data-referrer-chip-label]') : null;
+    const referrerChipSubtext = referrerPicker ? referrerPicker.querySelector('[data-referrer-chip-subtext]') : null;
+    const referrerViewBtn = referrerPicker ? referrerPicker.querySelector('[data-referrer-view-btn]') : null;
+    const referrerInputWrapper = referrerPicker ? referrerPicker.querySelector('[data-referrer-input-wrapper]') : null;
+    const referrerSelect = document.getElementById('referred_by_model_id');
+    const commissionPanel = document.querySelector('[data-commission-panel]');
+    const commissionLock = document.querySelector('[data-commission-lock]');
+    const datalist = document.getElementById('referrer-search-options');
+    const syncCommissionState = () => {
+        const hasReferrer = Boolean(referrerSelect && referrerSelect.value);
+        if (commissionLock) {
+            commissionLock.hidden = !hasReferrer;
+        }
+        if (commissionPanel) {
+            commissionPanel.classList.toggle('is-locked', hasReferrer);
+        }
+    };
+
+    if (referrerSelect) {
+        referrerSelect.addEventListener('change', syncCommissionState);
+    }
+    const resolveIdFromLabel = (label) => {
+        if (!datalist) {
+            return '';
+        }
+        const option = Array.from(datalist.options).find((opt) => opt.value === label);
+        return option ? (option.getAttribute('data-id') || '') : '';
+    };
+
+    const resolveLabelFromId = (id) => {
+        if (!datalist) {
+            return '';
+        }
+        const option = Array.from(datalist.options).find((opt) => opt.getAttribute('data-id') === String(id));
+        return option ? option.value : '';
+    };
+
+    const updateReferrerChip = (labelText, refId) => {
+        if (!referrerChipLabel || !referrerChipSubtext) {
+            return;
+        }
+        if (labelText) {
+            referrerChipLabel.textContent = labelText;
+            referrerChipSubtext.textContent = 'Linked referrer';
+        } else {
+            referrerChipLabel.textContent = 'No referrer selected';
+            referrerChipSubtext.textContent = 'Self-sourced referral';
+        }
+        if (referrerViewBtn) {
+            if (refId) {
+                referrerViewBtn.href = `/models/${refId}/edit`;
+                referrerViewBtn.style.pointerEvents = '';
+                referrerViewBtn.style.opacity = '';
+            } else {
+                referrerViewBtn.href = '#';
+                referrerViewBtn.style.pointerEvents = 'none';
+                referrerViewBtn.style.opacity = '0.4';
+            }
+        }
+    };
+
+    const applyReferrerSelection = (id, label) => {
+        if (!referrerSelect) {
+            return;
+        }
+        referrerSelect.value = id || '';
+        if (referrerSearch) {
+            if (label) {
+                referrerSearch.value = label;
+            } else if (id) {
+                referrerSearch.value = resolveLabelFromId(id) || '';
+            } else {
+                referrerSearch.value = '';
+            }
+        }
+        const labelForChip = label || (id ? resolveLabelFromId(id) : '');
+        updateReferrerChip(labelForChip, id);
+        syncCommissionState();
+    };
+
+    if (referrerSearch) {
+        referrerSearch.addEventListener('change', () => {
+            const label = referrerSearch.value.trim();
+            const id = resolveIdFromLabel(label);
+            applyReferrerSelection(id, label);
+        });
+        referrerSearch.addEventListener('input', () => {
+            const label = referrerSearch.value.trim();
+            const id = resolveIdFromLabel(label);
+            if (!id) {
+                if (referrerSelect && referrerSelect.value) {
+                    referrerSelect.value = '';
+                    syncCommissionState();
+                }
+            }
+        });
+    }
+
+    if (referrerClearBtn) {
+        referrerClearBtn.addEventListener('click', () => {
+            applyReferrerSelection('', '');
+        });
+    }
+
+    if (referrerSelect && !referrerSelect.value && referrerSearch && referrerSearch.value) {
+        const initialId = resolveIdFromLabel(referrerSearch.value.trim());
+        if (initialId) {
+            referrerSelect.value = initialId;
+        }
+    }
+
+    const initialId = referrerSelect ? referrerSelect.value : '';
+    if (referrerSearch) {
+        updateReferrerChip(referrerSearch.value, initialId);
+    } else {
+        updateReferrerChip(initialId ? resolveLabelFromId(initialId) : '', initialId);
+    }
+
+    if (referrerSearch && referrerInputWrapper) {
+        referrerSearch.addEventListener('focus', () => {
+            referrerInputWrapper.style.borderColor = 'rgba(59, 130, 246, 0.5)';
+            referrerInputWrapper.style.background = 'rgba(15, 23, 42, 0.9)';
+        });
+        referrerSearch.addEventListener('blur', () => {
+            referrerInputWrapper.style.borderColor = '';
+            referrerInputWrapper.style.background = '';
+        });
+    }
+
+    const referralTermCards = document.querySelectorAll('[data-referral-term-card]');
+    referralTermCards.forEach((card) => {
+        const checkbox = card.querySelector('[data-referral-active-toggle]');
+        const hiddenValue = card.querySelector('[data-referral-active-value]');
+        const status = card.querySelector('[data-referral-term-status]');
+        if (!checkbox || !hiddenValue || !status) {
+            return;
+        }
+        const applyState = () => {
+            const isActive = checkbox.checked;
+            hiddenValue.value = isActive ? '1' : '0';
+            status.textContent = isActive ? 'Active' : 'Inactive';
+            card.classList.toggle('referral-term-card--inactive', !isActive);
+        };
+        checkbox.addEventListener('change', applyState);
+        applyState();
+    });
+
+    const toast = document.querySelector('[data-toast]');
+    let toastTimer;
+
+    const showToast = (message) => {
+        if (!toast) {
+            return;
+        }
+        toast.textContent = message;
+        toast.classList.add('toast--visible');
+        window.clearTimeout(toastTimer);
+        toastTimer = window.setTimeout(() => {
+            toast.classList.remove('toast--visible');
+        }, 3200);
+    };
+
+    const savedFlag = "{{ '1' if request.query_params.get('saved') else '' }}";
+    if (toast && savedFlag) {
+        showToast('Changes saved.');
+        try {
+            const nextUrl = new URL(window.location.href);
+            nextUrl.searchParams.delete('saved');
+            window.history.replaceState({}, document.title, nextUrl.toString());
+        } catch (err) {
+            console.warn('Unable to update URL after showing toast', err);
+        }
+    }
+
+    syncCommissionState();
 });
+
+// Compensation change detection
+function checkCompensationChange() {
+    const amountInput = document.getElementById('amount_monthly');
+    const effectiveDateRow = document.getElementById('compensation-effective-date-row');
+    const previewDiv = document.getElementById('compensation-change-preview');
+    const oldSpan = document.getElementById('compensation-old');
+    const newSpan = document.getElementById('compensation-new');
+    
+    if (!amountInput || !effectiveDateRow) return;
+    
+    const originalAmount = parseFloat(amountInput.getAttribute('data-original-amount') || '0');
+    const newAmount = parseFloat(amountInput.value || '0');
+    
+    if (originalAmount !== newAmount && originalAmount > 0) {
+        // Show the effective date field
+        effectiveDateRow.style.display = 'block';
+        effectiveDateRow.style.animation = 'slideDown 0.3s ease';
+        
+        // Show the preview
+        if (previewDiv && oldSpan && newSpan) {
+            previewDiv.style.display = 'flex';
+            oldSpan.textContent = '$' + originalAmount.toFixed(2);
+            newSpan.textContent = '$' + newAmount.toFixed(2);
+            newSpan.style.color = newAmount > originalAmount ? '#22c55e' : '#ef4444';
+        }
+    } else {
+        // Hide the effective date field
+        effectiveDateRow.style.display = 'none';
+        if (previewDiv) previewDiv.style.display = 'none';
+    }
+}
+
+// Call on page load to handle any pre-filled values
+document.addEventListener('DOMContentLoaded', checkCompensationChange);
 </script>
+
+<style>
+/* Compensation change styles */
+.compensation-effective-date-row {
+    background: linear-gradient(145deg, rgba(251, 191, 36, 0.1), transparent);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 8px;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.compensation-effective-date-row label {
+    color: #fbbf24;
+}
+
+.compensation-effective-date-row .help-icon {
+    cursor: help;
+    margin-left: 6px;
+}
+
+.compensation-change-preview {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: rgba(15, 23, 42, 0.6);
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.compensation-change-preview__label {
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+.compensation-change-preview__old {
+    color: #94a3b8;
+    text-decoration: line-through;
+}
+
+.compensation-change-preview__arrow {
+    color: #64748b;
+}
+
+.compensation-change-preview__new {
+    font-weight: 700;
+}
+</style>
 {% endblock %}

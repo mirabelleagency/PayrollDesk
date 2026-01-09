@@ -1,0 +1,568 @@
+{% extends "base.html" %}
+{% block title %}Referral Commissions · Payroll Desk{% endblock %}
+{% block content %}
+<section class="page-header">
+    <div>
+        <h1 class="page-title">💼 Referral Commissions</h1>
+        <p>Monitor scheduled payouts and referral performance over the next {{ horizon_months }} month{% if horizon_months != 1 %}s{% endif %}.</p>
+    </div>
+</section>
+
+<style>
+[data-commission-toolbar] {
+    margin-bottom: 16px;
+    padding: 16px;
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 12px;
+    backdrop-filter: blur(6px);
+}
+
+[data-commission-toolbar] .schedule-filter-toolbar__filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+}
+
+[data-commission-toolbar] .filter-group-inline {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin: 0;
+}
+
+[data-commission-toolbar] .filter-group-inline--stacked {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+[data-commission-toolbar] .filter-group-inline--inline {
+    flex-direction: row;
+}
+
+[data-commission-toolbar] .filter-group-inline label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #cbd5e1;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+[data-commission-toolbar] .filter-group-inline--inline label {
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+[data-commission-toolbar] .filter-search-input {
+    min-width: 260px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    background: rgba(30, 41, 59, 0.85);
+    color: #f8fafc;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+[data-commission-toolbar] .filter-search-input::placeholder {
+    color: #94a3b8;
+}
+
+[data-commission-toolbar] .filter-search-input:focus {
+    outline: none;
+    border-color: rgba(59, 130, 246, 0.8);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+
+[data-commission-toolbar] .filter-select {
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: rgba(15, 23, 42, 0.9);
+    color: #f8fafc;
+    min-width: 150px;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+[data-commission-toolbar] .filter-select:focus {
+    outline: none;
+    border-color: rgba(59, 130, 246, 0.6);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+[data-commissions-table] .data-table th,
+[data-commissions-table] .data-table td {
+    text-align: center;
+}
+
+[data-commissions-table] .data-table td {
+    vertical-align: middle;
+}
+
+.commissions-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.commission-action-button {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(15, 23, 42, 0.6);
+    color: #cbd5e1;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-size: 14px;
+    padding: 0;
+}
+
+.commission-action-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.commission-action-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.commission-action-button--success {
+    border-color: rgba(34, 197, 94, 0.3);
+    color: #22c55e;
+}
+
+.commission-action-button--success:hover:not(:disabled) {
+    background: rgba(34, 197, 94, 0.15);
+    border-color: rgba(34, 197, 94, 0.5);
+}
+
+.commission-action-button--warning {
+    border-color: rgba(234, 179, 8, 0.3);
+    color: #eab308;
+}
+
+.commission-action-button--warning:hover:not(:disabled) {
+    background: rgba(234, 179, 8, 0.15);
+    border-color: rgba(234, 179, 8, 0.5);
+}
+
+.commission-action-button--danger {
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+}
+
+.commission-action-button--danger:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.5);
+}
+</style>
+
+{% set commission_frequency_labels = {
+    'monthly': 'Monthly · 1st',
+    'mid_month': 'Mid-Month · 14th',
+    'dual': '1st & 14th'
+} %}
+{% set month_tracker = namespace(values={}) %}
+{% for entry in entries %}
+    {% if entry.pay_date %}
+        {% set month_key = entry.pay_date.strftime('%Y-%m') %}
+        {% if month_key not in month_tracker.values %}
+            {% set _ = month_tracker.values.update({month_key: entry.pay_date.strftime('%b %Y')}) %}
+        {% endif %}
+    {% endif %}
+{% endfor %}
+
+<section class="hero-stats-grid">
+    <div class="hero-stat-card hero-stat-card--primary">
+        <div class="hero-stat-card__header">
+            <span class="hero-stat-card__icon">🤝</span>
+            <span class="hero-stat-card__label">Active Referrers</span>
+        </div>
+        <div class="hero-stat-card__value">{{ stats.unique_referrers }}</div>
+        <div class="hero-stat-card__meta">
+            <span>{{ stats.unique_referrals }} referred models</span>
+            <span class="hero-stat-card__badge">Dual {{ stats.frequency_counts.get('dual', 0) }} · Monthly {{ stats.frequency_counts.get('monthly', 0) }} · Mid {{ stats.frequency_counts.get('mid_month', 0) }}</span>
+        </div>
+    </div>
+
+    <div class="hero-stat-card hero-stat-card--info">
+        <div class="hero-stat-card__header">
+            <span class="hero-stat-card__icon">🗓️</span>
+            <span class="hero-stat-card__label">Upcoming Payouts</span>
+        </div>
+        <div class="hero-stat-card__value">{{ stats.upcoming_events }}</div>
+        <div class="hero-stat-card__meta">
+            <span>1st: {{ stats.monthly_slots }} · 14th: {{ stats.mid_month_slots }}</span>
+        </div>
+    </div>
+
+    <div class="hero-stat-card hero-stat-card--success">
+        <div class="hero-stat-card__header">
+            <span class="hero-stat-card__icon">💰</span>
+            <span class="hero-stat-card__label">Projected Value</span>
+        </div>
+        <div class="hero-stat-card__value">USD {{ stats.projected_total|money }}</div>
+        <div class="hero-stat-card__meta">
+            <span>Next {{ horizon_months }} month window</span>
+        </div>
+    </div>
+
+    <div class="hero-stat-card hero-stat-card--accent">
+        <div class="hero-stat-card__header">
+            <span class="hero-stat-card__icon">⏭️</span>
+            <span class="hero-stat-card__label">Next Pay Date</span>
+        </div>
+        <div class="hero-stat-card__value">
+            {% if stats.next_pay_date %}
+                {{ stats.next_pay_date|display_date }}
+            {% else %}
+                —
+            {% endif %}
+        </div>
+        <div class="hero-stat-card__meta">
+            <span>Automatically generated</span>
+        </div>
+    </div>
+</section>
+
+<section style="margin-top: 24px;">
+    <div class="section-heading">
+        <div>
+            <h2><span class="section-icon">📅</span> Payout Timeline</h2>
+            <p>Aggregated referral payouts grouped by settlement date.</p>
+        </div>
+    </div>
+    {% if grouped_schedule %}
+    <div class="hero-stats-grid">
+        {% for bucket in grouped_schedule %}
+        <div class="hero-stat-card hero-stat-card--neutral">
+            <div class="hero-stat-card__header">
+                <span class="hero-stat-card__icon">📅</span>
+                <span class="hero-stat-card__label">{{ bucket.date|display_date }}</span>
+            </div>
+            <div class="hero-stat-card__value">USD {{ bucket.total|money }}</div>
+            <div class="hero-stat-card__meta">
+                <span>{{ bucket.count }} payout{{ 's' if bucket.count != 1 else '' }}</span>
+                <span class="hero-stat-card__badge">{{ bucket.referrer_count }} referrer{{ 's' if bucket.referrer_count != 1 else '' }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>No upcoming referral payouts yet. Enable commissions on a model to populate this view.</p>
+    </div>
+    {% endif %}
+</section>
+
+<section class="card" style="margin-top: 24px;">
+    <div class="section-heading">
+        <div>
+            <h2><span class="section-icon">📋</span> Referral-Level Schedule</h2>
+            <p>Detailed view of each planned payout with acceptance context.</p>
+        </div>
+    </div>
+    {% if entries %}
+    <div class="schedule-filter-toolbar" data-commission-toolbar>
+        <div class="schedule-filter-toolbar__filters">
+            <div class="filter-group-inline filter-group-inline--inline">
+                <label for="filter-search">Search</label>
+                <input type="search" 
+                       id="filter-search"
+                       placeholder="🔍 Search referrers or referrals..." 
+                       data-filter-search 
+                       aria-label="Search referrals"
+                       class="filter-search-input">
+            </div>
+            <div class="filter-group-inline filter-group-inline--inline">
+                <label for="filter-frequency">Frequency</label>
+                <select id="filter-frequency" data-filter-frequency class="filter-select">
+                    <option value="">All</option>
+                    {% for option, label in commission_frequency_labels.items() %}
+                    <option value="{{ option }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group-inline filter-group-inline--inline">
+                <label for="filter-window">Window</label>
+                <select id="filter-window" data-filter-window class="filter-select">
+                    <option value="">All</option>
+                    <option value="monthly">Monthly · 1st</option>
+                    <option value="mid-month">Mid-Month · 14th</option>
+                </select>
+            </div>
+            {% if month_tracker.values %}
+            <div class="filter-group-inline filter-group-inline--inline">
+                <label for="filter-month">Month</label>
+                <select id="filter-month" data-filter-month class="filter-select">
+                    <option value="">All</option>
+                    {% for month_key in month_tracker.values.keys()|list|sort %}
+                    <option value="{{ month_key }}">{{ month_tracker.values[month_key] }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            <div class="filter-group-inline filter-group-inline--inline">
+                <label for="filter-status">Status</label>
+                <select id="filter-status" data-filter-status class="filter-select">
+                    <option value="">All</option>
+                    <option value="unpaid">Unpaid</option>
+                    <option value="paid">Paid</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    <div class="data-table-wrapper" data-commissions-table>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Pay Date</th>
+                    <th>Referrer</th>
+                    <th>Frequency</th>
+                    <th>Referral</th>
+                    <th>Accepted</th>
+                    <th>Window</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Quick Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if entries %}
+                    {% for entry in entries %}
+                    {% set month_key = entry.pay_date.strftime('%Y-%m') if entry.pay_date else '' %}
+                    <tr data-commission-row
+                        data-commission-id="{{ entry.commission_payout_id }}"
+                        data-search="{{ (entry.referrer_name ~ ' ' ~ entry.referral_name)|lower }}"
+                        data-frequency="{{ entry.referrer_frequency }}"
+                        data-window="{{ entry.schedule_type }}"
+                        data-month="{{ month_key }}"
+                        data-status="{{ entry.status }}">
+                        <td><strong>{{ entry.pay_date|display_date }}</strong></td>
+                        <td>{{ entry.referrer_name }}</td>
+                        <td>{{ commission_frequency_labels.get(entry.referrer_frequency, entry.referrer_frequency|replace('_', ' ')|title) }}</td>
+                        <td>{{ entry.referral_name }}</td>
+                        <td>{{ entry.accepted_on|display_date }}</td>
+                        <td>
+                            {% if entry.schedule_type == 'monthly' %}
+                                <span class="status-chip status-chip--info">Monthly · 1st</span>
+                            {% else %}
+                                <span class="status-chip status-chip--neutral">Mid-Month · 14th</span>
+                            {% endif %}
+                        </td>
+                        <td><strong>USD {{ entry.amount|money }}</strong></td>
+                        <td style="text-align: center;">
+                            <span class="status-chip status-chip--{{ 'success' if entry.status == 'paid' else 'warning' }}" data-status-display>
+                                {{ entry.status|title }}
+                            </span>
+                        </td>
+                        <td class="column-actions">
+                            <div class="commissions-actions">
+                                {% if entry.status == 'unpaid' %}
+                                <button class="commission-action-button commission-action-button--success js-commission-status" 
+                                    data-commission-id="{{ entry.commission_payout_id }}" 
+                                    data-action="paid"
+                                    title="Mark as Paid"
+                                    aria-label="Mark commission as paid">
+                                    ✓
+                                </button>
+                                {% else %}
+                                <button class="commission-action-button commission-action-button--warning js-commission-status" 
+                                    data-commission-id="{{ entry.commission_payout_id }}" 
+                                    data-action="unpaid"
+                                    title="Mark as Unpaid"
+                                    aria-label="Mark commission as unpaid">
+                                    ↺
+                                </button>
+                                {% endif %}
+                                <form method="post" action="/commissions/{{ entry.commission_payout_id }}/delete" style="display: inline;">
+                                    <button class="commission-action-button commission-action-button--danger" 
+                                        type="submit"
+                                        onclick="return confirm('Delete this commission payout?')"
+                                        title="Delete"
+                                        aria-label="Delete commission payout">
+                                        🗑️
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    <tr data-no-results style="display: none;">
+                        <td colspan="9" class="empty-state">No referral payouts match the current filters.</td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td class="empty-state" colspan="9">No referral payouts scheduled.</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</section>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const rows = Array.from(document.querySelectorAll('[data-commission-row]'));
+    if (!rows.length) {
+        return;
+    }
+    const searchInput = document.querySelector('[data-filter-search]');
+    const frequencySelect = document.querySelector('[data-filter-frequency]');
+    const windowSelect = document.querySelector('[data-filter-window]');
+    const monthSelect = document.querySelector('[data-filter-month]');
+    const statusSelect = document.querySelector('[data-filter-status]');
+    let statsTarget = document.querySelector('[data-filter-stats]');
+    const noResultsRow = document.querySelector('[data-no-results]');
+
+    const totalRows = rows.length;
+    const updateStats = (visible) => {
+        if (statsTarget) {
+            statsTarget.textContent = `Showing ${visible} of ${totalRows} payouts`;
+        }
+        if (noResultsRow) {
+            noResultsRow.style.display = visible ? 'none' : '';
+        }
+    };
+
+    const actionButtonTemplates = {
+        paid: {
+            className: 'commission-action-button commission-action-button--success js-commission-status',
+            title: 'Mark as Paid',
+            icon: '✓',
+        },
+        unpaid: {
+            className: 'commission-action-button commission-action-button--warning js-commission-status',
+            title: 'Mark as Unpaid',
+            icon: '↺',
+        },
+    };
+
+    const renderActionButton = (button, action) => {
+        const config = actionButtonTemplates[action];
+        if (!button || !config) {
+            return;
+        }
+        button.dataset.action = action;
+        button.className = config.className;
+        button.title = config.title;
+        button.textContent = config.icon;
+    };
+
+    document.querySelectorAll('.js-commission-status').forEach((button) => {
+        renderActionButton(button, button.dataset.action || 'paid');
+    });
+
+    const applyFilters = () => {
+        const searchTerm = (searchInput?.value || '').trim().toLowerCase();
+        const frequency = frequencySelect?.value || '';
+        const windowValue = windowSelect?.value || '';
+        const monthValue = monthSelect?.value || '';
+        const statusValue = statusSelect?.value || '';
+
+        let visibleCount = 0;
+        rows.forEach((row) => {
+            const matchesSearch = !searchTerm || row.dataset.search.includes(searchTerm);
+            const matchesFrequency = !frequency || row.dataset.frequency === frequency;
+            const matchesWindow = !windowValue || row.dataset.window === windowValue;
+            const matchesMonth = !monthValue || row.dataset.month === monthValue;
+            const matchesStatus = !statusValue || row.dataset.status === statusValue;
+            const isVisible = matchesSearch && matchesFrequency && matchesWindow && matchesMonth && matchesStatus;
+            row.style.display = isVisible ? '' : 'none';
+            if (isVisible) {
+                visibleCount += 1;
+            }
+        });
+        updateStats(visibleCount);
+    };
+
+    if (searchInput) {
+        searchInput.addEventListener('input', applyFilters);
+    }
+    if (frequencySelect) {
+        frequencySelect.addEventListener('change', applyFilters);
+    }
+    if (windowSelect) {
+        windowSelect.addEventListener('change', applyFilters);
+    }
+    if (monthSelect) {
+        monthSelect.addEventListener('change', applyFilters);
+    }
+    if (statusSelect) {
+        statusSelect.addEventListener('change', applyFilters);
+    }
+
+    // Handle quick action status updates
+    document.addEventListener('click', async (e) => {
+        const button = e.target.closest('.js-commission-status');
+        if (!button) return;
+
+        e.preventDefault();
+        const commissionId = button.dataset.commissionId;
+        const action = button.dataset.action;
+
+        try {
+            const formData = new FormData();
+            formData.append('action', action);
+
+            const response = await fetch(`/commissions/${commissionId}/status`, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to update status');
+            }
+
+            const result = await response.json();
+            
+                // Update row data attribute
+                const row = button.closest('[data-commission-row]');
+                if (row) {
+                    row.dataset.status = result.new_status;
+                    
+                    // Update status display
+                    const statusDisplay = row.querySelector('[data-status-display]');
+                    if (statusDisplay) {
+                        statusDisplay.textContent = result.new_status.charAt(0).toUpperCase() + result.new_status.slice(1);
+                        statusDisplay.className = 'status-chip status-chip--' + (result.new_status === 'paid' ? 'success' : 'warning');
+                    }
+                    
+                    // Update button icon/label
+                    if (result.new_status === 'paid') {
+                        renderActionButton(button, 'unpaid');
+                    } else {
+                        renderActionButton(button, 'paid');
+                    }
+                }
+        } catch (error) {
+            console.error('Error updating commission status:', error);
+            alert('Failed to update commission status');
+        }
+    });
+
+    const toolbar = document.querySelector('[data-commission-toolbar]');
+    if (toolbar) {
+        const statsContainer = document.createElement('div');
+        statsContainer.className = 'filter-toolbar__stats';
+        statsContainer.dataset.filterStats = '';
+        statsContainer.style.marginTop = '16px';
+        statsContainer.style.padding = '12px 0';
+        statsContainer.style.borderTop = '1px solid rgba(148, 163, 184, 0.08)';
+        statsContainer.style.color = '#94a3b8';
+        statsContainer.style.fontSize = '14px';
+        toolbar.parentNode.insertBefore(statsContainer, toolbar.nextSibling);
+        statsTarget = statsContainer;
+    }
+
+    applyFilters();
+});
+</script>
+{% endblock %}

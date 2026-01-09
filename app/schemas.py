@@ -7,7 +7,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
-from app.models import ADHOC_PAYMENT_STATUS_ENUM, FREQUENCY_ENUM, STATUS_ENUM
+from app.models import ADHOC_PAYMENT_STATUS_ENUM, COMMISSION_PAYOUT_FREQUENCY_ENUM, COMMISSION_STATUS_ENUM, FREQUENCY_ENUM, STATUS_ENUM
 
 
 class ModelBase(BaseModel):
@@ -20,6 +20,12 @@ class ModelBase(BaseModel):
     payment_frequency: str
     amount_monthly: Decimal = Field(..., gt=0)
     crypto_wallet: Optional[str] = Field(None, max_length=200)
+    referred_by_model_id: Optional[int] = None
+    commission_active: bool = False
+    commission_per_referral: Optional[Decimal] = Field(None, ge=0)
+    commission_payout_frequency: str = Field(default="dual")
+    commission_duration_months: Optional[int] = Field(default=None, ge=1, le=36)
+    commission_status: str = Field(default="unpaid")
 
     @field_validator("status")
     def validate_status(cls, value: str) -> str:
@@ -55,6 +61,36 @@ class ModelBase(BaseModel):
     @field_validator("amount_monthly")
     def quantize_amount(cls, value: Decimal) -> Decimal:
         return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    @field_validator("commission_per_referral")
+    def quantize_commission(cls, value: Decimal | None) -> Decimal | None:
+        if value is None:
+            return None
+        return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    @field_validator("commission_payout_frequency")
+    def validate_commission_frequency(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in COMMISSION_PAYOUT_FREQUENCY_ENUM:
+            allowed = ", ".join(COMMISSION_PAYOUT_FREQUENCY_ENUM)
+            raise ValueError(f"Commission frequency must be one of: {allowed}.")
+        return normalized
+
+    @field_validator("commission_duration_months")
+    def validate_commission_duration(cls, value: int | None) -> int | None:
+        if value is None:
+            return None
+        if value <= 0:
+            raise ValueError("Commission duration must be at least 1 month when provided.")
+        return value
+
+    @field_validator("commission_status")
+    def validate_commission_status(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in COMMISSION_STATUS_ENUM:
+            allowed = ", ".join(COMMISSION_STATUS_ENUM)
+            raise ValueError(f"Commission status must be one of: {allowed}.")
+        return normalized
 
     model_config = ConfigDict(from_attributes=True)
 
