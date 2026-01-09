@@ -7,9 +7,9 @@ All notable changes to this project will be documented in this file.
 ### Added
 - feat(models): Compensation Alert System for mid-cycle compensation changes
   - New `PayoutCompensationAlert` database model tracking compensation changes
-  - Alert generation when model compensation is updated after schedule generation
+  - Alert generation when a new compensation adjustment is created via the Compensation Adjustments panel
   - Pro-rata calculation support for monthly/weekly/biweekly payment frequencies
-  - Effective date tracking on compensation changes
+  - Integration with existing Compensation Adjustments feature for effective date tracking
 
 - feat(schedules): Alert management UI on schedule run detail page
   - Alert banner showing count of pending compensation alerts
@@ -17,11 +17,6 @@ All notable changes to this project will be documented in this file.
   - Individual alert resolution: Apply New Amount, Apply Pro-rated, Dismiss, Acknowledge
   - Bulk resolve functionality for handling multiple alerts at once
   - Toast notifications for success/error feedback
-
-- feat(models): Effective date field on model edit form
-  - Dynamic field appears when compensation amount is changed
-  - Defaults to today's date for immediate changes
-  - Shows change preview with original → new amount
 
 - feat(api): Compensation alert API endpoints
   - `GET /{run_id}/compensation-alerts` - List alerts for schedule run
@@ -38,15 +33,15 @@ All notable changes to this project will be documented in this file.
   - `get_alert_for_payout()` - Get pending alert for payout
   - `resolve_compensation_alert()` - Mark alert as applied/dismissed/acknowledged
   - `apply_alert_to_payout()` - Apply amount change and resolve
-  - `generate_alerts_for_compensation_change()` - Auto-generate on model update
+  - `generate_alerts_for_compensation_change()` - Auto-generate on adjustment creation
   - `calculate_prorated_compensation()` - Pro-rata calculation engine
   - `bulk_resolve_alerts()` - Resolve multiple alerts
 
 ### Changed
-- refactor(models/update): detect compensation changes and generate alerts
-  - Model update endpoint now checks for amount changes
-  - Creates CompensationAdjustment record for audit trail
-  - Generates alerts for affected pending payouts
+- refactor(models/update): trigger alert generation from Compensation Adjustments panel
+  - New or modified entries in Compensation Adjustments now generate alerts for affected payouts
+  - Uses existing effective date from the adjustment (no additional date field required)
+  - Creates alerts for unpaid payouts in schedule runs matching the adjustment's effective month
 
 ### Database
 - Migration: `fe8ae1eb2e95_add_payout_compensation_alerts_table.py`

@@ -72,10 +72,9 @@ Use tables with consistent columns:
 | Alert migration | Database | fe8ae1eb2e95_add_payout_compensation_alerts_table |
 | Alert CRUD functions | Backend | 10+ functions for create/list/resolve/bulk operations |
 | Pro-rata calculation | Backend | calculate_prorated_compensation() for monthly/weekly |
-| Model update flow | Backend | Auto-generate alerts on compensation change |
+| Compensation Adjustments integration | Backend | Alert generation triggers from Adjustments panel |
 | Alert API endpoints | API | 5 endpoints for alert management |
 | Schedule UI alerts | UI | Alert banner, table, resolve actions, bulk resolve |
-| Model form effective date | UI | Dynamic field for compensation change date |
 | Test suite | Testing | 16 tests in test_compensation_alerts.py |
 
 ### ✅ Models/View Page 9.0/10 (2025-12-24, v2.40.0)
