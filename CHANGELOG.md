@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## v2.44.0 - 2026-01-06
+## v2.44.0 - 2026-01-10
 
 ### Added
 - feat(schedules): clickable model codes in schedule detail page
@@ -31,7 +31,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## v2.43.0 - 2026-01-06
+## v2.43.0 - 2026-01-10
 
 ### Added
 - feat(models): Compensation Alert System for mid-cycle compensation changes
