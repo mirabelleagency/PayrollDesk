@@ -436,14 +436,14 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
 {% if pending_alerts_count > 0 %}
 <!-- Compensation Alerts Banner -->
 <section class="compensation-alert-banner" id="compensation-alerts-section">
-    <div class="compensation-alert-banner__header">
+    <div class="compensation-alert-banner__header" onclick="toggleCompensationDetails()" style="cursor: pointer;">
         <div class="compensation-alert-banner__icon">⚠️</div>
         <div class="compensation-alert-banner__content">
             <h3>{{ pending_alerts_count }} Compensation Change{{ 's' if pending_alerts_count != 1 else '' }} Need Review</h3>
             <p>Some models have had their compensation updated since this schedule was generated.</p>
         </div>
-        <button type="button" class="btn btn--primary btn--sm" onclick="openCompensationReviewModal()">
-            Review Changes
+        <button type="button" class="button button--warning button--compact" id="toggle-details-btn" onclick="event.stopPropagation(); toggleCompensationDetails();">
+            Show Details
         </button>
     </div>
     
@@ -481,19 +481,19 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
                     <td>{{ alert.effective_date.strftime('%b %d') }}</td>
                     <td>
                         <div class="alert-actions">
-                            <button type="button" class="btn btn--success btn--xs" 
+                            <button type="button" class="button button--success button--compact" 
                                     onclick="resolveAlert({{ alert.id }}, 'apply_new')" 
                                     title="Apply new amount">
                                 Apply New
                             </button>
                             {% if alert.prorated_amount %}
-                            <button type="button" class="btn btn--primary btn--xs" 
+                            <button type="button" class="button button--info button--compact" 
                                     onclick="resolveAlert({{ alert.id }}, 'apply_prorated')" 
                                     title="Apply pro-rated amount">
                                 Pro-rate
                             </button>
                             {% endif %}
-                            <button type="button" class="btn btn--secondary btn--xs" 
+                            <button type="button" class="button button--secondary button--compact" 
                                     onclick="resolveAlert({{ alert.id }}, 'dismiss')" 
                                     title="Keep original amount">
                                 Keep Original
@@ -507,13 +507,13 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
         
         <div class="compensation-alert-banner__bulk-actions">
             <span>Bulk Actions:</span>
-            <button type="button" class="btn btn--success btn--sm" onclick="bulkResolveAlerts('apply_new')">
+            <button type="button" class="button button--success button--compact" onclick="bulkResolveAlerts('apply_new')">
                 Apply All New Amounts
             </button>
-            <button type="button" class="btn btn--primary btn--sm" onclick="bulkResolveAlerts('apply_prorated')">
+            <button type="button" class="button button--info button--compact" onclick="bulkResolveAlerts('apply_prorated')">
                 Apply All Pro-rated
             </button>
-            <button type="button" class="btn btn--secondary btn--sm" onclick="bulkResolveAlerts('dismiss')">
+            <button type="button" class="button button--secondary button--compact" onclick="bulkResolveAlerts('dismiss')">
                 Dismiss All
             </button>
         </div>
@@ -2707,10 +2707,15 @@ function clearHighlights() {
 // Compensation Alert Functions
 // =============================================
 
-function openCompensationReviewModal() {
+function toggleCompensationDetails() {
     const details = document.getElementById('compensation-details');
+    const toggleBtn = document.getElementById('toggle-details-btn');
     if (details) {
-        details.style.display = details.style.display === 'none' ? 'block' : 'none';
+        const isHidden = details.style.display === 'none';
+        details.style.display = isHidden ? 'block' : 'none';
+        if (toggleBtn) {
+            toggleBtn.textContent = isHidden ? 'Hide Details' : 'Show Details';
+        }
     }
 }
 
