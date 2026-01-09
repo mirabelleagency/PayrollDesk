@@ -64,6 +64,15 @@ Use tables with consistent columns:
 
 ## Completed This Session
 
+### ✅ Schedule Detail UI Improvements (2026-01-06, v2.44.0)
+
+| Task | Category | Details |
+|------|----------|---------|
+| Clickable model codes | UX | Link to /models/{id} from payout table |
+| Alert table model links | UX | Link to /models/{id} from compensation alerts |
+| Button standardization | Style | Use standard .button system for alert actions |
+| Alert banner toggle | UX | Clickable header to expand/collapse details |
+
 ### ✅ Compensation Alert System (2026-01-06, v2.43.0)
 
 | Task | Category | Details |

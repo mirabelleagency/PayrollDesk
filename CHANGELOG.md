@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.44.0 - 2026-01-06
+
+### Added
+- feat(schedules): clickable model codes in schedule detail page
+  - Model codes in payout table now link to `/models/{id}`
+  - Model codes in compensation alert table link to model profile
+  - Blue link styling with hover effects matching app theme
+  - Proper focus states for keyboard navigation
+
+### Changed
+- style(schedules): standardize buttons in compensation alert banner
+  - Replace custom btn--* classes with standard .button system
+  - Use `button--success` (green) for "Apply New"
+  - Use `button--info` (blue) for "Pro-rate"
+  - Use `button--secondary` (outline) for "Keep Original" / "Dismiss"
+  - Use `button--warning` (amber) for "Show/Hide Details" toggle
+  - Add clickable header area to expand/collapse alert details
+
+- refactor(models): trigger alerts from Compensation Adjustments panel
+  - New/modified entries in Compensation Adjustments now generate alerts
+  - Remove separate "Effective Date of Change" field from main form
+  - Uses existing effective date from adjustment records directly
+
+### Tests
+- Test count: 234 (unchanged)
+- All tests passing
+
+---
+
 ## v2.43.0 - 2026-01-06
 
 ### Added
