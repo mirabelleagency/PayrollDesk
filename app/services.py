@@ -1,12 +1,10 @@
 """Application service layer."""
 from __future__ import annotations
 
-import calendar
 import json
-from datetime import date
 from decimal import Decimal
 from pathlib import Path
-from typing import Iterable, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import pandas as pd
 from sqlalchemy.orm import Session
@@ -21,7 +19,7 @@ from app.core.payroll import (
     validate_row,
 )
 from app import crud
-from app.models import Model
+from app.models import Model, PayConfig, FrequencyPlan
 
 
 class PayrollService:
@@ -29,6 +27,20 @@ class PayrollService:
 
     def __init__(self, db: Session) -> None:
         self.db = db
+
+    def _load_pay_days(self) -> Optional[List]:
+        """Load pay days from default PayConfig, or None for defaults."""
+        config = self.db.query(PayConfig).filter(PayConfig.is_default == True).first()
+        if config:
+            return json.loads(config.pay_days)
+        return None
+
+    def _load_frequency_plans(self) -> Optional[Dict[str, List[int]]]:
+        """Load frequency plans from DB, or None for defaults."""
+        plans = self.db.query(FrequencyPlan).filter(FrequencyPlan.is_active == True).all()
+        if plans:
+            return {p.name: json.loads(p.pay_day_indices) for p in plans}
+        return None
 
     def list_models(self) -> Iterable[Model]:
         return crud.list_models(self.db)
@@ -50,6 +62,29 @@ class PayrollService:
         include_inactive: bool,
         output_dir: Path,
     ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict, int]:
+        # Load config from DB
+        pay_days = self._load_pay_days()
+        freq_plans = self._load_frequency_plans()
+
+        try:
+            return self._run_payroll_inner(
+                target_year, target_month, currency, include_inactive,
+                output_dir, pay_days, freq_plans,
+            )
+        except Exception:
+            self.db.rollback()
+            raise
+
+    def _run_payroll_inner(
+        self,
+        target_year: int,
+        target_month: int,
+        currency: str,
+        include_inactive: bool,
+        output_dir: Path,
+        pay_days: Optional[List],
+        freq_plans: Optional[Dict[str, List[int]]],
+    ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict, int]:
         # Check if a payroll run already exists for this month/year
         existing_runs = crud.list_schedule_runs(
             self.db, target_year=target_year, target_month=target_month
@@ -57,17 +92,21 @@ class PayrollService:
         
         # Preserve old payout status and notes for matching payouts
         old_payout_data = {}
+        locked_codes: set[str] = set()
         if existing_runs:
             run = existing_runs[0]  # Use the most recent run for this month
             # Save status and notes from old payouts before clearing
             for payout in run.payouts:
                 key = (payout.code, payout.pay_date)
-                old_payout_data[key] = {
-                    "status": payout.status,
-                    "notes": payout.notes,
-                }
-            # Clear old payouts and validations so we can refresh with current data
-            crud.clear_schedule_data(self.db, run)
+                if payout.is_locked:
+                    locked_codes.add(payout.code)
+                else:
+                    old_payout_data[key] = {
+                        "status": payout.status,
+                        "notes": payout.notes,
+                    }
+            # Clear only unlocked payouts (locked ones stay)
+            crud.clear_unlocked_schedule_data(self.db, run)
         else:
             run = crud.create_schedule_run(
                 self.db,
@@ -80,12 +119,17 @@ class PayrollService:
             )
         
         models = crud.list_models(self.db)
+        # Only recalculate for non-locked models
+        models_to_calc = [m for m in models if m.code not in locked_codes]
         records = [
-            self._to_record(index, model, target_year, target_month)
-            for index, model in enumerate(models, start=1)
+            self._to_record(index, model, target_year, target_month, freq_plans)
+            for index, model in enumerate(models_to_calc, start=1)
         ]
 
-        schedule_df, summary = build_pay_schedule(records, target_year, target_month, currency)
+        schedule_df, summary = build_pay_schedule(
+            records, target_year, target_month, currency,
+            pay_days=pay_days, frequency_plans=freq_plans,
+        )
         models_df = build_models_table(records, currency)
         validation_df = build_validation_report(records, include_inactive)
 
@@ -171,6 +215,9 @@ class PayrollService:
         
         Returns a dict with counts of models added.
         """
+        pay_days = self._load_pay_days()
+        freq_plans = self._load_frequency_plans()
+
         run = crud.get_schedule_run(self.db, run_id)
         if not run:
             raise ValueError(f"Schedule run {run_id} not found")
@@ -189,12 +236,15 @@ class PayrollService:
         
         # Build records only for new models
         records = [
-            self._to_record(index, model, run.target_year, run.target_month)
+            self._to_record(index, model, run.target_year, run.target_month, freq_plans)
             for index, model in enumerate(new_models, start=1)
         ]
         
         # Generate schedule only for new models
-        schedule_df, _ = build_pay_schedule(records, run.target_year, run.target_month, currency)
+        schedule_df, _ = build_pay_schedule(
+            records, run.target_year, run.target_month, currency,
+            pay_days=pay_days, frequency_plans=freq_plans,
+        )
         
         if schedule_df.empty:
             return {"added_count": 0, "added_codes": [], "message": "No payouts generated for new models"}
@@ -232,7 +282,14 @@ class PayrollService:
             "message": f"Added {len(new_models)} new model(s) to schedule",
         }
 
-    def _to_record(self, position: int, model: Model, target_year: int, target_month: int) -> ModelRecord:
+    def _to_record(
+        self,
+        position: int,
+        model: Model,
+        target_year: int,
+        target_month: int,
+        frequency_plans: Optional[Dict[str, List[int]]] = None,
+    ) -> ModelRecord:
         base_amount = None
         if model.amount_monthly is not None:
             base_amount = Decimal(str(model.amount_monthly))
@@ -255,6 +312,6 @@ class PayrollService:
             amount_monthly=base_amount,
             compensation_adjustments=adjustments,
         )
-        for message in validate_row(record):
+        for message in validate_row(record, frequency_plans):
             record.add_message(message.level, message.text)
         return record

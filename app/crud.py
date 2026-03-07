@@ -406,6 +406,35 @@ def clear_schedule_data(db: Session, schedule_run: ScheduleRun) -> None:
     db.commit()
 
 
+def clear_unlocked_schedule_data(db: Session, schedule_run: ScheduleRun) -> None:
+    """Clear only unlocked (unpaid) payouts and their allocations.
+    
+    Locked payouts (is_locked=True, typically paid) and their realized 
+    repayments are preserved. Only unlocked payouts are deleted and 
+    recalculated on refresh.
+    """
+    # Get IDs of unlocked payouts for this run
+    unlocked_payout_ids = [
+        p.id for p in db.query(Payout.id)
+        .filter(
+            Payout.schedule_run_id == schedule_run.id,
+            Payout.is_locked == False,
+        )
+        .all()
+    ]
+    if not unlocked_payout_ids:
+        return
+    # Delete allocations for unlocked payouts only
+    db.query(PayoutAdvanceAllocation).filter(
+        PayoutAdvanceAllocation.payout_id.in_(unlocked_payout_ids)
+    ).delete(synchronize_session=False)
+    # Delete the unlocked payouts
+    db.query(Payout).filter(Payout.id.in_(unlocked_payout_ids)).delete(synchronize_session=False)
+    # Clear validations (they'll be regenerated)
+    db.query(ValidationIssue).filter(ValidationIssue.schedule_run_id == schedule_run.id).delete(synchronize_session=False)
+    db.commit()
+
+
 def create_schedule_run(
     db: Session,
     target_year: int,
@@ -469,6 +498,7 @@ def store_payouts(db: Session, run: ScheduleRun, payouts: Iterable[dict], amount
             payment_method=payout["Payment Method"],
             payment_frequency=payout["Payment Frequency"],
             amount=payout.get(amount_column),
+            gross_amount=payout.get(amount_column),  # Store original before advance deductions
             notes=notes,
             status=status,
         )
@@ -621,6 +651,9 @@ def get_payout(db: Session, payout_id: int) -> Payout | None:
 def update_payout(db: Session, payout: Payout, note: str | None, status: str) -> None:
     payout.notes = note or None
     payout.status = status
+    # Lock payout when marked as paid (immutable after payment)
+    if status == "paid":
+        payout.is_locked = True
     db.add(payout)
     db.commit()
 

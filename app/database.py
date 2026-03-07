@@ -254,3 +254,30 @@ def init_db() -> None:
     finally:
         session.close()
 
+    # Seed default PayConfig and FrequencyPlan if empty
+    session = SessionLocal()
+    try:
+        from app.models import PayConfig, FrequencyPlan
+        if session.query(PayConfig).count() == 0:
+            session.add(PayConfig(
+                name="Default",
+                pay_days='[7, 14, 21, "eom"]',
+                currency="USD",
+                is_default=True,
+            ))
+            session.commit()
+            logger.info("Seeded default pay config")
+        if session.query(FrequencyPlan).count() == 0:
+            session.add_all([
+                FrequencyPlan(name="weekly", pay_day_indices="[0, 1, 2, 3]", display_name="Weekly (4x/month)"),
+                FrequencyPlan(name="biweekly", pay_day_indices="[1, 3]", display_name="Biweekly (2x/month)"),
+                FrequencyPlan(name="monthly", pay_day_indices="[3]", display_name="Monthly (1x/month)"),
+            ])
+            session.commit()
+            logger.info("Seeded default frequency plans")
+    except Exception as e:
+        logger.error("Error seeding pay config: %s", e)
+        session.rollback()
+    finally:
+        session.close()
+

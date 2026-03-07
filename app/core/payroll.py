@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import calendar
+import json
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
-from typing import Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 import pandas as pd
 from dateutil import parser as date_parser
@@ -23,11 +24,18 @@ CANONICAL_COLUMNS = {
     "amount monthly": "amount_monthly",
 }
 
-FREQUENCY_PLANS = {
+# Default frequency plans (used as fallback when no DB config available)
+_DEFAULT_FREQUENCY_PLANS: Dict[str, List[int]] = {
     "weekly": [0, 1, 2, 3],
     "biweekly": [1, 3],
     "monthly": [3],
 }
+
+# Module-level alias for backward compatibility (tests, CLI)
+FREQUENCY_PLANS = _DEFAULT_FREQUENCY_PLANS
+
+# Default pay days (used as fallback when no DB config available)
+_DEFAULT_PAY_DAYS: List = [7, 14, 21, "eom"]
 
 MONEY_QUANT = Decimal("0.01")
 
@@ -176,9 +184,13 @@ def parse_models(df: pd.DataFrame) -> List[ModelRecord]:
     return records
 
 
-def validate_row(record: ModelRecord) -> List[ValidationMessage]:
+def validate_row(
+    record: ModelRecord,
+    frequency_plans: Optional[Dict[str, List[int]]] = None,
+) -> List[ValidationMessage]:
     """Apply validation rules to a record and collect issues."""
 
+    plans = frequency_plans or FREQUENCY_PLANS
     messages: List[ValidationMessage] = []
 
     if not record.status:
@@ -202,11 +214,12 @@ def validate_row(record: ModelRecord) -> List[ValidationMessage]:
 
     if not record.payment_frequency:
         messages.append(ValidationMessage("error", "Payment Frequency is required."))
-    elif record.payment_frequency not in FREQUENCY_PLANS:
+    elif record.payment_frequency not in plans:
+        valid_names = ", ".join(sorted(plans.keys()))
         messages.append(
             ValidationMessage(
                 "error",
-                f"Payment Frequency '{record.payment_frequency}' is invalid. Expected weekly, biweekly, or monthly.",
+                f"Payment Frequency '{record.payment_frequency}' is invalid. Expected {valid_names}.",
             )
         )
 
@@ -221,28 +234,42 @@ def validate_row(record: ModelRecord) -> List[ValidationMessage]:
     return messages
 
 
-def get_pay_dates(year: int, month: int) -> List[date]:
-    """Return the four fixed pay dates for a given month."""
-
+def get_pay_dates(year: int, month: int, pay_days: Optional[List] = None) -> List[date]:
+    """Return the pay dates for a given month.
+    
+    Args:
+        year: Target year.
+        month: Target month.
+        pay_days: List of day numbers or "eom" for end-of-month.
+                  Defaults to [7, 14, 21, "eom"].
+    """
+    if pay_days is None:
+        pay_days = _DEFAULT_PAY_DAYS
     eom = calendar.monthrange(year, month)[1]
-    return [
-        date(year, month, 7),
-        date(year, month, 14),
-        date(year, month, 21),
-        date(year, month, eom),
-    ]
+    dates = []
+    for d in pay_days:
+        if d == "eom":
+            dates.append(date(year, month, eom))
+        else:
+            day = min(int(d), eom)
+            dates.append(date(year, month, day))
+    return sorted(dates)
 
 
-def payout_plan(frequency: str) -> List[int]:
+def payout_plan(frequency: str, frequency_plans: Optional[Dict[str, List[int]]] = None) -> List[int]:
     """Return the plan indices for the supplied payment frequency."""
+    plans = frequency_plans or FREQUENCY_PLANS
+    return list(plans.get(frequency, []))
 
-    return list(FREQUENCY_PLANS.get(frequency, []))
 
-
-def allocate_amounts(monthly_amount: Decimal, frequency: str) -> Tuple[List[Decimal], bool]:
+def allocate_amounts(
+    monthly_amount: Decimal,
+    frequency: str,
+    frequency_plans: Optional[Dict[str, List[int]]] = None,
+) -> Tuple[List[Decimal], bool]:
     """Allocate a monthly amount across the frequency plan with rounding adjustment."""
 
-    plan = payout_plan(frequency)
+    plan = payout_plan(frequency, frequency_plans)
     if not plan:
         raise ValueError(f"No payout plan configured for frequency '{frequency}'.")
 
@@ -290,10 +317,13 @@ def build_pay_schedule(
     year: int,
     month: int,
     currency: str,
+    pay_days: Optional[List] = None,
+    frequency_plans: Optional[Dict[str, List[int]]] = None,
 ) -> Tuple[pd.DataFrame, dict]:
     """Generate the pay schedule DataFrame and summary metrics."""
 
-    pay_dates = get_pay_dates(year, month)
+    pay_dates = get_pay_dates(year, month, pay_days)
+    plans = frequency_plans or FREQUENCY_PLANS
     rows: List[dict] = []
     total_payout = Decimal("0")
     frequency_counter: Counter[str] = Counter()
@@ -302,7 +332,7 @@ def build_pay_schedule(
     for record in records:
         if record.has_errors or record.amount_monthly is None:
             continue
-        plan = payout_plan(record.payment_frequency)
+        plan = payout_plan(record.payment_frequency, plans)
         if not plan:
             continue
 
@@ -527,4 +557,6 @@ __all__ = [
     "parse_decimal",
     "normalize_columns",
     "MONEY_QUANT",
+    "FREQUENCY_PLANS",
+    "_DEFAULT_PAY_DAYS",
 ]

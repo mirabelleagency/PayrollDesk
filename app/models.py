@@ -34,6 +34,7 @@ ADHOC_PAYMENT_STATUS_ENUM = ("pending", "paid", "cancelled")
 COMMISSION_PAYOUT_FREQUENCY_ENUM = ("monthly", "mid_month", "dual")
 COMMISSION_STATUS_ENUM = ("unpaid", "paid")
 COMMISSION_PAYOUT_STATUS_ENUM = ("unpaid", "paid")
+SCHEDULE_RUN_STATUS_ENUM = ("draft", "ready", "processing", "error")
 
 
 class Model(Base):
@@ -107,11 +108,21 @@ class ScheduleRun(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
     export_path: Mapped[str] = mapped_column(String(255), nullable=False, default="exports")
 
+    # Revamp: run lifecycle status + config reference
+    run_status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    pay_config_id: Mapped[int | None] = mapped_column(
+        ForeignKey("pay_configs.id", ondelete="SET NULL"), nullable=True
+    )
+
     payouts: Mapped[list["Payout"]] = relationship(back_populates="schedule_run", cascade="all, delete-orphan")
     validations: Mapped[list["ValidationIssue"]] = relationship(
         back_populates="schedule_run", cascade="all, delete-orphan"
     )
     compensation_alerts: Mapped[list["PayoutCompensationAlert"]] = relationship(
+        back_populates="schedule_run", cascade="all, delete-orphan"
+    )
+    amendments: Mapped[list["ScheduleAmendment"]] = relationship(
         back_populates="schedule_run", cascade="all, delete-orphan"
     )
 
@@ -135,6 +146,10 @@ class Payout(Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="not_paid")
+
+    # Revamp: per-payout locking and gross tracking
+    is_locked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    gross_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
 
     schedule_run: Mapped[ScheduleRun] = relationship(back_populates="payouts")
     model: Mapped[Model] = relationship(back_populates="payouts")
@@ -455,3 +470,50 @@ class CommissionPayout(Base):
             name="ck_commission_payout_schedule_type_valid"
         ),
     )
+
+
+# --- Schedule revamp: configurable pay dates & frequency plans ---
+
+
+class PayConfig(Base):
+    """Configurable pay schedule settings (pay dates, defaults)."""
+    __tablename__ = "pay_configs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    pay_days: Mapped[str] = mapped_column(Text, nullable=False, default='[7, 14, 21, "eom"]')
+    currency: Mapped[str] = mapped_column(String(10), nullable=False, default="USD")
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=_utcnow, onupdate=_utcnow, nullable=False
+    )
+
+
+class FrequencyPlan(Base):
+    """Database-driven payment frequency definitions."""
+    __tablename__ = "frequency_plans"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
+    pay_day_indices: Mapped[str] = mapped_column(Text, nullable=False)
+    display_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+
+
+class ScheduleAmendment(Base):
+    """Tracks changes made to a schedule run (refresh, add models, etc.)."""
+    __tablename__ = "schedule_amendments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    schedule_run_id: Mapped[int] = mapped_column(
+        ForeignKey("schedule_runs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    amendment_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    models_affected: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    changes_summary: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    created_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+
+    schedule_run: Mapped[ScheduleRun] = relationship(back_populates="amendments")
