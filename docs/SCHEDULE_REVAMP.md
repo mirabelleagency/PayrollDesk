@@ -16,10 +16,10 @@
 | **Phase 4** | Auto-generation (auto_generate_upcoming_schedules, upcoming pay dates API) | ✅ Done | `277381f` |
 | **Phase 5** | Calendar dashboard + run status UI (calendar strip, status badges, lock icons) | ✅ Done | `277381f` |
 | **Phase 6** | Transaction safety (try/except rollback wrapper in run_payroll) | ✅ Done | `9c7f34d` |
-| **Phase 7** | Admin settings UI for pay config & frequency plans | ⬜ Not started |  |
-| **Phase 8** | Amendment logging on refresh/add_models | ⬜ Not started |  |
-| **Phase 9** | Auto-resolve compensation alerts on recalculation | ⬜ Not started |  |
-| **Phase 10** | Background processing thread (optional) | ⬜ Not started |  |
+| **Phase 7** | Admin settings UI for pay config & frequency plans | ✅ Done | `ecb64cc` |
+| **Phase 8** | Amendment logging on refresh/add_models | ✅ Done | `ecb64cc` |
+| **Phase 9** | Auto-resolve compensation alerts on recalculation | ✅ Done | `ecb64cc` |
+| **Phase 10** | Background processing thread (optional) | ⬜ Deferred |  |
 
 ---
 
@@ -286,10 +286,10 @@ def update_payout(db, payout, note, status):
 | **7** | Auto-lock on paid status | `crud.py` | Low | ✅ Done |
 | **8** | Auto-generation + calendar dashboard | `services.py`, `schedules.py`, templates | Medium | ✅ Done |
 | **9** | Run status + lock icons in UI | templates, CSS | Low | ✅ Done |
-| **10** | `ScheduleAmendment` logging | `crud.py`, `services.py` | Low | ⬜ Pending |
-| **11** | Admin settings UI for pay config | `routers/admin.py`, templates | Low | ⬜ Pending |
-| **12** | Auto-resolve compensation alerts | `crud.py` | Low | ⬜ Pending |
-| **13** | Background processing thread | `services.py` | Medium | ⬜ Optional |
+| **10** | `ScheduleAmendment` logging | `crud.py`, `services.py` | Low | ✅ Done |
+| **11** | Admin settings UI for pay config | `routers/admin.py`, templates | Low | ✅ Done |
+| **12** | Auto-resolve compensation alerts | `crud.py` | Low | ✅ Done |
+| **13** | Background processing thread | `services.py` | Medium | ⬜ Deferred |
 
 ---
 
