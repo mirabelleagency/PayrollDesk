@@ -8,6 +8,7 @@ from sqlalchemy import event
 _TEMP_DIR = tempfile.mkdtemp(prefix="payroll_tests_")
 _DB_FILE = os.path.join(_TEMP_DIR, "test_payroll.db")
 os.environ["PAYROLL_DATABASE_URL"] = f"sqlite:///{_DB_FILE}"
+os.environ.setdefault("ADMIN_DEFAULT_PASSWORD", "admin")
 
 
 @pytest.fixture(scope="session", autouse=True)

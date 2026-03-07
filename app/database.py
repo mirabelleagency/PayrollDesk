@@ -241,10 +241,13 @@ def init_db() -> None:
     try:
         admin_exists = session.query(User).filter(User.username == "admin").first()
         if not admin_exists:
-            admin_user = User.create_user("admin", "admin", role="admin")
+            import secrets
+            default_password = os.getenv("ADMIN_DEFAULT_PASSWORD", secrets.token_urlsafe(16))
+            admin_user = User.create_user("admin", default_password, role="admin")
             session.add(admin_user)
             session.commit()
-            logger.info("Created default admin user (username: admin)")
+            logger.info("Created default admin user (username: admin, password: %s)", default_password)
+            logger.warning("CHANGE THE DEFAULT ADMIN PASSWORD IMMEDIATELY")
     except Exception as e:
         logger.error("Error creating admin user: %s", e)
         session.rollback()

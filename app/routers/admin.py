@@ -1,6 +1,7 @@
 """Admin routes for user and data administration."""
 from __future__ import annotations
 
+import logging
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Query
 from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
@@ -12,8 +13,10 @@ from app import crud
 from app.auth import User
 from app.database import get_session, engine, DATABASE_URL
 from app.dependencies import templates
-from app.routers.auth import get_current_user, get_admin_user
-from app.security import unlock_account
+from app.routers.auth import get_admin_user
+from app.security import unlock_account, PasswordValidator
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -199,7 +202,11 @@ def reset_user_password(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
+    is_valid, error_msg = PasswordValidator.validate(new_password)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_msg)
+
     user.password_hash = User.hash_password(new_password)
     db.commit()
     return RedirectResponse(url="/admin/users", status_code=303)
@@ -284,8 +291,7 @@ def purge_model_execute(
     try:
         crud.log_admin_action(db, admin.id, "purge_model", {"impact": impact})
     except Exception:
-        # Logging should not block the action
-        pass
+        logger.exception("Audit log failed for purge_model")
 
     # Redirect to models list with a lightweight success note in query
     code = impact.get("model_code", "")
@@ -319,7 +325,7 @@ def maintenance_cleanup_empty_runs(
     try:
         crud.log_admin_action(db, admin.id, "cleanup_empty_runs", result)
     except Exception:
-        pass
+        logger.exception("Audit log failed for cleanup_empty_runs")
     msg = f"Deleted {result['deleted_runs']} empty run(s)."
     return RedirectResponse(url=f"/admin/settings?message={msg}", status_code=303)
 
@@ -334,8 +340,7 @@ def maintenance_cleanup_orphans(
     try:
         crud.log_admin_action(db, admin.id, "cleanup_orphans", result)
     except Exception:
-        pass
-    msg = f"Removed {result['payouts']} orphan payout(s), {result['validations']} orphan validation(s)."
+        logger.exception("Audit log failed for cleanup_orphans")
     return RedirectResponse(url=f"/admin/settings?message={msg}", status_code=303)
 
 
@@ -357,9 +362,7 @@ def maintenance_reset_application_data(
     try:
         crud.log_admin_action(db, admin.id, "reset_application_data", result)
     except Exception:
-        pass
-
-    # Build a compact message
+        logger.exception("Audit log failed for reset_application_data")
     msg = (
         f"Reset complete: models={result.get('models',0)}, runs={result.get('schedule_runs',0)}, "
         f"payouts={result.get('payouts',0)}, validations={result.get('validations',0)}, "
@@ -389,68 +392,22 @@ def diagnostics_db(
     # Parse configured DATABASE_URL safely (masking any password)
     try:
         parsed = make_url(DATABASE_URL)
-        masked_url_obj = parsed.set(password="***") if getattr(parsed, "password", None) else parsed
-        masked_url = str(masked_url_obj)
-        db_name = parsed.database
-        host = parsed.host
-        port = parsed.port
-        username = parsed.username
         scheme = parsed.drivername
     except Exception:
-        masked_url = "(unparseable)"
-        db_name = None
-        host = None
-        port = None
-        username = None
+        logger.exception("Failed to parse DATABASE_URL")
         scheme = None
 
     is_sqlite = dialect == "sqlite"
     is_postgres = dialect in ("postgresql", "postgres")
 
-    # Effective engine URL (password masked if present)
-    try:
-        eff_url = engine.url
-        eff_masked_url = eff_url.set(password="***") if getattr(eff_url, "password", None) else eff_url
-        effective_url = str(eff_masked_url)
-    except Exception:
-        effective_url = "(unavailable)"
-
-    # Effective engine URL (password masked if present)
-    try:
-        eff_url = engine.url
-        eff_masked_url = eff_url.set(password="***") if getattr(eff_url, "password", None) else eff_url
-        effective_url = str(eff_masked_url)
-    except Exception:
-        effective_url = "(unavailable)"
-
-    # Base payload
+    # Base payload — never expose connection details regardless of environment
     payload = {
         "dialect": dialect,
         "driver": driver,
         "url_scheme": scheme,
         "is_sqlite": is_sqlite,
         "is_postgres": is_postgres,
-        # details field may be redacted in production
     }
-
-    # Environment-aware redaction: in production, avoid exposing connection details
-    env = os.getenv("ENVIRONMENT", "production").lower()
-    if env in ("production", "prod", "live"):
-        payload.update({
-            "verbose": False,
-            "details": "redacted in production",
-        })
-    else:
-        payload.update({
-            "verbose": True,
-            "database": db_name,
-            "host": host,
-            "port": port,
-            "username": username,
-            "configured_url": masked_url,
-            # The effective URL bound to the engine (masked if it contains password)
-            "effective_url": effective_url,
-        })
 
     return JSONResponse(payload)
 
@@ -479,5 +436,5 @@ def api_purge_model_execute(
     try:
         crud.log_admin_action(db, admin.id, "purge_model", {"impact": impact, "api": True})
     except Exception:
-        pass
+        logger.exception("Audit log failed for purge_model (API)")
     return JSONResponse({"dry_run": False, "impact": impact})

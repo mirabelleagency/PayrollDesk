@@ -1,8 +1,8 @@
-"""Database access helpers."""
+﻿"""Database access helpers."""
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Iterable, Sequence, Dict
 
@@ -219,7 +219,7 @@ def create_model(db: Session, payload: ModelCreate) -> Model:
 def update_model(db: Session, model: Model, payload: ModelUpdate) -> Model:
     for key, value in payload.model_dump().items():
         setattr(model, key, value)
-    model.updated_at = datetime.now()
+    model.updated_at = datetime.now(timezone.utc)
     db.add(model)
     db.commit()
     db.refresh(model)
@@ -238,8 +238,8 @@ def soft_delete_model(db: Session, model: Model) -> Model:
     The model remains in the database but is excluded from normal queries.
     Use restore_model() to undo a soft delete.
     """
-    model.deleted_at = datetime.now()
-    model.updated_at = datetime.now()
+    model.deleted_at = datetime.now(timezone.utc)
+    model.updated_at = datetime.now(timezone.utc)
     db.add(model)
     db.commit()
     db.refresh(model)
@@ -249,7 +249,7 @@ def soft_delete_model(db: Session, model: Model) -> Model:
 def restore_model(db: Session, model: Model) -> Model:
     """Restore a soft-deleted model by clearing deleted_at timestamp."""
     model.deleted_at = None
-    model.updated_at = datetime.now()
+    model.updated_at = datetime.now(timezone.utc)
     db.add(model)
     db.commit()
     db.refresh(model)
@@ -377,7 +377,7 @@ def create_compensation_adjustment(
 
     if effective_date <= date.today():
         model.amount_monthly = amount_monthly
-        model.updated_at = datetime.now()
+        model.updated_at = datetime.now(timezone.utc)
         db.add(model)
 
     db.flush()
@@ -385,6 +385,20 @@ def create_compensation_adjustment(
 
 
 def clear_schedule_data(db: Session, schedule_run: ScheduleRun) -> None:
+    # Safety check: prevent re-run if any payouts have realized advance repayments,
+    # since clearing payouts would orphan those repayment records and re-running
+    # would allocate deductions again (double-deduction risk).
+    realized_count = (
+        db.query(AdvanceRepayment)
+        .join(Payout, AdvanceRepayment.payout_id == Payout.id)
+        .filter(Payout.schedule_run_id == schedule_run.id)
+        .count()
+    )
+    if realized_count > 0:
+        raise ValueError(
+            f"Cannot re-run schedule: {realized_count} advance repayment(s) have already been "
+            f"realized against payouts in this run. Reverse the repayments first."
+        )
     # Delete allocations linked to this run first to avoid stale planned deductions
     db.query(PayoutAdvanceAllocation).filter(PayoutAdvanceAllocation.schedule_run_id == schedule_run.id).delete(synchronize_session=False)
     db.query(Payout).filter(Payout.schedule_run_id == schedule_run.id).delete()
@@ -1271,7 +1285,7 @@ def update_adhoc_payment(db: Session, payment: AdhocPayment, payload: AdhocPayme
             setattr(payment, field, value.lower())
         else:
             setattr(payment, field, value)
-    payment.updated_at = datetime.now()
+    payment.updated_at = datetime.now(timezone.utc)
     db.add(payment)
     db.commit()
     db.refresh(payment)
@@ -1287,7 +1301,7 @@ def set_adhoc_payment_status(db: Session, payment: AdhocPayment, status: str, no
     payment.status = status.lower()
     if notes is not None:
         payment.notes = notes.strip() or None
-    payment.updated_at = datetime.now()
+    payment.updated_at = datetime.now(timezone.utc)
     db.add(payment)
     db.commit()
     db.refresh(payment)
@@ -1559,7 +1573,7 @@ def approve_advance(db: Session, advance: ModelAdvance, *, activate: bool = True
 
     advance.status = "active" if activate else "approved"
     if activate:
-        advance.activated_at = datetime.now()
+        advance.activated_at = datetime.now(timezone.utc)
     db.add(advance)
     db.commit()
     db.refresh(advance)
@@ -1583,16 +1597,35 @@ def record_advance_repayment(
 ) -> AdvanceRepayment:
     if amount <= 0:
         raise ValueError("Repayment amount must be > 0")
-    applied = min(amount, Decimal(advance.amount_remaining or 0))
+    # Atomic update to prevent race conditions on concurrent repayments.
+    # Uses SQL-level subtraction with a WHERE guard to ensure amount_remaining
+    # cannot go negative even under concurrent access.
+    remaining = Decimal(advance.amount_remaining or 0)
+    applied = min(amount, remaining)
+    if applied <= 0:
+        raise ValueError("Advance has no remaining balance")
+    rows_updated = (
+        db.query(ModelAdvance)
+        .filter(
+            ModelAdvance.id == advance.id,
+            ModelAdvance.amount_remaining >= applied,
+        )
+        .update(
+            {ModelAdvance.amount_remaining: ModelAdvance.amount_remaining - applied},
+            synchronize_session="fetch",
+        )
+    )
+    if rows_updated == 0:
+        db.rollback()
+        raise ValueError("Advance balance changed concurrently; please retry")
+    db.refresh(advance)
     repayment = AdvanceRepayment(
         advance_id=advance.id,
         payout_id=(payout.id if payout else None),
         amount=applied,
         source=("auto" if source == "auto" else "manual"),
     )
-    advance.amount_remaining = Decimal(advance.amount_remaining or 0) - applied
     close_advance_if_settled(db, advance)
-    db.add(advance)
     db.add(repayment)
     db.commit()
     db.refresh(repayment)
@@ -1606,9 +1639,14 @@ def _apply_advance_allocations_for_run(db: Session, run: ScheduleRun, payouts: l
     Does not modify advance balances. Idempotent per clear_schedule_data (we purge allocations on refresh).
     """
     # Group payouts by model, sort by pay_date to apply sequentially
+    # Exclude soft-deleted models to prevent orphaned allocations
     by_model: dict[int, list[Payout]] = {}
     for p in payouts:
         if not p.model_id:
+            continue
+        # Check if model is soft-deleted
+        model = db.query(Model).filter(Model.id == p.model_id, Model.deleted_at.is_(None)).first()
+        if not model:
             continue
         by_model.setdefault(p.model_id, []).append(p)
     for model_id, rows in by_model.items():
@@ -1982,7 +2020,7 @@ def update_commission_payout_status(
     if status not in ("paid", "unpaid"):
         raise ValueError(f"Invalid status: {status}. Must be 'paid' or 'unpaid'.")
     payout.status = status
-    payout.updated_at = datetime.now()
+    payout.updated_at = datetime.now(timezone.utc)
     db.add(payout)
     db.commit()
     db.refresh(payout)
@@ -2008,7 +2046,7 @@ def bulk_update_commission_payout_status(
     stmt = (
         update(CommissionPayout)
         .where(CommissionPayout.id.in_(payout_ids))
-        .values(status=status, updated_at=datetime.now())
+        .values(status=status, updated_at=datetime.now(timezone.utc))
     )
     result = db.execute(stmt)
     db.commit()
@@ -2158,7 +2196,7 @@ def resolve_compensation_alert(
         raise ValueError(f"Invalid resolution status: {status}")
     
     alert.status = status
-    alert.resolved_at = datetime.now()
+    alert.resolved_at = datetime.now(timezone.utc)
     alert.resolved_by = resolved_by
     db.flush()
     return alert
@@ -2175,7 +2213,7 @@ def apply_alert_to_payout(
     payout.amount = amount_to_apply
     
     alert.status = "applied"
-    alert.resolved_at = datetime.now()
+    alert.resolved_at = datetime.now(timezone.utc)
     alert.resolved_by = resolved_by
     
     db.flush()
@@ -2346,7 +2384,7 @@ def bulk_resolve_alerts(
         .where(PayoutCompensationAlert.id.in_(alert_ids))
         .values(
             status=status,
-            resolved_at=datetime.now(),
+            resolved_at=datetime.now(timezone.utc),
             resolved_by=resolved_by,
         )
     )

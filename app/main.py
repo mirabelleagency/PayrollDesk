@@ -1,10 +1,12 @@
 """FastAPI entry point for the payroll application."""
 from __future__ import annotations
 
+import logging
 import re
 import time
 from contextlib import asynccontextmanager
 from typing import Any
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, Response, Request, Depends
 from fastapi.responses import RedirectResponse
@@ -12,6 +14,7 @@ from fastapi import status, HTTPException
 from fastapi.responses import JSONResponse
 from urllib.parse import quote
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -23,9 +26,53 @@ from app import __version__
 from app.core.rate_limiter import limiter
 from app.routers import admin, auth, changelog, commissions, dashboard, models, profile, schedules
 
+logger = logging.getLogger(__name__)
+
 
 # Pattern for hashed static files (e.g., index-DnJkF9X2.js)
 HASHED_FILE_PATTERN = re.compile(r"^/static/.*-[a-zA-Z0-9]{8,}\.(js|css|woff2?)$")
+
+# Paths exempt from CSRF validation
+_CSRF_EXEMPT_PATHS = {"/health", "/health/db", "/login"}
+_STATE_CHANGING_METHODS = {"POST", "PUT", "DELETE", "PATCH"}
+
+
+class CSRFMiddleware(BaseHTTPMiddleware):
+    """Validate Origin/Referer headers on state-changing requests to prevent CSRF."""
+
+    async def dispatch(self, request: Request, call_next):
+        if request.method in _STATE_CHANGING_METHODS:
+            path = request.url.path.rstrip("/")
+            if path not in _CSRF_EXEMPT_PATHS:
+                host = request.headers.get("host", "")
+                origin = request.headers.get("origin")
+                referer = request.headers.get("referer")
+
+                if origin:
+                    parsed = urlparse(origin)
+                    origin_host = parsed.netloc
+                    if origin_host != host:
+                        logger.warning(
+                            "CSRF blocked: origin=%s host=%s path=%s",
+                            origin, host, path,
+                        )
+                        return JSONResponse(
+                            {"detail": "CSRF validation failed"},
+                            status_code=403,
+                        )
+                elif referer:
+                    parsed = urlparse(referer)
+                    referer_host = parsed.netloc
+                    if referer_host != host:
+                        logger.warning(
+                            "CSRF blocked: referer=%s host=%s path=%s",
+                            referer, host, path,
+                        )
+                        return JSONResponse(
+                            {"detail": "CSRF validation failed"},
+                            status_code=403,
+                        )
+        return await call_next(request)
 
 
 class CacheControlMiddleware(BaseHTTPMiddleware):
@@ -59,6 +106,18 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Add cache-control middleware for static assets
 app.add_middleware(CacheControlMiddleware)
+
+# CSRF protection: validate Origin/Referer on state-changing requests
+app.add_middleware(CSRFMiddleware)
+
+# Restrictive CORS: same-origin only (add allowed origins here if API access is opened)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[],
+    allow_credentials=False,
+    allow_methods=["GET"],
+    allow_headers=[],
+)
 
 app.include_router(auth.router)
 app.include_router(profile.router)

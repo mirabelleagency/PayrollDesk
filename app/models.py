@@ -1,7 +1,7 @@
-"""SQLAlchemy models for the payroll application."""
+﻿"""SQLAlchemy models for the payroll application."""
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import (
@@ -17,10 +17,15 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 STATUS_ENUM = ("Active", "Inactive")
 FREQUENCY_ENUM = ("weekly", "biweekly", "monthly")
@@ -44,9 +49,9 @@ class Model(Base):
     payment_frequency: Mapped[str] = mapped_column(String(20), nullable=False)
     amount_monthly: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     crypto_wallet: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.now, onupdate=datetime.now, nullable=False
+        DateTime, default=_utcnow, onupdate=_utcnow, nullable=False
     )
     # Soft delete: when set, model is considered deleted but data is preserved
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=None, index=True)
@@ -99,7 +104,7 @@ class ScheduleRun(Base):
     summary_models_paid: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     summary_total_payout: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=0)
     summary_frequency_counts: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
     export_path: Mapped[str] = mapped_column(String(255), nullable=False, default="exports")
 
     payouts: Mapped[list["Payout"]] = relationship(back_populates="schedule_run", cascade="all, delete-orphan")
@@ -159,7 +164,7 @@ class LoginAttempt(Base):
     success: Mapped[bool] = mapped_column(default=False, nullable=False)
     ip_address: Mapped[str] = mapped_column(String(50), nullable=True)
     user_agent: Mapped[str] = mapped_column(Text, nullable=True)
-    attempted_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False, index=True)
+    attempted_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False, index=True)
 
     __table_args__ = (
         Index("idx_failed_attempts", "username", "success", "attempted_at"),
@@ -176,7 +181,7 @@ class ModelCompensationAdjustment(Base):
     effective_date: Mapped[date] = mapped_column(Date, nullable=False)
     amount_monthly: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
     created_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     model: Mapped[Model] = relationship(back_populates="compensation_adjustments")
@@ -197,9 +202,9 @@ class AdhocPayment(Base):
     description: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.now, onupdate=datetime.now, nullable=False
+        DateTime, default=_utcnow, onupdate=_utcnow, nullable=False
     )
 
     model: Mapped[Model] = relationship(back_populates="adhoc_payments")
@@ -219,7 +224,7 @@ class AuditLog(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     action: Mapped[str] = mapped_column(String(100), nullable=False)
     details: Mapped[str] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
 
 
 # --- Cash advance feature models -------------------------------------------
@@ -249,8 +254,8 @@ class ModelAdvance(Base):
 
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow, nullable=False)
     activated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     model: Mapped[Model] = relationship(back_populates="advances")
@@ -277,7 +282,7 @@ class AdvanceRepayment(Base):
     payout_id: Mapped[int | None] = mapped_column(ForeignKey("payouts.id", ondelete="SET NULL"), nullable=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     source: Mapped[str] = mapped_column(String(20), nullable=False, default="auto")  # auto | manual
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
 
     advance: Mapped[ModelAdvance] = relationship(back_populates="repayments")
 
@@ -295,7 +300,7 @@ class PayoutAdvanceAllocation(Base):
     model_id: Mapped[int] = mapped_column(ForeignKey("models.id", ondelete="CASCADE"), nullable=False, index=True)
     advance_id: Mapped[int] = mapped_column(ForeignKey("model_advances.id", ondelete="CASCADE"), nullable=False, index=True)
     planned_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
 
     __table_args__ = (
         CheckConstraint("planned_amount > 0", name="ck_payout_allocation_amount_positive"),
@@ -391,7 +396,7 @@ class PayoutCompensationAlert(Base):
     alert_type: Mapped[str] = mapped_column(String(30), nullable=False, default="compensation_changed")
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     resolved_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
@@ -427,9 +432,9 @@ class CommissionPayout(Base):
     schedule_type: Mapped[str] = mapped_column(String(20), nullable=False)  # monthly or mid-month
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="unpaid")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.now, onupdate=datetime.now, nullable=False
+        DateTime, default=_utcnow, onupdate=_utcnow, nullable=False
     )
 
     referrer: Mapped[Model] = relationship("Model", foreign_keys=[referrer_model_id])

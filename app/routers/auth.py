@@ -1,9 +1,12 @@
 """Authentication routes and session management."""
 from __future__ import annotations
 
+import logging
 import os
+
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from sqlalchemy.orm import Session
 
 from app.database import get_session
@@ -15,6 +18,12 @@ from app.security import (
     increment_failed_login,
     reset_failed_login,
 )
+
+logger = logging.getLogger(__name__)
+
+_SESSION_SECRET = os.getenv("SESSION_SECRET", os.getenv("SECRET_KEY", "change-me-in-production"))
+_SESSION_MAX_AGE = 86400  # 24 hours
+_signer = URLSafeTimedSerializer(_SESSION_SECRET, salt="user-session")
 
 router = APIRouter(tags=["Auth"])
 
@@ -98,18 +107,18 @@ def login(
     if not isinstance(redirect_to, str) or "://" in redirect_to or not redirect_to.startswith("/"):
         redirect_to = "/dashboard"
 
-    # Set session cookie and redirect
+    # Set signed session cookie and redirect
     response = RedirectResponse(url=redirect_to, status_code=303)
-    # In production (Render), secure=True for HTTPS. In dev, secure=False for HTTP.
     is_production = os.getenv("PAYROLL_DATABASE_URL", "").startswith("postgresql")
+    signed_token = _signer.dumps(user.id)
     response.set_cookie(
-        key="user_id",
-        value=str(user.id),
+        key="session",
+        value=signed_token,
         httponly=True,
         path="/",
-        secure=is_production,  # True in production (HTTPS), False in dev (HTTP)
+        secure=is_production,
         samesite="lax",
-        max_age=86400,  # 24 hours
+        max_age=_SESSION_MAX_AGE,
     )
     return response
 
@@ -119,27 +128,30 @@ def login(
 def logout():
     """Handle logout — clear session cookie."""
     response = RedirectResponse(url="/login", status_code=303)
-    response.delete_cookie("user_id")
+    response.delete_cookie("session")
     return response
 
 
 def get_current_user(request: Request, db: Session = Depends(get_session)) -> User:
-    """Dependency to get current authenticated user."""
-    user_id = request.cookies.get("user_id")
-    
-    if not user_id:
+    """Dependency to get current authenticated user from signed session cookie."""
+    token = request.cookies.get("session")
+
+    if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    
+
     try:
-        user_id = int(user_id)
-    except (ValueError, TypeError):
+        user_id = _signer.loads(token, max_age=_SESSION_MAX_AGE)
+    except SignatureExpired:
+        raise HTTPException(status_code=401, detail="Session expired")
+    except BadSignature:
+        logger.warning("Invalid session signature from %s", request.client.host if request.client else "unknown")
         raise HTTPException(status_code=401, detail="Invalid session")
-    
-    user = db.query(User).filter(User.id == user_id).first()
-    
+
+    user = db.query(User).filter(User.id == int(user_id)).first()
+
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
-    
+
     return user
 
 

@@ -32,10 +32,11 @@ router = APIRouter(prefix="/schedules", tags=["Schedules"])
 
 DEFAULT_EXPORT_DIR = Path("exports")
 
-# Simple in-memory cache for dashboard data
+# Simple in-memory cache for dashboard data with bounded size
 # Key: (month, year) -> (timestamp, data)
 _dashboard_cache: dict[tuple[str | None, int | None], tuple[float, dict[str, Any]]] = {}
 _CACHE_TTL_SECONDS = 300  # 5 minutes
+_CACHE_MAX_SIZE = 50  # Maximum number of cached entries
 
 
 def _invalidate_dashboard_cache() -> None:
@@ -56,7 +57,11 @@ def _get_cached_dashboard(month: str | None, year: int | None) -> dict[str, Any]
 
 
 def _set_cached_dashboard(month: str | None, year: int | None, data: dict[str, Any]) -> None:
-    """Store dashboard data in cache."""
+    """Store dashboard data in cache with bounded size."""
+    # Evict oldest entries if cache is full
+    if len(_dashboard_cache) >= _CACHE_MAX_SIZE:
+        oldest_key = min(_dashboard_cache, key=lambda k: _dashboard_cache[k][0])
+        del _dashboard_cache[oldest_key]
     cache_key = (month, year)
     _dashboard_cache[cache_key] = (time.time(), data)
 

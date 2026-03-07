@@ -1600,7 +1600,10 @@ async def import_models_excel(
 ):
     extra_context: dict[str, Any] = {}
     try:
-        contents = await excel_file.read()
+        MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
+        contents = await excel_file.read(MAX_UPLOAD_SIZE + 1)
+        if len(contents) > MAX_UPLOAD_SIZE:
+            raise ValueError("File too large. Maximum upload size is 10 MB.")
         if not contents:
             raise ValueError("The uploaded file is empty.")
         filename = (excel_file.filename or "").lower()

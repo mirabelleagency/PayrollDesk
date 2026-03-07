@@ -136,9 +136,9 @@ class PayrollService:
                     "Working Name": payout.working_name,
                     "Payment Method": payout.payment_method,
                     "Payment Frequency": payout.payment_frequency.title() if payout.payment_frequency else "",
-                    f"Amount Gross ({currency})": float(amount_gross),
-                    f"Advances Deducted ({currency})": float(Decimal(str(allocated or 0))),
-                    f"Amount Net ({currency})": float(amount_net),
+                    f"Amount Gross ({currency})": str(amount_gross),
+                    f"Advances Deducted ({currency})": str(Decimal(str(allocated or 0))),
+                    f"Amount Net ({currency})": str(amount_net),
                     "Status": payout.status.replace("_", " ").title() if payout.status else "",
                     "Notes": payout.notes or "",
                 }

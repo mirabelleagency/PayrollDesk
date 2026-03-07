@@ -707,6 +707,75 @@ Use this template for final assessment reports:
 
 ---
 
+---
+
+## Quick Reference (Ad-Hoc Assessments)
+
+> Lean reference for quick assessments on individual files, modules, or features.
+
+### Quick Assessment Command
+
+Use this prompt format:
+
+```
+Assess [target] using the Quick Assessment Guide. Rate 1-10 and identify gaps.
+```
+
+**Examples:**
+- "Assess `app/crud.py` using the Quick Assessment Guide"
+- "Assess the authentication flow using the Quick Assessment Guide"
+
+### Quick Checklists
+
+**Code Quality:** Naming conventions, type hints, docstrings, no magic numbers, DRY, single responsibility, error handling
+
+**Security:** Input validation, SQL injection prevention, auth checks, role-based access, no sensitive data in logs
+
+**Database/CRUD:** Transactions, null handling, cascade deletes, indexes, N+1 prevention, session cleanup
+
+**API/Endpoints:** Consistent responses, proper HTTP status codes, input validation, informative errors
+
+**Testing:** Unit tests exist, edge cases, error paths, proper mocks, test independence
+
+**UI/Templates:** Consistent styling, error/loading states, mobile responsive, accessible
+
+### Quick Assessment Template
+
+```markdown
+## Assessment: [Target Name]
+
+**Rating: X/10**
+
+### Strengths
+-
+
+### Gaps
+| # | Issue | Severity | Fix |
+|---|-------|----------|-----|
+| 1 |       | High/Med/Low |     |
+
+### Recommendations
+1.
+2.
+```
+
+### Common Assessment Targets
+
+**Files:** `app/crud.py`, `app/services.py`, `app/security.py`, `app/models.py`, `app/routers/*.py`
+
+**Concerns:** Error handling, logging, config management, input validation, transaction safety, performance
+
+**Features:** Login/auth flow, payroll calculation, export generation, import processing, commission tracking
+
+### Assessment Workflow
+
+1. **Identify target** — File, module, or feature
+2. **Gather context** — Read code, check tests
+3. **Apply checklist** — Use relevant category above
+4. **Rate objectively** — Use rating scale
+5. **Document gaps** — List with severity
+6. **Recommend fixes** — Prioritized actions
+
 ## Gaps Identified
 
 ### Critical
