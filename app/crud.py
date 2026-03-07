@@ -415,6 +415,9 @@ def clear_unlocked_schedule_data(db: Session, schedule_run: ScheduleRun) -> None
     Locked payouts (is_locked=True, typically paid) and their realized 
     repayments are preserved. Only unlocked payouts are deleted and 
     recalculated on refresh.
+    
+    Pending compensation alerts for unlocked payouts are auto-resolved
+    since the recalculated amounts will already reflect changes.
     """
     # Get IDs of unlocked payouts for this run
     unlocked_payout_ids = [
@@ -427,6 +430,15 @@ def clear_unlocked_schedule_data(db: Session, schedule_run: ScheduleRun) -> None
     ]
     if not unlocked_payout_ids:
         return
+    # Auto-resolve pending alerts for unlocked payouts (they'll be recalculated)
+    now = datetime.now(timezone.utc)
+    db.query(PayoutCompensationAlert).filter(
+        PayoutCompensationAlert.payout_id.in_(unlocked_payout_ids),
+        PayoutCompensationAlert.status == "pending",
+    ).update(
+        {"status": "applied", "resolved_at": now, "resolved_by": "auto_refresh"},
+        synchronize_session=False,
+    )
     # Delete allocations for unlocked payouts only
     db.query(PayoutAdvanceAllocation).filter(
         PayoutAdvanceAllocation.payout_id.in_(unlocked_payout_ids)

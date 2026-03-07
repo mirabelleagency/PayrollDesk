@@ -168,6 +168,15 @@ class PayrollService:
         )
         crud.store_validation_messages(self.db, run, records, include_inactive)
 
+        # Log amendment
+        affected_codes = [r.code for r in records]
+        amendment_type = "refresh" if existing_runs else "initial"
+        crud.create_amendment(
+            self.db, run, amendment_type, affected_codes,
+            [{"action": amendment_type, "models_count": len(affected_codes),
+              "locked_count": len(locked_codes)}],
+        )
+
         # Build export schedule from DB payouts to reflect cash advance deductions (net vs gross)
         payouts_with_allocs = crud.list_payouts_with_allocations_for_run(self.db, run.id)
         # Assemble DataFrame with Gross, Advances Deducted, Net columns
@@ -279,6 +288,13 @@ class PayrollService:
         crud.store_validation_messages(self.db, run, records, include_inactive=False)
         
         added_codes = [m.code for m in new_models]
+
+        # Log amendment
+        crud.create_amendment(
+            self.db, run, "add_models", added_codes,
+            [{"action": "add_models", "added_count": len(added_codes)}],
+        )
+
         return {
             "added_count": len(new_models),
             "added_codes": added_codes,

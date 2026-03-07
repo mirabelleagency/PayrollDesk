@@ -4,7 +4,7 @@
 <section class="page-header" style="margin-bottom: 16px;">
   <div>
     <h1 class="page-title">⚙️ Admin Settings</h1>
-    <p style="color:#94a3b8; margin:8px 0 0 0;">Maintenance tools and data housekeeping</p>
+    <p style="color:#94a3b8; margin:8px 0 0 0;">Payroll configuration, frequency plans, and maintenance tools</p>
   </div>
 </section>
 
@@ -14,6 +14,88 @@
 {% if error %}
 <div class="alert" style="background: rgba(239, 68, 68, 0.12); border:1px solid rgba(239,68,68,0.35); color:#fecaca;">{{ error }}</div>
 {% endif %}
+
+<!-- Pay Configuration -->
+<section class="card" style="margin-top: 8px;">
+  <div class="section-heading">
+    <div>
+      <h2><span class="section-icon">📅</span> Pay Configuration</h2>
+      <p style="color:#94a3b8; margin:4px 0 0 0;">Configure pay dates and default currency for payroll calculations</p>
+    </div>
+  </div>
+  <form method="post" action="/admin/settings/pay-config" class="form" style="max-width: 600px;">
+    <div class="form-row">
+      <label for="config_name">Config Name</label>
+      <input id="config_name" name="config_name" type="text" value="{{ pay_config.name if pay_config else 'Default' }}" required />
+    </div>
+    <div class="form-row">
+      <label for="pay_days">Pay Days (JSON array)</label>
+      <input id="pay_days" name="pay_days" type="text" value="{{ pay_config.pay_days if pay_config else '[7, 14, 21, &quot;eom&quot;]' }}" required
+             placeholder='[7, 14, 21, "eom"]' />
+      <small style="color:#64748b;">Enter day numbers (1-31) and/or "eom" for end of month. Example: [7, 14, 21, "eom"]</small>
+    </div>
+    <div class="form-row">
+      <label for="currency">Default Currency</label>
+      <input id="currency" name="currency" type="text" value="{{ pay_config.currency if pay_config else 'USD' }}" required style="max-width: 120px;" />
+    </div>
+    <div class="form-actions">
+      <button class="button button--primary" type="submit">Save Pay Config</button>
+    </div>
+  </form>
+</section>
+
+<!-- Frequency Plans -->
+<section class="card" style="margin-top: 16px;">
+  <div class="section-heading">
+    <div>
+      <h2><span class="section-icon">🔄</span> Frequency Plans</h2>
+      <p style="color:#94a3b8; margin:4px 0 0 0;">Define payment frequencies and which pay dates they use</p>
+    </div>
+  </div>
+  {% if frequency_plans %}
+  <div class="data-table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Display Name</th>
+          <th>Pay Day Indices</th>
+          <th>Active</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for plan in frequency_plans %}
+        <tr>
+          <form method="post" action="/admin/settings/frequency-plans/{{ plan.id }}">
+            <td><strong>{{ plan.name }}</strong></td>
+            <td>
+              <input name="display_name" type="text" value="{{ plan.display_name or '' }}"
+                     style="background: rgba(15,23,42,0.7); color:#f8fafc; border:1px solid rgba(148,163,184,0.3); border-radius:6px; padding:6px 10px; width: 200px;" />
+            </td>
+            <td>
+              <input name="pay_day_indices" type="text" value="{{ plan.pay_day_indices }}"
+                     style="background: rgba(15,23,42,0.7); color:#f8fafc; border:1px solid rgba(148,163,184,0.3); border-radius:6px; padding:6px 10px; width: 140px;" />
+            </td>
+            <td style="text-align: center;">
+              <input type="checkbox" name="is_active" value="1" {% if plan.is_active %}checked{% endif %} />
+            </td>
+            <td>
+              <button class="button button--compact" type="submit">Save</button>
+            </td>
+          </form>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p style="color:#64748b; font-size: 0.85rem; margin-top: 8px;">
+    Pay day indices reference positions in the pay days array (0-based). Example: [0,1,2,3] = all 4 pay dates; [1,3] = 2nd and 4th pay dates; [3] = last pay date only.
+  </p>
+  {% else %}
+  <p class="empty-state">No frequency plans configured. They will be seeded on first run.</p>
+  {% endif %}
+</section>
 
 <section class="card" style="margin-top: 8px;">
   <div class="section-heading">

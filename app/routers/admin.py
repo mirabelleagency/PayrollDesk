@@ -1,6 +1,7 @@
 """Admin routes for user and data administration."""
 from __future__ import annotations
 
+import json
 import logging
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Query
 from fastapi.responses import RedirectResponse, JSONResponse
@@ -13,6 +14,7 @@ from app import crud
 from app.auth import User
 from app.database import get_session, engine, DATABASE_URL
 from app.dependencies import templates
+from app.models import PayConfig, FrequencyPlan
 from app.routers.auth import get_admin_user
 from app.security import unlock_account, PasswordValidator
 
@@ -308,11 +310,107 @@ def admin_settings(
     db: Session = Depends(get_session),
     admin: User = Depends(get_admin_user),
 ):
+    pay_config = crud.get_pay_config(db)
+    frequency_plans = crud.list_active_frequency_plans(db)
+    # Also get inactive plans
+    all_plans = db.query(FrequencyPlan).order_by(FrequencyPlan.name).all()
+
     return templates.TemplateResponse(
         request,
         "admin/settings.html",
-        {"request": request, "user": admin, "message": message, "error": error},
+        {
+            "request": request,
+            "user": admin,
+            "message": message,
+            "error": error,
+            "pay_config": pay_config,
+            "frequency_plans": all_plans,
+        },
     )
+
+
+@router.post("/settings/pay-config")
+def update_pay_config(
+    request: Request,
+    config_name: str = Form("Default"),
+    pay_days: str = Form(...),
+    currency: str = Form("USD"),
+    db: Session = Depends(get_session),
+    admin: User = Depends(get_admin_user),
+):
+    """Update the default pay config."""
+    try:
+        parsed = json.loads(pay_days)
+        if not isinstance(parsed, list) or not parsed:
+            raise ValueError("pay_days must be a non-empty list")
+        # Validate each entry is int or "eom"
+        for item in parsed:
+            if item == "eom":
+                continue
+            if not isinstance(item, int) or item < 1 or item > 31:
+                raise ValueError(f"Invalid pay day: {item}. Must be 1-31 or 'eom'.")
+    except json.JSONDecodeError:
+        return RedirectResponse(
+            url="/admin/settings?error=Invalid+JSON+for+pay+days", status_code=303
+        )
+    except ValueError as e:
+        return RedirectResponse(
+            url=f"/admin/settings?error={str(e)}", status_code=303
+        )
+
+    config = crud.get_pay_config(db)
+    if config:
+        config.name = config_name.strip()
+        config.pay_days = json.dumps(parsed)
+        config.currency = currency.upper().strip()
+    else:
+        config = PayConfig(
+            name=config_name.strip(),
+            pay_days=json.dumps(parsed),
+            currency=currency.upper().strip(),
+            is_default=True,
+        )
+        db.add(config)
+    db.commit()
+
+    try:
+        crud.log_admin_action(db, admin.id, "update_pay_config", {"pay_days": parsed, "currency": currency})
+    except Exception:
+        logger.exception("Audit log failed for update_pay_config")
+
+    return RedirectResponse(url="/admin/settings?message=Pay+config+updated", status_code=303)
+
+
+@router.post("/settings/frequency-plans/{plan_id}")
+def update_frequency_plan(
+    request: Request,
+    plan_id: int,
+    display_name: str = Form(...),
+    pay_day_indices: str = Form(...),
+    is_active: str | None = Form(None),
+    db: Session = Depends(get_session),
+    admin: User = Depends(get_admin_user),
+):
+    """Update a frequency plan."""
+    plan = db.get(FrequencyPlan, plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Frequency plan not found")
+
+    try:
+        parsed = json.loads(pay_day_indices)
+        if not isinstance(parsed, list):
+            raise ValueError("pay_day_indices must be a list")
+    except (json.JSONDecodeError, ValueError) as e:
+        return RedirectResponse(
+            url=f"/admin/settings?error=Invalid+indices:+{e}", status_code=303
+        )
+
+    plan.display_name = display_name.strip()
+    plan.pay_day_indices = json.dumps(parsed)
+    plan.is_active = is_active is not None
+    db.commit()
+
+    return RedirectResponse(url="/admin/settings?message=Frequency+plan+updated", status_code=303)
 
 
 @router.post("/maintenance/cleanup-empty-runs")
