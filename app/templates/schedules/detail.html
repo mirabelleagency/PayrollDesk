@@ -787,7 +787,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
                     <td colspan="11" style="padding: 0; background: rgba(15, 23, 42, 0.95);">
                         <div style="padding: 16px; border-top: 1px solid rgba(148, 163, 184, 0.1);">
                                 <form method="post" action="/schedules/{{ run.id }}/payouts/{{ payout.id }}/note" 
-                                    class="notes-edit-form" data-payout-id="{{ payout.id }}"
+                                    class="notes-edit-form" data-payout-id="{{ payout.id }}" data-no-auto-loading="1"
                                     style="display: flex; gap: 12px; align-items: flex-start;">
                                                                 <input type="hidden" name="redirect_to" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
                                 <div style="flex: 0 0 180px;">
@@ -844,7 +844,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
                     <strong id="selected-count">0</strong> payment<span id="selected-plural">s</span> selected
                 </span>
             </div>
-            <form method="post" action="/schedules/{{ run.id }}/payouts/bulk-update" id="bulk-form" 
+            <form method="post" action="/schedules/{{ run.id }}/payouts/bulk-update" id="bulk-form" data-no-auto-loading="1"
                   style="display: flex; gap: 12px; align-items: center;">
                 <input type="hidden" id="bulk-payout-ids" name="payout_ids" value="">
                 <input type="hidden" name="redirect_to" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
@@ -1006,9 +1006,26 @@ function cancelBulkUpdate() {
     updateBulkSection();
 }
 
-// Quick status update via button
+// Quick status update via button — optimistic UI
 function quickUpdateStatus(payoutId, status) {
-    // Try in-place update via JSON endpoint first; fallback to form submit on failure
+    const row = document.querySelector(`tr.payout-row[data-payout-id="${payoutId}"]`);
+    if (!row) return;
+
+    // Snapshot current state for rollback
+    const prevStatus = row.getAttribute('data-status');
+    const prevChipHtml = row.querySelector('.status-chip')?.outerHTML;
+    const prevButtons = [];
+    row.querySelectorAll('.js-quick-update').forEach(function(b) {
+        prevButtons.push({ cls: b.className, action: b.getAttribute('data-action'), title: b.title, text: b.textContent });
+    });
+
+    // Apply optimistic update immediately
+    applyRowStatusUpdate(String(payoutId), status, computeRowOverdue(row, status));
+    row.classList.add('opt-pending');
+
+    // Disable action buttons during request
+    row.querySelectorAll('.js-quick-update').forEach(function(b) { b.classList.add('is-loading'); });
+
     const endpoint = `/schedules/{{ run.id }}/payouts/${payoutId}/status`;
     const formData = new FormData();
     formData.append('status', status);
@@ -1020,82 +1037,14 @@ function quickUpdateStatus(payoutId, status) {
         })
         .then((data) => {
             if (!data || !data.ok) throw new Error('Update failed');
-            const row = document.querySelector(`tr.payout-row[data-payout-id="${payoutId}"]`);
-            if (!row) return;
-
-            // Update data-status
+            // Server confirmed — apply authoritative state (may differ from optimistic)
+            row.classList.remove('opt-pending');
+            row.querySelectorAll('.js-quick-update').forEach(function(b) { b.classList.remove('is-loading'); });
             const newStatus = String(data.new_status || '').toLowerCase();
             const serverOverdue = typeof data.is_overdue === 'boolean' ? data.is_overdue : null;
             const computedOverdue = computeRowOverdue(row, newStatus);
             const isOverdue = serverOverdue === null ? computedOverdue : (serverOverdue || computedOverdue);
-            row.setAttribute('data-status', newStatus);
-            updateOverdueIndicators(row, isOverdue);
-
-            // Update status chip text and variant
-            const chip = row.querySelector('.status-chip');
-            if (chip) {
-                chip.textContent = newStatus.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
-                chip.classList.remove('status-chip--success', 'status-chip--warning', 'status-chip--danger', 'status-chip--info', 'status-chip--neutral');
-                if (newStatus === 'paid') chip.classList.add('status-chip--success');
-                else if (newStatus === 'approved') chip.classList.add('status-chip--info');
-                else if (newStatus === 'not_paid') chip.classList.add('status-chip--warning');
-                else if (newStatus === 'on_hold') chip.classList.add('status-chip--danger');
-                else chip.classList.add('status-chip--neutral');
-            }
-
-            // Update quick action buttons in-place
-            const buttons = row.querySelectorAll('.js-quick-update');
-            if (buttons && buttons.length >= 3) {
-                const paidBtn = buttons[0]; // paid/unpaid
-                const approvedBtn = buttons[1]; // approved/not_paid
-                const holdBtn = buttons[2];    // hold/not_paid
-
-                // Paid toggle button
-                if (newStatus === 'paid') {
-                    paidBtn.classList.remove('action-button--success');
-                    paidBtn.classList.add('action-button--neutral');
-                    paidBtn.setAttribute('data-action', 'not_paid');
-                    paidBtn.setAttribute('title', 'Unmark Paid');
-                    paidBtn.textContent = '↺';
-                } else {
-                    paidBtn.classList.remove('action-button--neutral');
-                    paidBtn.classList.add('action-button--success');
-                    paidBtn.setAttribute('data-action', 'paid');
-                    paidBtn.setAttribute('title', 'Mark as Paid');
-                    paidBtn.textContent = '✓';
-                }
-                // Approved toggle button
-                if (newStatus === 'approved') {
-                    approvedBtn.classList.remove('action-button--primary');
-                    approvedBtn.classList.add('action-button--neutral');
-                    approvedBtn.setAttribute('data-action', 'not_paid');
-                    approvedBtn.setAttribute('title', 'Unmark Approved');
-                    approvedBtn.textContent = '↺';
-                } else {
-                    approvedBtn.classList.remove('action-button--neutral');
-                    approvedBtn.classList.add('action-button--primary');
-                    approvedBtn.setAttribute('data-action', 'approved');
-                    approvedBtn.setAttribute('title', 'Mark Approved');
-                    approvedBtn.textContent = '✔';
-                }
-
-                // Hold button
-                if (newStatus === 'on_hold') {
-                    holdBtn.classList.remove('action-button--warning');
-                    holdBtn.classList.add('action-button--neutral');
-                    holdBtn.setAttribute('data-action', 'not_paid');
-                    holdBtn.setAttribute('title', 'Remove Hold');
-                    holdBtn.textContent = '▶';
-                } else {
-                    holdBtn.classList.remove('action-button--neutral');
-                    holdBtn.classList.add('action-button--warning');
-                    holdBtn.setAttribute('data-action', 'on_hold');
-                    holdBtn.setAttribute('title', 'Put On Hold');
-                    holdBtn.textContent = '⏸';
-                }
-            }
-
-            // Recompute totals if that widget exists
+            applyRowStatusUpdate(String(payoutId), newStatus, isOverdue);
             if (typeof recomputeVisibleTotal === 'function') {
                 try { recomputeVisibleTotal(); } catch (_) { }
             }
@@ -1103,7 +1052,24 @@ function quickUpdateStatus(payoutId, status) {
             refreshActiveStatusFilter();
         })
         .catch(() => {
-            // Fallback to original form submit behavior to preserve functionality
+            // Revert optimistic update
+            row.classList.remove('opt-pending');
+            row.setAttribute('data-status', prevStatus);
+            const chip = row.querySelector('.status-chip');
+            if (chip && prevChipHtml) {
+                chip.outerHTML = prevChipHtml;
+            }
+            const btns = row.querySelectorAll('.js-quick-update');
+            btns.forEach(function(b, i) {
+                if (prevButtons[i]) {
+                    b.className = prevButtons[i].cls;
+                    b.setAttribute('data-action', prevButtons[i].action);
+                    b.title = prevButtons[i].title;
+                    b.textContent = prevButtons[i].text;
+                }
+                b.classList.remove('is-loading');
+            });
+            // Fallback to form submit
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = `/schedules/{{ run.id }}/payouts/${payoutId}/note`;
@@ -1889,6 +1855,26 @@ document.addEventListener('submit', function (e) {
     const status = statusSel ? statusSel.value : '';
     if (!ids || !status) return;
 
+    // Optimistic: apply status to all selected rows immediately
+    const idList = ids.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+    const prevStates = {};
+    idList.forEach(function(pid) {
+        var row = document.querySelector('tr.payout-row[data-payout-id="' + pid + '"]');
+        if (row) {
+            prevStates[pid] = row.getAttribute('data-status');
+            applyRowStatusUpdate(pid, status, computeRowOverdue(row, status));
+            row.classList.add('opt-pending');
+        }
+    });
+
+    // Disable bulk button
+    var bulkBtn = form.querySelector('button[type="submit"]');
+    if (bulkBtn) {
+        bulkBtn.dataset.origHtml = bulkBtn.innerHTML;
+        bulkBtn.innerHTML = '<span class="opt-spinner"></span>';
+        bulkBtn.classList.add('is-loading');
+    }
+
     const endpoint = `/schedules/{{ run.id }}/payouts/bulk-update/status`;
     const fd = new FormData();
     fd.append('payout_ids', ids);
@@ -1901,6 +1887,11 @@ document.addEventListener('submit', function (e) {
         })
         .then((data) => {
             if (!data || !data.ok) throw new Error('Update failed');
+            // Server confirmed — remove pending state
+            idList.forEach(function(pid) {
+                var row = document.querySelector('tr.payout-row[data-payout-id="' + pid + '"]');
+                if (row) row.classList.remove('opt-pending');
+            });
             const updatedIds = data.updated_ids || [];
             const overdue_flags = data.overdue_flags || {};
             const newStatus = String(data.new_status || '').toLowerCase();
@@ -1917,7 +1908,18 @@ document.addEventListener('submit', function (e) {
             queueSummaryRefresh();
         })
         .catch(() => {
-            // Fallback to regular submit if fetch fails
+            // Revert optimistic updates
+            idList.forEach(function(pid) {
+                var row = document.querySelector('tr.payout-row[data-payout-id="' + pid + '"]');
+                if (row) {
+                    row.classList.remove('opt-pending');
+                    if (prevStates[pid]) applyRowStatusUpdate(pid, prevStates[pid], computeRowOverdue(row, prevStates[pid]));
+                }
+            });
+            if (bulkBtn) {
+                if (bulkBtn.dataset.origHtml) bulkBtn.innerHTML = bulkBtn.dataset.origHtml;
+                bulkBtn.classList.remove('is-loading');
+            }
             form.submit();
         });
 });
@@ -1928,6 +1930,14 @@ function submitNotesFormAjax(form) {
         form.dataset.ajaxFallback = '1';
         form.submit();
         return;
+    }
+
+    // Show loading state on save button
+    var saveBtn = form.querySelector('button[type="submit"]');
+    if (saveBtn) {
+        saveBtn.dataset.origHtml = saveBtn.innerHTML;
+        saveBtn.innerHTML = '<span class="opt-spinner"></span>';
+        saveBtn.classList.add('is-loading');
     }
 
     const formData = new FormData(form);
@@ -2738,6 +2748,15 @@ function toggleCompensationDetails() {
 
 async function resolveAlert(alertId, action) {
     const runId = {{ run.id }};
+
+    // Optimistic: immediately fade the row and disable buttons
+    const row = document.querySelector(`tr[data-alert-id="${alertId}"]`);
+    if (row) {
+        row.style.transition = 'opacity 0.3s, transform 0.3s';
+        row.style.opacity = '0.35';
+        row.style.pointerEvents = 'none';
+    }
+
     const formData = new FormData();
     formData.append('action', action);
     
@@ -2755,10 +2774,8 @@ async function resolveAlert(alertId, action) {
         const data = await response.json();
         
         if (data.ok) {
-            // Remove the row from the table
-            const row = document.querySelector(`tr[data-alert-id="${alertId}"]`);
+            // Server confirmed — complete the removal
             if (row) {
-                row.style.transition = 'opacity 0.3s, transform 0.3s';
                 row.style.opacity = '0';
                 row.style.transform = 'translateX(20px)';
                 setTimeout(() => {
@@ -2787,6 +2804,11 @@ async function resolveAlert(alertId, action) {
             }, 500);
         }
     } catch (error) {
+        // Revert optimistic fade
+        if (row) {
+            row.style.opacity = '1';
+            row.style.pointerEvents = '';
+        }
         console.error('Error resolving alert:', error);
         showToast(error.message || 'Failed to resolve alert', 'error');
     }
@@ -2815,6 +2837,13 @@ async function bulkResolveAlerts(action) {
     const formData = new FormData();
     formData.append('alert_ids', alertIds);
     formData.append('action', action);
+
+    // Optimistic: fade all alert rows immediately
+    rows.forEach(function(r) {
+        r.style.transition = 'opacity 0.3s';
+        r.style.opacity = '0.35';
+        r.style.pointerEvents = 'none';
+    });
     
     try {
         const response = await fetch(`/schedules/${runId}/compensation-alerts/bulk-resolve`, {
@@ -2837,6 +2866,11 @@ async function bulkResolveAlerts(action) {
             }, 1000);
         }
     } catch (error) {
+        // Revert optimistic fade
+        rows.forEach(function(r) {
+            r.style.opacity = '1';
+            r.style.pointerEvents = '';
+        });
         console.error('Error bulk resolving alerts:', error);
         showToast(error.message || 'Failed to resolve alerts', 'error');
     }

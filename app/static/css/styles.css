@@ -8015,4 +8015,62 @@ section {
     color: #cbd5e1;
 }
 
+/* ─── Optimistic UI ─── */
+
+@keyframes opt-spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes opt-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+}
+
+/* Inline spinner used inside buttons during loading */
+.opt-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: opt-spin 0.6s linear infinite;
+    vertical-align: middle;
+}
+
+/* Button loading state */
+.is-loading {
+    pointer-events: none;
+    opacity: 0.7;
+    position: relative;
+}
+
+.is-loading .opt-label {
+    visibility: hidden;
+}
+
+.is-loading .opt-spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    margin: -7px 0 0 -7px;
+}
+
+/* Optimistic row pulse while pending server confirmation */
+.opt-pending {
+    animation: opt-pulse 1s ease-in-out infinite;
+}
+
+/* Smooth status chip transition */
+.status-chip {
+    transition: background 0.25s ease, color 0.25s ease;
+}
+
+/* Action button loading state */
+.action-button.is-loading,
+.commission-action-button.is-loading {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
 

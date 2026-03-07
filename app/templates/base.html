@@ -274,5 +274,37 @@
         });
     })();
 </script>
+<script>
+    // ─── Global Optimistic UI ───
+    // Intercept all form submissions to show loading state on submit buttons
+    (function() {
+        document.addEventListener('submit', function(e) {
+            const form = e.target;
+            // Skip forms that handle their own submission (AJAX forms)
+            if (form.dataset.noAutoLoading) return;
+
+            const btn = form.querySelector('button[type="submit"], input[type="submit"]');
+            if (!btn || btn.classList.contains('is-loading')) return;
+
+            // Save original content and show spinner
+            btn.dataset.origHtml = btn.innerHTML;
+            const label = btn.textContent.trim();
+            btn.innerHTML = '<span class="opt-spinner"></span><span class="opt-label">' + label + '</span>';
+            btn.classList.add('is-loading');
+            btn.disabled = true;
+        }, true);
+
+        // Safety: re-enable buttons if user navigates back to a cached page
+        window.addEventListener('pageshow', function(e) {
+            if (e.persisted) {
+                document.querySelectorAll('.is-loading').forEach(function(btn) {
+                    if (btn.dataset.origHtml) btn.innerHTML = btn.dataset.origHtml;
+                    btn.classList.remove('is-loading');
+                    btn.disabled = false;
+                });
+            }
+        });
+    })();
+</script>
 </body>
 </html>

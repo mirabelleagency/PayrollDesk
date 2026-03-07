@@ -499,7 +499,7 @@ document.addEventListener('DOMContentLoaded', () => {
         statusSelect.addEventListener('change', applyFilters);
     }
 
-    // Handle quick action status updates
+    // Handle quick action status updates — optimistic UI
     document.addEventListener('click', async (e) => {
         const button = e.target.closest('.js-commission-status');
         if (!button) return;
@@ -507,6 +507,27 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const commissionId = button.dataset.commissionId;
         const action = button.dataset.action;
+        const row = button.closest('[data-commission-row]');
+
+        // Snapshot previous state for rollback
+        const prevStatus = row ? row.dataset.status : null;
+        const statusDisplay = row ? row.querySelector('[data-status-display]') : null;
+        const prevChipClass = statusDisplay ? statusDisplay.className : '';
+        const prevChipText = statusDisplay ? statusDisplay.textContent : '';
+        const prevBtnAction = button.dataset.action;
+
+        // Optimistic: apply expected new status immediately
+        const expectedStatus = action === 'paid' ? 'paid' : 'unpaid';
+        if (row) {
+            row.dataset.status = expectedStatus;
+            row.classList.add('opt-pending');
+        }
+        if (statusDisplay) {
+            statusDisplay.textContent = expectedStatus.charAt(0).toUpperCase() + expectedStatus.slice(1);
+            statusDisplay.className = 'status-chip status-chip--' + (expectedStatus === 'paid' ? 'success' : 'warning');
+        }
+        button.classList.add('is-loading');
+        renderActionButton(button, expectedStatus === 'paid' ? 'unpaid' : 'paid');
 
         try {
             const formData = new FormData();
@@ -522,27 +543,34 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const result = await response.json();
-            
-                // Update row data attribute
-                const row = button.closest('[data-commission-row]');
-                if (row) {
-                    row.dataset.status = result.new_status;
-                    
-                    // Update status display
-                    const statusDisplay = row.querySelector('[data-status-display]');
-                    if (statusDisplay) {
-                        statusDisplay.textContent = result.new_status.charAt(0).toUpperCase() + result.new_status.slice(1);
-                        statusDisplay.className = 'status-chip status-chip--' + (result.new_status === 'paid' ? 'success' : 'warning');
-                    }
-                    
-                    // Update button icon/label
-                    if (result.new_status === 'paid') {
-                        renderActionButton(button, 'unpaid');
-                    } else {
-                        renderActionButton(button, 'paid');
-                    }
-                }
+
+            // Server confirmed — apply authoritative state
+            if (row) {
+                row.classList.remove('opt-pending');
+                row.dataset.status = result.new_status;
+            }
+            button.classList.remove('is-loading');
+            if (statusDisplay) {
+                statusDisplay.textContent = result.new_status.charAt(0).toUpperCase() + result.new_status.slice(1);
+                statusDisplay.className = 'status-chip status-chip--' + (result.new_status === 'paid' ? 'success' : 'warning');
+            }
+            if (result.new_status === 'paid') {
+                renderActionButton(button, 'unpaid');
+            } else {
+                renderActionButton(button, 'paid');
+            }
         } catch (error) {
+            // Revert optimistic update
+            if (row) {
+                row.classList.remove('opt-pending');
+                if (prevStatus) row.dataset.status = prevStatus;
+            }
+            button.classList.remove('is-loading');
+            if (statusDisplay) {
+                statusDisplay.className = prevChipClass;
+                statusDisplay.textContent = prevChipText;
+            }
+            button.dataset.action = prevBtnAction;
             console.error('Error updating commission status:', error);
             alert('Failed to update commission status');
         }
