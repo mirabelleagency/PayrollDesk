@@ -6,6 +6,23 @@
 
 ---
 
+## Implementation Status
+
+| Phase | Description | Status | Commit |
+|-------|-------------|--------|--------|
+| **Phase 1** | Database schema (PayConfig, FrequencyPlan, ScheduleAmendment models, Payout locking) | ✅ Done | `9c7f34d` |
+| **Phase 2** | Config-driven engine (pay_days, frequency_plans params in payroll.py) | ✅ Done | `9c7f34d` |
+| **Phase 3** | Selective refresh + payout locking (clear_unlocked_schedule_data, auto-lock on paid) | ✅ Done | `9c7f34d` |
+| **Phase 4** | Auto-generation (auto_generate_upcoming_schedules, upcoming pay dates API) | ✅ Done | `277381f` |
+| **Phase 5** | Calendar dashboard + run status UI (calendar strip, status badges, lock icons) | ✅ Done | `277381f` |
+| **Phase 6** | Transaction safety (try/except rollback wrapper in run_payroll) | ✅ Done | `9c7f34d` |
+| **Phase 7** | Admin settings UI for pay config & frequency plans | ⬜ Not started |  |
+| **Phase 8** | Amendment logging on refresh/add_models | ⬜ Not started |  |
+| **Phase 9** | Auto-resolve compensation alerts on recalculation | ⬜ Not started |  |
+| **Phase 10** | Background processing thread (optional) | ⬜ Not started |  |
+
+---
+
 ## Design Philosophy
 
 **Current flow:** "I need to run payroll for January" (user-initiated)  
@@ -258,20 +275,21 @@ def update_payout(db, payout, note, status):
 
 ## Implementation Order
 
-| Step | What | Files Changed | Risk |
-|------|------|---------------|------|
-| **1** | Transaction safety wrapper | `services.py` | Low — wraps existing code |
-| **2** | Add `PayConfig` + `FrequencyPlan` models | `models.py`, migration | Low — additive |
-| **3** | Config-driven `get_pay_dates()` | `payroll.py` | Low — backward compatible |
-| **4** | Config-driven frequency plans | `payroll.py` | Low — fallback to hardcoded |
-| **5** | Add `is_locked` + `gross_amount` to Payout | `models.py`, migration | Low — additive |
-| **6** | Selective refresh (`clear_unlocked_payouts`) | `crud.py`, `services.py` | **Medium** — core logic change |
-| **7** | Auto-lock on paid status | `crud.py` | Low — in existing `update_payout()` |
-| **8** | `ScheduleAmendment` model + logging | `models.py`, `crud.py` | Low — additive |
-| **9** | Admin settings UI for pay config | `routers/admin.py`, templates | Low — new page |
-| **10** | Schedule status + progress polling | `routers/schedules.py`, templates | Medium — UI changes |
-| **11** | Background processing thread | `services.py` | Medium — concurrency |
-| **12** | Auto-resolve compensation alerts | `crud.py` | Low — logic addition |
+| Step | What | Files Changed | Risk | Status |
+|------|------|---------------|------|--------|
+| **1** | Transaction safety wrapper | `services.py` | Low | ✅ Done |
+| **2** | Add `PayConfig` + `FrequencyPlan` models | `models.py`, migration | Low | ✅ Done |
+| **3** | Config-driven `get_pay_dates()` | `payroll.py` | Low | ✅ Done |
+| **4** | Config-driven frequency plans | `payroll.py` | Low | ✅ Done |
+| **5** | Add `is_locked` + `gross_amount` to Payout | `models.py`, migration | Low | ✅ Done |
+| **6** | Selective refresh (`clear_unlocked_payouts`) | `crud.py`, `services.py` | Medium | ✅ Done |
+| **7** | Auto-lock on paid status | `crud.py` | Low | ✅ Done |
+| **8** | Auto-generation + calendar dashboard | `services.py`, `schedules.py`, templates | Medium | ✅ Done |
+| **9** | Run status + lock icons in UI | templates, CSS | Low | ✅ Done |
+| **10** | `ScheduleAmendment` logging | `crud.py`, `services.py` | Low | ⬜ Pending |
+| **11** | Admin settings UI for pay config | `routers/admin.py`, templates | Low | ⬜ Pending |
+| **12** | Auto-resolve compensation alerts | `crud.py` | Low | ⬜ Pending |
+| **13** | Background processing thread | `services.py` | Medium | ⬜ Optional |
 
 ---
 
@@ -294,3 +312,36 @@ def update_payout(db, payout, note, status):
 - Export format (CSV/Excel with Gross/Net/Deducted)
 - Authentication & authorization layer
 - Dashboard cache mechanism (just improved invalidation)
+
+---
+
+## UI/UX Changes Summary
+
+### Payroll Hub (`/schedules`)
+1. **Upcoming Pay Dates Calendar Strip** — horizontal scrollable strip showing next 3 months of pay dates
+   - Each card shows month abbreviation, day number, paid/total count, and total amount
+   - Green border = schedule exists; dashed purple border = draft schedule; no border = no schedule yet
+   - Clicking a card navigates to the run detail (or New Cycle form if none exists)
+2. **Auto-Generate Drafts Button** — in calendar strip header, admin-only
+   - Creates draft runs for next 2 months in one click
+   - Redirects to the first newly created run
+3. **Status Column in Cycles Table** — new column showing Draft / Ready / Processing / Error badges
+   - Draft = purple chip, Ready = green chip, Processing = yellow chip, Error = red chip
+
+### Schedule Detail (`/schedules/{id}`)
+4. **Run Status Badge** — shown in the header next to cycle number (Draft / Ready / Processing / Error)
+5. **Lock Icon (🔒)** — shown next to model code for payouts that are locked (paid)
+   - Tooltip: "Locked — paid payout preserved on refresh"
+   - Locked payouts are skipped during schedule refresh, preserving their data
+
+### Behind the Scenes (no visible UI yet)
+- **Selective refresh** — refreshing a cycle only recalculates unlocked payouts; paid payouts are preserved
+- **Config-driven pay dates** — pay dates sourced from DB (PayConfig table) instead of hardcoded
+- **Config-driven frequency plans** — frequency definitions from DB (FrequencyPlan table)
+- **Transaction safety** — payroll run wrapped in try/except with rollback on failure
+
+### Remaining UI Changes (Phase 7+)
+- Admin settings page to configure pay dates and frequency plans
+- Amendment history log panel on schedule detail
+- Per-row refresh button for individual model recalculation
+- Warning banner when some payouts in a run are locked
