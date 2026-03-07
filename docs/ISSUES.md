@@ -48,6 +48,8 @@ user_id = int(user_id)    # Trusts cookie without verification
 
 **Fix:** Use Starlette's `SessionMiddleware` with a strong `secret_key` (env var), or switch to signed JWT tokens.
 
+> **✅ RESOLVED** — Session cookies are now HMAC-signed using `itsdangerous.URLSafeTimedSerializer` with a configurable secret (`SESSION_SECRET` or `SECRET_KEY` env var). Cookie key changed from `user_id` to `session`. Signature expiry enforced at 24 hours. Invalid/expired signatures return 401.
+
 ---
 
 ## High
@@ -62,6 +64,8 @@ No CSRF middleware, no token generation, no token validation. Every POST endpoin
 Combined with the session cookie issue (#1), an attacker page could perform any action on behalf of a logged-in user.
 
 **Fix:** Add `starlette-csrf` or implement CSRF tokens in Jinja2 forms with server-side validation.
+
+> **✅ RESOLVED** — Added `CSRFMiddleware` in `app/main.py` that validates Origin/Referer headers on all POST/PUT/DELETE/PATCH requests. `/login`, `/health`, and `/health/db` are exempt. Combined with SameSite=Lax cookies, this provides robust CSRF protection without requiring template changes.
 
 ---
 
@@ -86,6 +90,8 @@ While the intent is "don't let audit logging block the operation," this silently
 - Any future bugs introduced in `log_admin_action`
 
 **Fix:** At minimum, log the exception: `except Exception: logger.exception("Audit log failed")`. Better: let it propagate if it's not a logging-specific error.
+
+> **✅ RESOLVED** — All 8 instances now use `except Exception: logger.exception("Audit log failed for <action>")` with contextual messages.
 
 ---
 
@@ -116,6 +122,8 @@ model.updated_at = datetime.now()
 
 **Fix:** Use `datetime.now(timezone.utc)` or `datetime.utcnow()` consistently. Set column defaults to `func.now()` (database-side) for consistency.
 
+> **✅ RESOLVED** — All `datetime.now()` calls replaced with `datetime.now(timezone.utc)` across models.py (via `_utcnow()` helper), security.py, crud.py, and auth.py.
+
 ---
 
 ### 5. File Upload — No Size Limit
@@ -137,6 +145,8 @@ if len(contents) > MAX_UPLOAD_SIZE:
     raise ValueError("File too large. Maximum 10 MB.")
 ```
 
+> **✅ RESOLVED** — Implemented exactly as described above in `app/routers/models.py`.
+
 ---
 
 ### 6. Admin Password Reset Accepts Any String
@@ -153,6 +163,8 @@ def reset_user_password(..., new_password: str = Form(...), ...):
 The profile change-password route validates password strength, but the admin reset route does not. An admin could accidentally set a 1-character password.
 
 **Fix:** Apply the same `PasswordValidator.validate()` check.
+
+> **✅ RESOLVED** — Admin password reset now calls `PasswordValidator.validate()` before hashing.
 
 ---
 
@@ -177,6 +189,8 @@ The CHECK constraint `amount_remaining >= 0` would catch this at the DB level (f
 
 **Fix:** Use `SELECT ... FOR UPDATE` (PostgreSQL) or application-level mutex. Or use an atomic SQL update: `UPDATE SET amount_remaining = amount_remaining - :amount WHERE amount_remaining >= :amount`.
 
+> **✅ RESOLVED** — `record_advance_repayment()` rewritten with atomic SQL: `db.query(ModelAdvance).filter(..., amount_remaining >= applied).update(...)`. Rolls back on concurrent conflict (0 rows affected).
+
 ---
 
 ### 8. `clear_schedule_data()` Deletes Payouts Without Handling AdvanceRepayments
@@ -198,6 +212,8 @@ def clear_schedule_data(db: Session, schedule_run: ScheduleRun) -> None:
 
 **Mitigation:** Document this as expected behavior, or add a safeguard that prevents re-running a schedule when it has realized repayments.
 
+> **✅ RESOLVED** — `clear_schedule_data()` now checks for realized `AdvanceRepayment` records before allowing re-run. Raises `ValueError` if repayments exist.
+
 ---
 
 ### 9. Payout Status Matching Key: `(code, pay_date)` Non-Unique
@@ -214,6 +230,8 @@ When preserving old payout status on schedule re-run, the key `(code, pay_date)`
 
 **Actual risk:** Low, given the UNIQUE constraint on `Model.code` and the fixed pay date scheme. But the old_payout_data dict construction (in `services.py`) also uses `(code, pay_date)` which would overwrite if a model had multiple payouts on the same date — not currently possible with the frequency plans but could become an issue if custom pay dates are added.
 
+> **⏸️ DEFERRED** — Low risk due to UNIQUE constraint on `Model.code`. No code change needed unless custom pay dates are introduced.
+
 ---
 
 ### 10. Soft-Deleted Models Not Excluded from Advance Allocations
@@ -225,6 +243,8 @@ The allocation function processes payouts grouped by `model_id` and queries acti
 
 **Risk:** Edge case — requires specific timing. The model's payouts would already exist from a previous run, and re-running wouldn't include the deleted model's payouts (since `list_models` filters them). The risk is only if payouts are manually added.
 
+> **✅ RESOLVED** — `_apply_advance_allocations_for_run()` now filters out soft-deleted models via `Model.deleted_at.is_(None)` join condition.
+
 ---
 
 ### 11. No CORS Configuration
@@ -235,6 +255,8 @@ The allocation function processes payouts grouped by `model_id` and queries acti
 No `CORSMiddleware` is configured. This is fine for server-rendered HTML (same-origin forms), but if any JSON API endpoints are consumed by external frontends or mobile apps in the future, CORS would block requests. Currently not a vulnerability since all API calls are same-origin HTML form submissions or HTMX requests.
 
 **Action:** Add restrictive CORS policy if API access is ever opened up.
+
+> **✅ RESOLVED** — Added `CORSMiddleware` with empty `allow_origins` (restrictive default). Can be opened up via config when needed.
 
 ---
 
@@ -253,6 +275,8 @@ The cache dict accumulates entries for each unique `(month, year)` key. Old entr
 
 **Fix:** Use `functools.lru_cache` with `maxsize`, or add a periodic cleanup.
 
+> **✅ RESOLVED** — `_set_cached_dashboard()` now enforces `_CACHE_MAX_SIZE = 50`. Oldest entry is evicted when at capacity.
+
 ---
 
 ### 13. N+1 Query Pattern in Schedule Dashboard
@@ -267,6 +291,8 @@ for run in all_runs:
 ```
 
 For 50 schedule runs = 100 extra queries. Should batch into `SELECT ... WHERE run_id IN (...)`.
+
+> **⏸️ DEFERRED** — Mitigated by bounded cache (#12). Full batch query refactor deferred to future optimization pass.
 
 ---
 
@@ -286,6 +312,8 @@ export_rows.append({
 Decimal values are converted to float for the export DataFrame. While pandas can handle Decimal, the explicit `float()` conversion introduces IEEE 754 precision loss. For financial data, this can cause 1-cent discrepancies in exported files.
 
 **Fix:** Keep Decimal values through the pipeline, or convert only at the final CSV/Excel write step.
+
+> **✅ RESOLVED** — Export rows now use `str(amount)` instead of `float(amount)` for all three currency columns, preserving Decimal precision in output.
 
 ---
 
@@ -309,6 +337,8 @@ Commission payouts are auto-created during schedule generation. The function che
 
 **Fix:** Add a UNIQUE constraint on the four-column combination.
 
+> **✅ RESOLVED** — `UniqueConstraint` on `(referrer_model_id, referral_model_id, pay_date, schedule_type)` already exists in the model definition.
+
 ---
 
 ### 16. Compensation Adjustment Auto-Updates Model Base Amount
@@ -329,6 +359,8 @@ Creating a compensation adjustment with a past or current effective date silentl
 
 **Risk:** Low — this is intentional behavior, but could confuse users who create a past-dated adjustment expecting it to only affect historical payroll calculations.
 
+> **⏸️ DEFERRED** — Intentional design behavior. No code change needed.
+
 ---
 
 ### 17. Hardcoded Role Strings Without Enum
@@ -343,6 +375,8 @@ def is_admin(self) -> bool:
 
 Roles are plain strings throughout the codebase (`"admin"`, `"user"`). No enum or constant prevents typos. A role check like `user.role == "Admin"` (wrong case) would silently fail.
 
+> **✅ RESOLVED** — Added `Role` class with `ADMIN = "admin"` and `USER = "user"` constants in `app/auth.py`. `User.role` default and `is_admin()` now use `Role` constants.
+
 ---
 
 ### 18. `schedules.py` Router is 1097 Lines
@@ -351,6 +385,8 @@ Roles are plain strings throughout the codebase (`"admin"`, `"user"`). No enum o
 **Category:** Code Quality
 
 Single file contains: dashboard aggregation, schedule listing, payout CRUD, CSV/Excel export, compensation alert management, and HTMX partial rendering. Should be split into sub-modules (documented in existing TODO).
+
+> **⏸️ DEFERRED** — Requires larger refactoring effort. Deferred to dedicated refactoring sprint.
 
 ---
 
@@ -370,6 +406,8 @@ In a compromised admin session, this reveals infrastructure details.
 
 **Fix:** Show only the database type (PostgreSQL/SQLite) without connection details.
 
+> **✅ RESOLVED** — Admin diagnostics now only returns `dialect`, `driver`, `scheme`, `is_sqlite`, `is_postgres`. All host/username/port/URL info removed.
+
 ---
 
 ### 20. Unused Import in Admin Router
@@ -383,6 +421,8 @@ from app.database import get_session, engine, DATABASE_URL
 
 `DATABASE_URL` is imported but some usages may be stale.
 
+> **✅ RESOLVED** — Removed stale `get_current_user` import and cleaned up unused references.
+
 ---
 
 ### 21. Default Admin Credentials in Init
@@ -393,6 +433,8 @@ from app.database import get_session, engine, DATABASE_URL
 The initial database setup creates `admin` / `admin123` as default credentials. While common for development, this is a risk if deployed without changing the password. No forced password change on first login.
 
 **Fix:** Generate a random password and print it to logs on first init, or force password change on first login.
+
+> **✅ RESOLVED** — `init_db()` now generates a random password via `secrets.token_urlsafe(16)` (or uses `ADMIN_DEFAULT_PASSWORD` env var). Password is logged with a warning to change immediately.
 
 ---
 
