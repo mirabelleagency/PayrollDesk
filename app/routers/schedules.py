@@ -2036,6 +2036,60 @@ def run_schedule(
     return RedirectResponse(url=f"/schedules/{run_id}", status_code=303)
 
 
+@router.get("/{run_id}/status")
+def schedule_run_status(
+    run_id: int,
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """JSON endpoint polled by the UI while a run is processing."""
+    run = crud.get_schedule_run(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Schedule run not found")
+    return JSONResponse({
+        "run_status": run.run_status or "ready",
+        "processing_progress": run.processing_progress or 0,
+        "error_message": run.error_message,
+    })
+
+
+@router.post("/new/async")
+def run_schedule_async(
+    request: Request,
+    month: str = Form(...),
+    currency: str = Form("USD"),
+    include_inactive: str | None = Form(None),
+    output_dir: str = Form(str(DEFAULT_EXPORT_DIR)),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    """Start payroll processing in a background thread and redirect to the
+    detail page, which will poll for progress."""
+    try:
+        year_str, month_str = month.split("-")
+        target_year = int(year_str)
+        target_month = int(month_str)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Month must be in YYYY-MM format.")
+
+    currency = currency.upper()
+
+    export_path = Path(output_dir)
+    export_path.mkdir(parents=True, exist_ok=True)
+
+    run_id = PayrollService.run_payroll_async(
+        target_year=target_year,
+        target_month=target_month,
+        currency=currency,
+        include_inactive=bool(include_inactive),
+        output_dir=export_path,
+    )
+
+    _invalidate_dashboard_cache()
+
+    return RedirectResponse(url=f"/schedules/{run_id}?processing=1", status_code=303)
+
+
 @router.get("/{run_id}")
 def view_schedule(
     run_id: int,

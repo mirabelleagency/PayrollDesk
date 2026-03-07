@@ -166,6 +166,48 @@ document.documentElement.classList.add('js-metrics');
     </div>
 </section>
 
+<!-- Processing overlay (shown when run is processing in background) -->
+{% set rs = run.run_status | default('ready') %}
+{% if rs == 'processing' or request.query_params.get('processing') == '1' %}
+<section id="processing-overlay" class="card" style="text-align: center; padding: 48px 24px; margin-bottom: 24px;">
+    <div style="font-size: 48px; margin-bottom: 16px;">⏳</div>
+    <h2 style="color: #f8fafc; margin-bottom: 8px;">Processing Payroll</h2>
+    <p style="color: #94a3b8; margin-bottom: 24px;">Calculating payouts for all models. This page will update automatically.</p>
+    <div style="max-width: 400px; margin: 0 auto 16px auto; background: rgba(30,41,59,0.8); border-radius: 8px; height: 12px; overflow: hidden;">
+        <div id="progress-bar" style="width: {{ run.processing_progress or 0 }}%; height: 100%; background: linear-gradient(90deg, #3b82f6, #6366f1); border-radius: 8px; transition: width 0.5s ease;"></div>
+    </div>
+    <p id="progress-text" style="color: #94a3b8; font-size: 14px;">{{ run.processing_progress or 0 }}%</p>
+    {% if run.error_message %}
+    <div class="alert-banner alert-banner--danger" style="margin-top: 16px; text-align: left;">
+        <div class="alert-banner__icon">⚠️</div>
+        <div class="alert-banner__message">{{ run.error_message }}</div>
+    </div>
+    {% endif %}
+</section>
+<script>
+(function() {
+    var overlay = document.getElementById('processing-overlay');
+    var bar = document.getElementById('progress-bar');
+    var text = document.getElementById('progress-text');
+    var runId = {{ run.id }};
+    var interval = setInterval(function() {
+        fetch('/schedules/' + runId + '/status')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (bar) bar.style.width = data.processing_progress + '%';
+                if (text) text.textContent = data.processing_progress + '%';
+                if (data.run_status === 'ready' || data.run_status === 'error') {
+                    clearInterval(interval);
+                    // Reload the page to show the full results
+                    window.location.href = '/schedules/' + runId;
+                }
+            })
+            .catch(function() { /* retry next interval */ });
+    }, 2000);
+})();
+</script>
+{% endif %}
+
 <!-- Success message for added models -->
 {% if request.query_params.get('added') %}
 {% set added_codes_param = request.query_params.get('added_codes', '') %}

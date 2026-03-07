@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import calendar
 import json
+import logging
+import threading
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -23,6 +25,8 @@ from app.core.payroll import (
 )
 from app import crud
 from app.models import Model, PayConfig, FrequencyPlan
+
+logger = logging.getLogger(__name__)
 
 
 class PayrollService:
@@ -77,6 +81,59 @@ class PayrollService:
         except Exception:
             self.db.rollback()
             raise
+
+    @staticmethod
+    def run_payroll_async(
+        target_year: int,
+        target_month: int,
+        currency: str,
+        include_inactive: bool,
+        output_dir: Path,
+    ) -> int:
+        """Create a schedule run and process it in a background thread.
+
+        Returns the run_id immediately. The caller can poll
+        ``GET /schedules/{run_id}/status`` for progress.
+        """
+        from app.database import SessionLocal
+
+        # Create the run record synchronously so we have an ID to return
+        db = SessionLocal()
+        try:
+            existing = crud.list_schedule_runs(
+                db, target_year=target_year, target_month=target_month
+            )
+            if existing:
+                run = existing[0]
+                run.run_status = "processing"
+                run.processing_progress = 0
+                run.error_message = None
+                db.commit()
+            else:
+                run = crud.create_schedule_run(
+                    db,
+                    target_year=target_year,
+                    target_month=target_month,
+                    currency=currency,
+                    include_inactive=include_inactive,
+                    summary={},
+                    export_path=str(output_dir),
+                )
+                run.run_status = "processing"
+                run.processing_progress = 0
+                db.commit()
+            run_id = run.id
+        finally:
+            db.close()
+
+        # Launch background thread with its own session
+        thread = threading.Thread(
+            target=_payroll_background_worker,
+            args=(run_id, target_year, target_month, currency, include_inactive, output_dir),
+            daemon=True,
+        )
+        thread.start()
+        return run_id
 
     def _run_payroll_inner(
         self,
@@ -475,3 +532,64 @@ class PayrollService:
 
         upcoming.sort(key=lambda e: e["date"])
         return upcoming
+
+
+# -------------------------------------------------------------------------
+# Background payroll processing worker (runs in its own thread + session)
+# -------------------------------------------------------------------------
+
+def _payroll_background_worker(
+    run_id: int,
+    target_year: int,
+    target_month: int,
+    currency: str,
+    include_inactive: bool,
+    output_dir: Path,
+) -> None:
+    """Background thread target that processes a payroll run.
+
+    Uses its own DB session so it doesn't interfere with the request thread.
+    Updates ``run_status`` and ``processing_progress`` as it works.
+    """
+    from app.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        run = crud.get_schedule_run(db, run_id)
+        if not run:
+            logger.error("Background worker: run %d not found", run_id)
+            return
+
+        run.processing_progress = 10
+        db.commit()
+
+        service = PayrollService(db)
+        service.run_payroll(
+            target_year=target_year,
+            target_month=target_month,
+            currency=currency,
+            include_inactive=include_inactive,
+            output_dir=output_dir,
+        )
+
+        # Refresh the run object (run_payroll may have modified it)
+        db.refresh(run)
+        run.run_status = "ready"
+        run.processing_progress = 100
+        run.error_message = None
+        db.commit()
+        logger.info("Background payroll run %d completed successfully", run_id)
+
+    except Exception:
+        db.rollback()
+        try:
+            run = crud.get_schedule_run(db, run_id)
+            if run:
+                run.run_status = "error"
+                run.error_message = "Processing failed. Check server logs."
+                db.commit()
+        except Exception:
+            logger.exception("Failed to update run status after error")
+        logger.exception("Background payroll run %d failed", run_id)
+    finally:
+        db.close()

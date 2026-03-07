@@ -106,6 +106,8 @@ def upgrade() -> None:
         op.add_column('schedule_runs', sa.Column('run_status', sa.String(length=20), nullable=False, server_default='ready'))
     if not _column_exists('schedule_runs', 'error_message'):
         op.add_column('schedule_runs', sa.Column('error_message', sa.Text(), nullable=True))
+    if not _column_exists('schedule_runs', 'processing_progress'):
+        op.add_column('schedule_runs', sa.Column('processing_progress', sa.Integer(), nullable=False, server_default='0'))
     if not _column_exists('schedule_runs', 'pay_config_id'):
         op.add_column('schedule_runs', sa.Column('pay_config_id', sa.Integer(), nullable=True))
         # FK constraint handled by create_all for SQLite; for PostgreSQL use batch mode or direct ALTER
@@ -120,6 +122,7 @@ def downgrade() -> None:
     op.drop_constraint('fk_schedule_runs_pay_config', 'schedule_runs', type_='foreignkey')
     op.drop_column('schedule_runs', 'pay_config_id')
     op.drop_column('schedule_runs', 'error_message')
+    op.drop_column('schedule_runs', 'processing_progress')
     op.drop_column('schedule_runs', 'run_status')
     op.drop_column('payouts', 'gross_amount')
     op.drop_column('payouts', 'is_locked')

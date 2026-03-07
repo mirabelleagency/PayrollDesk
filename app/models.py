@@ -111,6 +111,7 @@ class ScheduleRun(Base):
     # Revamp: run lifecycle status + config reference
     run_status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    processing_progress: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     pay_config_id: Mapped[int | None] = mapped_column(
         ForeignKey("pay_configs.id", ondelete="SET NULL"), nullable=True
     )
