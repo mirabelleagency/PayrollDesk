@@ -19,7 +19,7 @@
 | **Phase 7** | Admin settings UI for pay config & frequency plans | ✅ Done | `ecb64cc` |
 | **Phase 8** | Amendment logging on refresh/add_models | ✅ Done | `ecb64cc` |
 | **Phase 9** | Auto-resolve compensation alerts on recalculation | ✅ Done | `ecb64cc` |
-| **Phase 10** | Background processing thread (optional) | ⬜ Deferred |  |
+| **Phase 10** | Background processing thread | ✅ Done | `88f9b8f` |
 
 ---
 
@@ -289,7 +289,7 @@ def update_payout(db, payout, note, status):
 | **10** | `ScheduleAmendment` logging | `crud.py`, `services.py` | Low | ✅ Done |
 | **11** | Admin settings UI for pay config | `routers/admin.py`, templates | Low | ✅ Done |
 | **12** | Auto-resolve compensation alerts | `crud.py` | Low | ✅ Done |
-| **13** | Background processing thread | `services.py` | Medium | ⬜ Deferred |
+| **13** | Background processing thread | `services.py` | Medium | ✅ Done |
 
 ---
 
