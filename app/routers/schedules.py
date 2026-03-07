@@ -1032,6 +1032,10 @@ def list_runs(
                 "run_id": payout.schedule_run_id,
             })
 
+    # Upcoming pay dates for calendar strip
+    service = PayrollService(db)
+    upcoming_dates = service.get_upcoming_pay_dates(months_ahead=3)
+
     return templates.TemplateResponse(
         request,
         "schedules/list.html",
@@ -1085,6 +1089,7 @@ def list_runs(
             "on_hold_overdue_count": on_hold_overdue_count,
             "overdue_target_url": overdue_target_url,
             "compliance_target_url": compliance_target_url,
+            "upcoming_dates": upcoming_dates,
         },
     )
 
@@ -1930,6 +1935,52 @@ def export_runs_all_table(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+@router.get("/upcoming-dates")
+def upcoming_pay_dates(
+    request: Request,
+    months: int = Query(default=3, ge=1, le=6),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Return upcoming pay dates as JSON for calendar widget."""
+    service = PayrollService(db)
+    dates = service.get_upcoming_pay_dates(months_ahead=months)
+    # Serialize for JSON
+    for entry in dates:
+        entry["date"] = entry["date"].isoformat()
+        entry["total_amount"] = str(entry["total_amount"])
+    return JSONResponse(content=dates)
+
+
+@router.post("/auto-generate")
+def auto_generate_schedules(
+    request: Request,
+    months_ahead: int = Form(2),
+    currency: str = Form("USD"),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    """Auto-generate draft schedule runs for upcoming months."""
+    months_ahead = max(1, min(months_ahead, 6))  # clamp 1-6
+
+    service = PayrollService(db)
+    results = service.auto_generate_upcoming_schedules(
+        months_ahead=months_ahead,
+        currency=currency.upper(),
+        output_dir=DEFAULT_EXPORT_DIR,
+    )
+
+    _invalidate_dashboard_cache()
+
+    created = [r for r in results if r["status"] == "created"]
+    if created:
+        return RedirectResponse(
+            url=f"/schedules/{created[0]['run_id']}", status_code=303
+        )
+    # All months already exist — go back to hub
+    return RedirectResponse(url="/schedules", status_code=303)
 
 
 @router.get("/new")

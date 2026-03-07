@@ -1,7 +1,9 @@
 """Application service layer."""
 from __future__ import annotations
 
+import calendar
 import json
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
@@ -16,6 +18,7 @@ from app.core.payroll import (
     build_validation_report,
     ensure_non_empty_frames,
     export_outputs,
+    get_pay_dates,
     validate_row,
 )
 from app import crud
@@ -315,3 +318,144 @@ class PayrollService:
         for message in validate_row(record, frequency_plans):
             record.add_message(message.level, message.text)
         return record
+
+    # ------------------------------------------------------------------
+    # Auto-generation
+    # ------------------------------------------------------------------
+
+    def auto_generate_upcoming_schedules(
+        self,
+        months_ahead: int = 2,
+        currency: str = "USD",
+        output_dir: Path = Path("exports"),
+    ) -> list[dict]:
+        """Auto-generate draft schedule runs for upcoming months.
+
+        Creates runs for the next *months_ahead* months that don't already
+        have a schedule.  Each new run goes through the full ``run_payroll``
+        pipeline so payouts, exports, and validations are all populated.
+
+        Returns a list of dicts describing what was created.
+        """
+        today = date.today()
+        results: list[dict] = []
+
+        for offset in range(months_ahead):
+            # Calculate target month with rollover
+            month = today.month + 1 + offset
+            year = today.year
+            while month > 12:
+                month -= 12
+                year += 1
+
+            # Skip if a run already exists for this period
+            existing = crud.list_schedule_runs(
+                self.db, target_year=year, target_month=month
+            )
+            if existing:
+                results.append({
+                    "year": year,
+                    "month": month,
+                    "status": "exists",
+                    "run_id": existing[0].id,
+                })
+                continue
+
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            try:
+                _, _, _, summary, run_id = self.run_payroll(
+                    target_year=year,
+                    target_month=month,
+                    currency=currency,
+                    include_inactive=False,
+                    output_dir=output_dir,
+                )
+
+                # Mark as draft
+                run = crud.get_schedule_run(self.db, run_id)
+                if run:
+                    run.run_status = "draft"
+                    self.db.commit()
+
+                results.append({
+                    "year": year,
+                    "month": month,
+                    "status": "created",
+                    "run_id": run_id,
+                    "models_paid": summary.get("models_paid", 0),
+                })
+            except Exception as exc:
+                results.append({
+                    "year": year,
+                    "month": month,
+                    "status": "error",
+                    "error": str(exc),
+                })
+
+        return results
+
+    def get_upcoming_pay_dates(self, months_ahead: int = 3) -> list[dict]:
+        """Return upcoming pay dates across the next *months_ahead* months.
+
+        Each entry contains the date, which models are expected to be paid,
+        and status information from existing schedule runs.
+        """
+        today = date.today()
+        pay_days = self._load_pay_days()
+        freq_plans = self._load_frequency_plans() or {}
+
+        upcoming: list[dict] = []
+
+        for offset in range(months_ahead):
+            month = today.month + offset
+            year = today.year
+            while month > 12:
+                month -= 12
+                year += 1
+
+            dates = get_pay_dates(year, month, pay_days)
+
+            # Check for existing run
+            existing = crud.list_schedule_runs(
+                self.db, target_year=year, target_month=month,
+                eager_load_payouts=True,
+            )
+            run = existing[0] if existing else None
+
+            for pay_date in dates:
+                if pay_date < today:
+                    continue
+
+                entry: dict = {
+                    "date": pay_date,
+                    "year": year,
+                    "month": month,
+                    "month_name": calendar.month_abbr[month],
+                    "has_run": run is not None,
+                    "run_id": run.id if run else None,
+                    "run_status": getattr(run, "run_status", None),
+                }
+
+                if run:
+                    # Count payouts for this specific date
+                    payouts = [
+                        p for p in run.payouts if p.pay_date == pay_date
+                    ]
+                    paid = sum(1 for p in payouts if p.status == "paid")
+                    total = len(payouts)
+                    total_amount = sum(
+                        Decimal(str(p.amount or 0)) for p in payouts
+                    )
+                    entry["payout_count"] = total
+                    entry["paid_count"] = paid
+                    entry["total_amount"] = total_amount
+                else:
+                    entry["payout_count"] = 0
+                    entry["paid_count"] = 0
+                    entry["total_amount"] = Decimal("0")
+
+                upcoming.append(entry)
+
+        upcoming.sort(key=lambda e: e["date"])
+        return upcoming

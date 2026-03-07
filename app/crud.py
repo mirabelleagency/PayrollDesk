@@ -15,11 +15,14 @@ from app.core.payroll import ModelRecord, ValidationMessage
 from app.models import (
     AdhocPayment,
     CommissionPayout,
+    FrequencyPlan,
     Model,
     ModelCompensationAdjustment,
     ModelReferralTerm,
+    PayConfig,
     Payout,
     PayoutCompensationAlert,
+    ScheduleAmendment,
     ScheduleRun,
     ValidationIssue,
     AuditLog,
@@ -576,6 +579,59 @@ def list_schedule_runs(
 
 def get_schedule_run(db: Session, run_id: int) -> ScheduleRun | None:
     return db.get(ScheduleRun, run_id)
+
+
+# ============================================================================
+# PayConfig & FrequencyPlan CRUD Operations
+# ============================================================================
+
+def get_pay_config(db: Session, config_id: int | None = None) -> PayConfig | None:
+    """Get pay config by ID, or the default one."""
+    if config_id is not None:
+        return db.get(PayConfig, config_id)
+    return db.query(PayConfig).filter(PayConfig.is_default == True).first()
+
+
+def list_active_frequency_plans(db: Session) -> Sequence[FrequencyPlan]:
+    """Get all active frequency plans."""
+    return db.query(FrequencyPlan).filter(FrequencyPlan.is_active == True).order_by(FrequencyPlan.name).all()
+
+
+# ============================================================================
+# ScheduleAmendment CRUD Operations
+# ============================================================================
+
+def create_amendment(
+    db: Session,
+    schedule_run: ScheduleRun,
+    amendment_type: str,
+    models_affected: list[str],
+    changes_summary: list[dict],
+    created_by: str = "system",
+) -> ScheduleAmendment:
+    """Log a schedule amendment for audit trail."""
+    amendment = ScheduleAmendment(
+        schedule_run_id=schedule_run.id,
+        amendment_type=amendment_type,
+        models_affected=json.dumps(models_affected),
+        changes_summary=json.dumps(changes_summary),
+        created_by=created_by,
+    )
+    db.add(amendment)
+    db.commit()
+    db.refresh(amendment)
+    return amendment
+
+
+def get_locked_payout_codes(db: Session, run_id: int) -> set[str]:
+    """Return set of model codes with locked (paid) payouts."""
+    rows = (
+        db.query(Payout.code)
+        .filter(Payout.schedule_run_id == run_id, Payout.is_locked == True)
+        .distinct()
+        .all()
+    )
+    return {r[0] for r in rows}
 
 
 def list_payouts_for_run(

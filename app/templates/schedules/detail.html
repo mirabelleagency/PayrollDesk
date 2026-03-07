@@ -131,6 +131,17 @@ document.documentElement.classList.add('js-metrics');
         <p style="color: #94a3b8; margin: 8px 0 0 0;">
             <span>Cycle #{{ run.id }}</span>
             <span style="margin: 0 8px; color: #475569;">•</span>
+            {% set rs = run.run_status | default('ready') %}
+            {% if rs == 'draft' %}
+            <span class="status-chip status-chip--draft">Draft</span>
+            {% elif rs == 'processing' %}
+            <span class="status-chip status-chip--warning">Processing</span>
+            {% elif rs == 'error' %}
+            <span class="status-chip status-chip--danger">Error</span>
+            {% else %}
+            <span class="status-chip status-chip--success">Ready</span>
+            {% endif %}
+            <span style="margin: 0 8px; color: #475569;">•</span>
             <span>Generated {{ run.created_at|display_date }}</span>
             <span style="margin: 0 8px; color: #475569;">•</span>
             <span>Currency: {{ run.currency }}</span>
@@ -691,6 +702,9 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
                         <a href="/models/{{ payout.model_id }}/edit" class="model-link" title="Edit model">{{ payout.code }}</a>
                         {% else %}
                         <span style="font-weight: 600; color: #60a5fa;">{{ payout.code }}</span>
+                        {% endif %}
+                        {% if payout.is_locked %}
+                        <span title="Locked — paid payout preserved on refresh" style="margin-left: 4px; font-size: 0.8em; opacity: 0.7;">🔒</span>
                         {% endif %}
                     </td>
                     <td data-column-key="working_name" class="column-working_name">{{ payout.working_name or '—' }}</td>

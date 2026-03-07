@@ -132,6 +132,54 @@
     </a>
 </section>
 
+<!-- Upcoming Pay Dates Calendar Strip -->
+{% set upcoming = upcoming_dates | default([]) %}
+{% if upcoming %}
+<section class="card" id="upcoming-calendar">
+    <div class="section-heading">
+        <div>
+            <h2><span class="section-icon">📅</span> Upcoming Pay Dates</h2>
+            <p>Next {{ upcoming|length }} pay date{{ 's' if upcoming|length != 1 else '' }} across the next 3 months</p>
+        </div>
+        <div class="heading-actions">
+            {% if user.role == 'admin' %}
+            <form method="post" action="/schedules/auto-generate" style="display:inline;">
+                <input type="hidden" name="months_ahead" value="2">
+                <input type="hidden" name="currency" value="{{ current_year_summary.currency or 'USD' }}">
+                <button class="button button--primary button--compact" type="submit">
+                    <span class="button__icon">⚡</span>
+                    <span>Auto-Generate Drafts</span>
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    <div class="upcoming-dates-strip">
+        {% for entry in upcoming %}
+        <a class="upcoming-date-card{% if entry.has_run %} upcoming-date-card--has-run{% endif %}{% if entry.run_status == 'draft' %} upcoming-date-card--draft{% endif %}"
+           href="{% if entry.run_id %}/schedules/{{ entry.run_id }}{% else %}/schedules/new{% endif %}">
+            <div class="upcoming-date-card__month">{{ entry.month_name }}</div>
+            <div class="upcoming-date-card__day">{{ entry.date.day }}</div>
+            <div class="upcoming-date-card__info">
+                {% if entry.has_run %}
+                    {% if entry.run_status == 'draft' %}
+                    <span class="status-chip status-chip--draft">Draft</span>
+                    {% else %}
+                    <span class="upcoming-date-card__count">{{ entry.paid_count }}/{{ entry.payout_count }} paid</span>
+                    {% endif %}
+                {% else %}
+                <span class="upcoming-date-card__no-run">No schedule</span>
+                {% endif %}
+            </div>
+            {% if entry.has_run and entry.total_amount %}
+            <div class="upcoming-date-card__amount">{{ current_year_summary.currency or 'USD' }} {{ entry.total_amount|money }}</div>
+            {% endif %}
+        </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
 
 <!-- All Cycles Table -->
 <section class="card" id="all-cycles-table">
@@ -190,6 +238,7 @@
             <thead>
                 <tr>
                     <th>Period</th>
+                    <th>Status</th>
                     <th>Currency</th>
                     <th>Models Paid</th>
                     <th>Total</th>
@@ -202,6 +251,18 @@
                 {% for run in current_year_runs %}
                 <tr>
                     <td>{{ run.month_year_label }}</td>
+                    <td>
+                        {% set rs = run.run_status | default('ready') %}
+                        {% if rs == 'draft' %}
+                        <span class="status-chip status-chip--draft">Draft</span>
+                        {% elif rs == 'processing' %}
+                        <span class="status-chip status-chip--warning">Processing</span>
+                        {% elif rs == 'error' %}
+                        <span class="status-chip status-chip--danger">Error</span>
+                        {% else %}
+                        <span class="status-chip status-chip--success">Ready</span>
+                        {% endif %}
+                    </td>
                     <td>{{ run.currency or current_year_summary.currency }}</td>
                     <td>{{ run.summary_models_paid or 0 }}</td>
                     <td>{{ current_year_summary.currency }} {{ run.summary_total_payout|money }}</td>
