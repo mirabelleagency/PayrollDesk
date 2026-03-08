@@ -33,6 +33,7 @@ data/*.db
 # Temporary files
 data/tmp*.json
 *.tmp
+*.tar.gz
 console.log
 
 # OS / editor noise
