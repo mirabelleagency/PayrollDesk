@@ -276,8 +276,16 @@ def clean_string(raw: Any) -> str | None:
 def load_sheet(workbook_bytes: bytes, sheet_name: str) -> pd.DataFrame:
     try:
         return pd.read_excel(BytesIO(workbook_bytes), sheet_name=sheet_name)
-    except ValueError as exc:
-        raise ValueError(f"Could not read sheet '{sheet_name}'") from exc
+    except ValueError:
+        # List available sheets for a friendlier error message
+        try:
+            available = pd.ExcelFile(BytesIO(workbook_bytes)).sheet_names
+        except Exception:
+            available = []
+        available_str = ", ".join(f"'{s}'" for s in available) if available else "(none)"
+        raise ValueError(
+            f"Sheet '{sheet_name}' not found. Available sheets: {available_str}"
+        )
 
 
 def group_payout_rows_by_month(df: pd.DataFrame) -> tuple[dict[tuple[int, int], pd.DataFrame], list[str]]:

@@ -73,3 +73,13 @@ def test_db():
         except Exception:
             pass
         session.close()
+
+
+def csrf_token_for(client) -> str:
+    """Extract a valid CSRF token from a logged-in TestClient's session cookie."""
+    from app.security import generate_csrf_token
+
+    session_cookie = client.cookies.get("session", "")
+    if not session_cookie:
+        return ""
+    return generate_csrf_token(session_cookie)

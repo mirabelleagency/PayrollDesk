@@ -56,6 +56,9 @@ def seed_run_with_payout(session) -> tuple[ScheduleRun, Payout]:
     return run, payout
 
 
+from conftest import csrf_token_for
+
+
 def login_admin(client: TestClient) -> None:
     resp = client.post("/login", data={"username": "admin", "password": "admin"}, follow_redirects=False)
     assert resp.status_code in (303, 307)
@@ -77,6 +80,7 @@ def test_notes_update_returns_json_and_persists():
         "notes": "Needs invoice #55",
         "status": "approved",
         "redirect_to": f"/schedules/{run_id}",
+        "_csrf_token": csrf_token_for(client),
     }
 
     resp = client.post(

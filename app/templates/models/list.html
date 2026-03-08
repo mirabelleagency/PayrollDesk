@@ -41,7 +41,7 @@
     <strong>Import failed.</strong> {{ import_error }}
 </div>
 {% elif import_summary %}
-    {% set skipped_rows = (import_summary.model_errors + import_summary.payout_errors) %}
+    {% set skipped_rows = (import_summary.model_errors + import_summary.payout_errors + import_summary.adjustment_errors + import_summary.adhoc_errors) %}
 <div class="alert success">
     <strong>Import complete.</strong>
     Added {{ import_summary.models_created }} model(s), updated {{ import_summary.models_updated }},

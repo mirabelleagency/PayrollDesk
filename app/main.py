@@ -24,6 +24,7 @@ from slowapi.errors import RateLimitExceeded
 from app.database import init_db, get_session
 from app import __version__
 from app.core.rate_limiter import limiter
+from app.dependencies import verify_csrf
 from app.routers import admin, auth, changelog, commissions, dashboard, models, profile, schedules
 
 logger = logging.getLogger(__name__)
@@ -98,7 +99,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="Payroll Desk", version=__version__, lifespan=lifespan)
+app = FastAPI(title="Payroll Desk", version=__version__, lifespan=lifespan, dependencies=[Depends(verify_csrf)])
 
 # Add rate limiter state to app
 app.state.limiter = limiter

@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Pending Advances · Payroll Desk{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1 class="page-title">💰 Pending Advance Approvals</h1>
+    <p class="page-header__sub">Review and approve advance requests in bulk</p>
+  </div>
+</section>
+
+{% if message %}
+<div class="alert success">{{ message }}</div>
+{% endif %}
+
+{% if advances %}
+<section class="card">
+  <form method="post" action="/admin/advances/bulk-approve" id="bulk-form">
+    <input type="hidden" name="advance_ids" id="advance-ids-field" />
+    <div class="form-actions" style="margin-bottom:16px;">
+      <button type="button" class="button button--compact button--secondary" onclick="toggleAll()">Select All</button>
+      <button type="submit" class="button button--compact button--success" id="approve-btn" disabled>Approve Selected (0)</button>
+    </div>
+    <div class="data-table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th class="cell--center" style="width:40px;">
+              <input type="checkbox" id="select-all-cb" onchange="toggleAll()" title="Select all" />
+            </th>
+            <th>Model</th>
+            <th>Amount</th>
+            <th>Strategy</th>
+            <th>Requested</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in advances %}
+          <tr>
+            <td class="cell--center">
+              <input type="checkbox" class="adv-cb" value="{{ item.advance.id }}" onchange="updateBulkBtn()" />
+            </td>
+            <td>
+              {% if item.model %}
+              <a href="/models/{{ item.model.id }}/edit" class="model-link">
+                <strong>{{ item.model.code }}</strong>
+              </a>
+              <br><small class="text-muted">{{ item.model.working_name or '' }}</small>
+              {% else %}
+              <span class="text-muted">Model #{{ item.advance.model_id }}</span>
+              {% endif %}
+            </td>
+            <td><strong>{{ item.advance.amount_total|money }}</strong></td>
+            <td>
+              {{ item.advance.strategy|title }}
+              {% if item.advance.strategy == 'fixed' and item.advance.fixed_amount %}
+                ({{ item.advance.fixed_amount|money }}/run)
+              {% elif item.advance.strategy == 'percent' and item.advance.percent_rate %}
+                ({{ item.advance.percent_rate }}%)
+              {% endif %}
+            </td>
+            <td>{{ item.advance.created_at|display_datetime }}</td>
+            <td>{{ item.advance.notes or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </form>
+</section>
+{% else %}
+<section class="card">
+  <p class="empty-state">No pending advance requests. All advances are approved or active.</p>
+</section>
+{% endif %}
+
+<script>
+function toggleAll() {
+  var cbs = document.querySelectorAll('.adv-cb');
+  var allCb = document.getElementById('select-all-cb');
+  var target = allCb ? allCb.checked : true;
+  cbs.forEach(function(cb) { cb.checked = target; });
+  updateBulkBtn();
+}
+function updateBulkBtn() {
+  var checked = document.querySelectorAll('.adv-cb:checked');
+  var btn = document.getElementById('approve-btn');
+  var field = document.getElementById('advance-ids-field');
+  var ids = Array.from(checked).map(function(cb) { return cb.value; });
+  btn.disabled = ids.length === 0;
+  btn.textContent = 'Approve Selected (' + ids.length + ')';
+  field.value = ids.join(',');
+}
+document.getElementById('bulk-form').addEventListener('submit', function(e) {
+  var count = document.querySelectorAll('.adv-cb:checked').length;
+  if (count === 0) { e.preventDefault(); return; }
+  if (!confirm('Approve and activate ' + count + ' advance(s)?')) e.preventDefault();
+});
+</script>
+{% endblock %}

@@ -210,6 +210,9 @@ def reset_user_password(
         raise HTTPException(status_code=400, detail=error_msg)
 
     user.password_hash = User.hash_password(new_password)
+    # Auto-unlock the account if it was locked
+    if user.is_locked:
+        unlock_account(db, user.username)
     db.commit()
     return RedirectResponse(url="/admin/users", status_code=303)
 
@@ -536,3 +539,99 @@ def api_purge_model_execute(
     except Exception:
         logger.exception("Audit log failed for purge_model (API)")
     return JSONResponse({"dry_run": False, "impact": impact})
+
+
+# --- Audit log viewer -------------------------------------------------------
+
+@router.get("/audit-log")
+def audit_log_viewer(
+    request: Request,
+    page: int = Query(default=1, ge=1),
+    action: str | None = Query(default=None),
+    db: Session = Depends(get_session),
+    admin: User = Depends(get_admin_user),
+):
+    """List audit log entries (admin only)."""
+    per_page = 50
+    offset = (page - 1) * per_page
+    logs, total = crud.list_audit_logs(db, limit=per_page, offset=offset, action_filter=action or None)
+
+    # Batch-load usernames for display
+    user_ids = {log.user_id for log in logs if log.user_id}
+    users_by_id: dict[int, User] = {}
+    if user_ids:
+        users_by_id = {u.id: u for u in db.query(User).filter(User.id.in_(user_ids)).all()}
+
+    total_pages = max(1, (total + per_page - 1) // per_page)
+
+    return templates.TemplateResponse(
+        request,
+        "admin/audit_log.html",
+        {
+            "request": request,
+            "user": admin,
+            "logs": logs,
+            "users_by_id": users_by_id,
+            "page": page,
+            "total_pages": total_pages,
+            "total": total,
+            "action_filter": action or "",
+        },
+    )
+
+
+@router.get("/advances/pending")
+def pending_advances_page(
+    request: Request,
+    message: str | None = Query(default=None),
+    db: Session = Depends(get_session),
+    admin: User = Depends(get_admin_user),
+):
+    """List all advances awaiting approval with bulk-approve option."""
+    pending = crud.list_pending_advances(db)
+    advance_data = []
+    for adv in pending:
+        model = crud.get_model(db, adv.model_id)
+        advance_data.append({"advance": adv, "model": model})
+
+    return templates.TemplateResponse(
+        request,
+        "admin/pending_advances.html",
+        {
+            "request": request,
+            "user": admin,
+            "advances": advance_data,
+            "message": message,
+        },
+    )
+
+
+@router.post("/advances/bulk-approve")
+def bulk_approve_advances(
+    request: Request,
+    advance_ids: str = Form(""),
+    db: Session = Depends(get_session),
+    admin: User = Depends(get_admin_user),
+):
+    """Bulk approve and activate selected advances."""
+    if not advance_ids.strip():
+        return RedirectResponse(url="/admin/advances/pending?message=No+advances+selected", status_code=303)
+
+    try:
+        ids = [int(aid.strip()) for aid in advance_ids.split(",") if aid.strip()]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid advance IDs")
+
+    approved = 0
+    for aid in ids:
+        adv = crud.get_advance(db, aid)
+        if adv and adv.status == "requested":
+            crud.approve_advance(db, adv, activate=True)
+            approved += 1
+
+    try:
+        crud.log_admin_action(db, admin.id, "bulk_approve_advances", {"count": approved, "ids": ids})
+    except Exception:
+        logger.exception("Audit log failed for bulk_approve_advances")
+
+    return RedirectResponse(url=f"/admin/advances/pending?message={approved}+advances+approved", status_code=303)

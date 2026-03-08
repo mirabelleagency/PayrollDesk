@@ -59,6 +59,9 @@ def _make_run_with_payout(session, model: Model, pay_date: date):
     return run, payout
 
 
+from conftest import csrf_token_for
+
+
 def login_admin(client: TestClient) -> None:
     # Reuse helper from other tests if available; inline minimal login
     resp = client.post("/login", data={"username": "admin", "password": "admin"}, follow_redirects=False)
@@ -74,7 +77,7 @@ def test_set_status_approved_and_unmark():
         login_admin(client)
 
         # Set approved
-        resp = client.post(f"/schedules/{run.id}/payouts/{payout.id}/status", data={"status": "approved"})
+        resp = client.post(f"/schedules/{run.id}/payouts/{payout.id}/status", data={"status": "approved", "_csrf_token": csrf_token_for(client)})
         assert resp.status_code == 200
         data = resp.json()
         assert data["ok"] is True
@@ -85,7 +88,7 @@ def test_set_status_approved_and_unmark():
         assert payout.status == "approved"
 
         # Unmark approved back to not_paid
-        resp2 = client.post(f"/schedules/{run.id}/payouts/{payout.id}/status", data={"status": "not_paid"})
+        resp2 = client.post(f"/schedules/{run.id}/payouts/{payout.id}/status", data={"status": "not_paid", "_csrf_token": csrf_token_for(client)})
         assert resp2.status_code == 200
         data2 = resp2.json()
         assert data2["new_status"] == "not_paid"
@@ -106,7 +109,7 @@ def test_overdue_flag_excludes_approved():
         login_admin(client)
 
         # Mark approved; should not be overdue according to server logic (only not_paid/on_hold)
-        resp = client.post(f"/schedules/{run.id}/payouts/{payout.id}/status", data={"status": "approved"})
+        resp = client.post(f"/schedules/{run.id}/payouts/{payout.id}/status", data={"status": "approved", "_csrf_token": csrf_token_for(client)})
         assert resp.status_code == 200
         data = resp.json()
         assert data["new_status"] == "approved"

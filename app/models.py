@@ -133,6 +133,7 @@ class Payout(Base):
     __table_args__ = (
         Index("idx_payout_run_status", "schedule_run_id", "status"),
         Index("idx_payout_run_model", "schedule_run_id", "model_id"),
+        UniqueConstraint("schedule_run_id", "model_id", "pay_date", name="uq_payout_run_model_date"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

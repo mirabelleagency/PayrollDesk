@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.payroll import ensure_non_empty_frames
 from app.models import (
     AdhocPayment,
+    CommissionPayout,
     Model,
     ModelCompensationAdjustment,
     Payout,
@@ -164,6 +165,23 @@ def _advance_repayments_df(repayments: Iterable[AdvanceRepayment]) -> pd.DataFra
     return pd.DataFrame(rows)
 
 
+def _commission_payouts_df(payouts: Iterable[CommissionPayout]) -> pd.DataFrame:
+    rows = []
+    for item in payouts:
+        rows.append(
+            {
+                "referrer_code": item.referrer.code if item.referrer else None,
+                "referral_code": item.referral.code if item.referral else None,
+                "pay_date": item.pay_date,
+                "schedule_type": item.schedule_type,
+                "amount": float(item.amount) if item.amount is not None else None,
+                "status": item.status,
+                "created_at": item.created_at,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def export_full_workbook(db: Session, currency: str = "USD") -> bytes:
     """Return an XLSX workbook (bytes) with all key payroll tables."""
 
@@ -200,6 +218,14 @@ def export_full_workbook(db: Session, currency: str = "USD") -> bytes:
     df_advances = _advances_df(advances, currency)
     df_repayments = _advance_repayments_df(repayments)
 
+    # Commission payouts
+    commissions = (
+        db.query(CommissionPayout)
+        .order_by(CommissionPayout.pay_date)
+        .all()
+    )
+    df_commissions = _commission_payouts_df(commissions)
+
     # ensure_non_empty_frames returns placeholders—retain call for parity with legacy exports
     ensure_non_empty_frames(pd.DataFrame(), df_models, pd.DataFrame(), currency)
 
@@ -213,6 +239,7 @@ def export_full_workbook(db: Session, currency: str = "USD") -> bytes:
         # New: cash advance data
         df_advances.to_excel(writer, sheet_name="Advances", index=False)
         df_repayments.to_excel(writer, sheet_name="AdvanceRepayments", index=False)
+        df_commissions.to_excel(writer, sheet_name="CommissionPayouts", index=False)
         # AdvanceAllocations sheet removed per request
 
     buffer.seek(0)

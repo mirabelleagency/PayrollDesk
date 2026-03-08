@@ -1,19 +1,17 @@
 """Database configuration for the payroll web application.
 
 This module handles:
-- Database engine creation with dual SQLite/PostgreSQL support
+- Database engine creation with PostgreSQL connection pooling
 - Session management for FastAPI dependency injection
 - Initial database setup (tables and default admin user)
 - Query timing/logging (enable with LOG_QUERIES=true)
 
-Schema migrations are handled by Alembic (see migrations/ folder).
-"""
+Schema migrations are handled by Alembic (see migrations/ folder)."""
 from __future__ import annotations
 
 import logging
 import os
 import time
-from pathlib import Path
 from typing import Any, Generator
 from urllib.parse import urlsplit, urlunsplit
 
@@ -22,12 +20,8 @@ from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 logger = logging.getLogger(__name__)
 
-# Default SQLite path for local development
-DEFAULT_SQLITE_PATH = Path("data/payroll.db")
-DEFAULT_SQLITE_PATH.parent.mkdir(parents=True, exist_ok=True)
-
-# Database URL from environment or default to SQLite
-DATABASE_URL = os.getenv("PAYROLL_DATABASE_URL", f"sqlite:///{DEFAULT_SQLITE_PATH}")
+# Database URL from environment (PostgreSQL required)
+DATABASE_URL = os.getenv("PAYROLL_DATABASE_URL", "postgresql://payroll:payroll@localhost:5432/payroll_dev")
 
 
 def _mask_db_url(url: str) -> str:
@@ -47,21 +41,6 @@ def _mask_db_url(url: str) -> str:
         return urlunsplit((parts.scheme, masked_netloc, parts.path, parts.query, parts.fragment))
     except Exception:
         return url
-
-
-def _enable_sqlite_foreign_keys(engine: Engine) -> None:
-    """Enable foreign key enforcement for SQLite connections.
-    
-    SQLite does not enforce foreign keys by default. This listener ensures
-    that every connection to an SQLite database has foreign keys enabled,
-    matching PostgreSQL's default behavior.
-    """
-    if "sqlite" in str(engine.url):
-        @event.listens_for(engine, "connect")
-        def set_sqlite_pragma(dbapi_conn, connection_record):
-            cursor = dbapi_conn.cursor()
-            cursor.execute("PRAGMA foreign_keys=ON")
-            cursor.close()
 
 
 def _enable_query_logging(engine: Engine) -> None:
@@ -93,60 +72,42 @@ def _enable_query_logging(engine: Engine) -> None:
 
 
 def _create_engine(url: str) -> Engine:
-    """Create a SQLAlchemy engine with appropriate settings.
+    """Create a SQLAlchemy engine with PostgreSQL connection pooling.
     
-    Configures:
-    - SQLite: check_same_thread=False for FastAPI compatibility
-    - PostgreSQL: connection pooling for production workloads
-    
-    Environment Variables (PostgreSQL only):
+    Environment Variables:
         DB_POOL_SIZE: Min connections in pool (default: 5)
         DB_MAX_OVERFLOW: Max additional connections (default: 10)
         DB_POOL_RECYCLE: Seconds before recycling connections (default: 3600)
     """
-    is_sqlite = url.startswith("sqlite")
+    pool_size = int(os.getenv("DB_POOL_SIZE", "5"))
+    max_overflow = int(os.getenv("DB_MAX_OVERFLOW", "10"))
+    pool_recycle = int(os.getenv("DB_POOL_RECYCLE", "3600"))
     
-    if is_sqlite:
-        return create_engine(
-            url,
-            connect_args={"check_same_thread": False},
-            future=True,
-        )
-    else:
-        # PostgreSQL with configurable connection pooling
-        pool_size = int(os.getenv("DB_POOL_SIZE", "5"))
-        max_overflow = int(os.getenv("DB_MAX_OVERFLOW", "10"))
-        pool_recycle = int(os.getenv("DB_POOL_RECYCLE", "3600"))
-        
-        logger.info(
-            "PostgreSQL pool config: pool_size=%d, max_overflow=%d, recycle=%ds",
-            pool_size, max_overflow, pool_recycle
-        )
-        
-        return create_engine(
-            url,
-            pool_size=pool_size,
-            max_overflow=max_overflow,
-            pool_recycle=pool_recycle,
-            pool_pre_ping=True,  # Verify connections before use
-            future=True,
-        )
+    logger.info(
+        "PostgreSQL pool config: pool_size=%d, max_overflow=%d, recycle=%ds",
+        pool_size, max_overflow, pool_recycle
+    )
+    
+    return create_engine(
+        url,
+        pool_size=pool_size,
+        max_overflow=max_overflow,
+        pool_recycle=pool_recycle,
+        pool_pre_ping=True,  # Verify connections before use
+        future=True,
+    )
 
 
 def _initialize_engine() -> Engine:
-    """Initialize the database engine with retry and fallback support.
+    """Initialize the database engine with retry support.
     
-    Retries connection with exponential backoff before falling back.
-    In development, falls back to SQLite if PostgreSQL is unavailable.
-    In production, fails loudly if the database is unreachable.
+    Retries connection with exponential backoff.
     
     Environment Variables:
         DB_CONNECT_RETRIES: Number of retry attempts (default: 3)
         DB_RETRY_DELAY: Initial delay between retries in seconds (default: 1.0)
     """
-    global DATABASE_URL
-    
-    masked_url = 'sqlite:///*' if DATABASE_URL.startswith('sqlite') else _mask_db_url(DATABASE_URL)
+    masked_url = _mask_db_url(DATABASE_URL)
     env = os.getenv("ENVIRONMENT", "production").lower()
     logger.info("ENVIRONMENT=%s | DATABASE_URL=%s", env, masked_url)
     
@@ -159,7 +120,6 @@ def _initialize_engine() -> Engine:
     for attempt in range(1, max_retries + 1):
         try:
             engine = _create_engine(DATABASE_URL)
-            _enable_sqlite_foreign_keys(engine)
             _enable_query_logging(engine)
             # Smoke-test connection
             with engine.connect():
@@ -182,19 +142,8 @@ def _initialize_engine() -> Engine:
                     attempt, max_retries, e
                 )
     
-    # All retries exhausted - try fallback
-    is_dev = env in ("development", "dev", "local")
-    allow_fallback = os.getenv("LOCAL_DEV_SQLITE_FALLBACK", str(is_dev)).lower() in ("1", "true", "yes")
-    
-    if is_dev and allow_fallback:
-        DATABASE_URL = f"sqlite:///{DEFAULT_SQLITE_PATH}"
-        logger.info("Falling back to SQLite (dev-only): %s", DATABASE_URL)
-        engine = _create_engine(DATABASE_URL)
-        _enable_sqlite_foreign_keys(engine)
-        return engine
-    else:
-        logger.error("Database connection failed after %d attempts; aborting startup", max_retries)
-        raise last_error or RuntimeError("Database connection failed")
+    logger.error("Database connection failed after %d attempts; aborting startup", max_retries)
+    raise last_error or RuntimeError("Database connection failed")
 
 
 # Initialize engine and session factory

@@ -6940,6 +6940,7 @@ section {
     padding: 4px 0 12px;
     scrollbar-width: thin;
     scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+    justify-content: center;
 }
 
 .upcoming-date-card {

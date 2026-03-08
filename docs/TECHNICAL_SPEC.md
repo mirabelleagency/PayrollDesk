@@ -81,7 +81,7 @@ PayrollDesk is a web-based payroll management application designed to handle:
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Database                                 │
-│            PostgreSQL (production) / SQLite (dev)               │
+│            PostgreSQL                                          │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -107,7 +107,7 @@ PayrollDesk is a web-based payroll management application designed to handle:
 |-----------|------------|---------|
 | **Framework** | FastAPI | Latest |
 | **ORM** | SQLAlchemy | 2.0+ |
-| **Database** | PostgreSQL / SQLite | 14+ / 3 |
+| **Database** | PostgreSQL | 14+ |
 | **Migrations** | Alembic | Latest |
 | **Template Engine** | Jinja2 | Latest |
 | **Password Hashing** | bcrypt | Latest |
@@ -674,7 +674,7 @@ db.commit()
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PAYROLL_DATABASE_URL` | `sqlite:///data/payroll.db` | Database connection URL |
+| `PAYROLL_DATABASE_URL` | `postgresql://payroll:payroll@localhost:5432/payroll_dev` | Database connection URL |
 | `ENVIRONMENT` | - | Set to "development" for dev mode |
 | `LOCAL_DEV_SQLITE_FALLBACK` | `false` | Allow SQLite fallback in dev |
 | `LOG_QUERIES` | `false` | Enable query timing logs |

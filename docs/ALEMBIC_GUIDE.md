@@ -143,12 +143,9 @@ migrations/
     └── 0001_initial_baseline.py
 ```
 
-## SQLite vs PostgreSQL
+## Database Backend
 
-Migrations work with both databases. The `env.py` is configured to:
-- Use the `PAYROLL_DATABASE_URL` environment variable
-- Enable foreign keys for SQLite
-- Handle dialect differences automatically
+Migrations target **PostgreSQL** (the production and development database). The `env.py` is configured to use the `PAYROLL_DATABASE_URL` environment variable. Tests use a temporary SQLite database but do not run migrations.
 
 ## Version History
 

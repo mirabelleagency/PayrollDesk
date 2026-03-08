@@ -3,7 +3,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Run Uvicorn Server",
+      "label": "Start Dev PostgreSQL (Docker)",
       "type": "shell",
       "presentation": {
         "echo": true,
@@ -14,24 +14,38 @@
         "clear": false
       },
       "problemMatcher": [],
-      "command": "& \"${workspaceFolder}\\.venv\\Scripts\\Activate.ps1\"; uvicorn app.main:app --reload --host 127.0.0.1 --port 8000",
+      "command": "docker compose -f docker-compose.dev.yml up -d; Write-Host 'PostgreSQL running on localhost:5432 (payroll/payroll)'",
       "options": {
         "cwd": "${workspaceFolder}",
         "shell": {
           "executable": "powershell.exe",
           "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
         }
-      },
-      "group": {
-        "kind": "build",
-        "isDefault": false
-      },
-      "runOptions": {
-        "runOn": "default"
       }
     },
     {
-      "label": "Run Uvicorn Server (SQLite Dev)",
+      "label": "Stop Dev PostgreSQL (Docker)",
+      "type": "shell",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": [],
+      "command": "docker compose -f docker-compose.dev.yml down",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "shell": {
+          "executable": "powershell.exe",
+          "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
+        }
+      }
+    },
+    {
+      "label": "Run Uvicorn Server (PostgreSQL Dev)",
       "type": "shell",
       "presentation": {
         "echo": true,
@@ -47,23 +61,18 @@
         "cwd": "${workspaceFolder}",
         "env": {
           "ENVIRONMENT": "development",
-          "LOCAL_DEV_SQLITE_FALLBACK": "true",
-          "PAYROLL_DATABASE_URL": "sqlite:///data/payroll.db"
+          "PAYROLL_DATABASE_URL": "postgresql://payroll:payroll@localhost:5432/payroll_dev"
         },
         "shell": {
           "executable": "powershell.exe",
-          "args": [
-            "-NoProfile",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-Command"
-          ]
+          "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
         }
       },
       "group": {
         "kind": "build",
         "isDefault": false
-      }
+      },
+      "dependsOn": "Start Dev PostgreSQL (Docker)"
     }
   ]
 }

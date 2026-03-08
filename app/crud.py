@@ -183,12 +183,17 @@ def sum_paid_for_models(
     return Decimal(result or 0)
 
 
-def get_model(db: Session, model_id: int) -> Model | None:
-    return db.get(Model, model_id)
+def get_model(db: Session, model_id: int, *, include_deleted: bool = False) -> Model | None:
+    stmt = select(Model).where(Model.id == model_id)
+    if not include_deleted:
+        stmt = stmt.where(Model.deleted_at.is_(None))
+    return db.execute(stmt).scalars().first()
 
 
-def get_model_by_code(db: Session, code: str) -> Model | None:
+def get_model_by_code(db: Session, code: str, *, include_deleted: bool = False) -> Model | None:
     stmt = select(Model).where(Model.code == code)
+    if not include_deleted:
+        stmt = stmt.where(Model.deleted_at.is_(None))
     return db.execute(stmt).scalars().first()
 
 
@@ -716,7 +721,8 @@ def get_payout(db: Session, payout_id: int) -> Payout | None:
     return db.get(Payout, payout_id)
 
 
-def update_payout(db: Session, payout: Payout, note: str | None, status: str) -> None:
+def update_payout(db: Session, payout: Payout, note: str | None, status: str) -> Decimal:
+    """Update payout notes/status. Returns advance deduction amount (0 if none)."""
     payout.notes = note or None
     payout.status = status
     # Lock payout when marked as paid (immutable after payment)
@@ -725,10 +731,12 @@ def update_payout(db: Session, payout: Payout, note: str | None, status: str) ->
     db.add(payout)
     db.commit()
 
+    advance_deducted = Decimal("0")
     # If payout marked as paid, realize any planned allocations as repayments (idempotent)
     if status == "paid":
-        _realize_allocations_for_paid_payout(db, payout)
+        advance_deducted = _realize_allocations_for_paid_payout(db, payout)
         db.commit()
+    return advance_deducted
 
 
 def delete_schedule_run(db: Session, run: ScheduleRun) -> None:
@@ -828,6 +836,94 @@ def run_payment_summary(db: Session, run_id: int) -> dict[str, Decimal | int]:
         "total_payout": total_payout,
         "overall_paid": overall_paid_total,
     }
+
+
+def batch_run_payment_summaries(
+    db: Session, run_ids: list[int]
+) -> dict[int, dict[str, Decimal | int]]:
+    """Return payment summaries for multiple runs in 3 queries instead of 3*N."""
+    if not run_ids:
+        return {}
+
+    # Paid totals per run
+    paid_stmt = (
+        select(Payout.schedule_run_id, func.coalesce(func.sum(Payout.amount), 0))
+        .where(
+            Payout.schedule_run_id.in_(run_ids),
+            Payout.status == "paid",
+            Payout.model_id.isnot(None),
+        )
+        .group_by(Payout.schedule_run_id)
+    )
+    paid_map = {row[0]: Decimal(row[1] or 0) for row in db.execute(paid_stmt).all()}
+
+    # Unpaid totals per run
+    unpaid_stmt = (
+        select(Payout.schedule_run_id, func.coalesce(func.sum(Payout.amount), 0))
+        .where(
+            Payout.schedule_run_id.in_(run_ids),
+            Payout.status != "paid",
+            Payout.model_id.isnot(None),
+        )
+        .group_by(Payout.schedule_run_id)
+    )
+    unpaid_map = {row[0]: Decimal(row[1] or 0) for row in db.execute(unpaid_stmt).all()}
+
+    # Paid model counts per run
+    models_stmt = (
+        select(Payout.schedule_run_id, func.count(func.distinct(Payout.code)))
+        .where(
+            Payout.schedule_run_id.in_(run_ids),
+            Payout.status == "paid",
+            Payout.model_id.isnot(None),
+        )
+        .group_by(Payout.schedule_run_id)
+    )
+    models_map = {row[0]: int(row[1] or 0) for row in db.execute(models_stmt).all()}
+
+    # Overall paid (single query, not per-run)
+    overall_stmt = select(func.coalesce(func.sum(Payout.amount), 0)).where(Payout.status == "paid")
+    overall_paid = Decimal(db.execute(overall_stmt).scalar_one() or 0)
+
+    zero = Decimal("0")
+    result: dict[int, dict[str, Decimal | int]] = {}
+    for rid in run_ids:
+        paid = paid_map.get(rid, zero)
+        unpaid = unpaid_map.get(rid, zero)
+        result[rid] = {
+            "paid_total": paid,
+            "unpaid_total": unpaid,
+            "paid_models": models_map.get(rid, 0),
+            "total_payout": paid + unpaid,
+            "overall_paid": overall_paid,
+        }
+    return result
+
+
+def batch_frequency_counts(
+    db: Session, run_ids: list[int]
+) -> dict[int, dict[str, int]]:
+    """Return frequency breakdowns for multiple runs in 1 query instead of N."""
+    if not run_ids:
+        return {}
+    rows = (
+        db.query(
+            Payout.schedule_run_id,
+            Payout.payment_frequency,
+            func.count(func.distinct(Payout.code)),
+        )
+        .filter(
+            Payout.schedule_run_id.in_(run_ids),
+            Payout.model_id.isnot(None),
+        )
+        .group_by(Payout.schedule_run_id, Payout.payment_frequency)
+        .all()
+    )
+    result: dict[int, dict[str, int]] = {rid: {} for rid in run_ids}
+    for rid, frequency, count in rows:
+        label = frequency or "unspecified"
+        result.setdefault(rid, {})[label] = int(count or 0)
+    return result
 
 
 def payout_status_counts(db: Session, run_id: int) -> dict[str, int]:
@@ -1419,7 +1515,7 @@ def get_model_purge_impact(db: Session, model_id: int) -> dict[str, Any]:
 
     Returns a summary dictionary with counts and amount breakdowns.
     """
-    model = get_model(db, model_id)
+    model = get_model(db, model_id, include_deleted=True)
     if not model:
         raise ValueError("Model not found")
 
@@ -1529,7 +1625,7 @@ def purge_model_hard(db: Session, model_id: int) -> dict[str, Decimal | int | st
         db.query(ModelCompensationAdjustment).filter(ModelCompensationAdjustment.model_id == model_id).delete(synchronize_session=False)
 
         # Finally delete the model
-        model = get_model(db, model_id)
+        model = get_model(db, model_id, include_deleted=True)
         if model:
             db.delete(model)
 
@@ -1551,6 +1647,26 @@ def log_admin_action(db: Session, user_id: int | None, action: str, details: dic
     )
     db.add(payload)
     db.commit()
+
+
+def list_audit_logs(
+    db: Session,
+    *,
+    limit: int = 100,
+    offset: int = 0,
+    action_filter: str | None = None,
+) -> tuple[list[AuditLog], int]:
+    """Return paginated audit log entries with total count."""
+    from app.auth import User as _User  # local to avoid circular at module level
+
+    stmt = select(AuditLog).order_by(AuditLog.created_at.desc())
+    count_stmt = select(func.count(AuditLog.id))
+    if action_filter:
+        stmt = stmt.where(AuditLog.action == action_filter)
+        count_stmt = count_stmt.where(AuditLog.action == action_filter)
+    total = db.execute(count_stmt).scalar_one()
+    rows = db.execute(stmt.offset(offset).limit(limit)).scalars().all()
+    return rows, total
 
 
 def cleanup_empty_runs(db: Session) -> dict[str, int | list[int]]:
@@ -1606,6 +1722,16 @@ def list_advances_for_model(db: Session, model_id: int, status: str | None = Non
     if status:
         stmt = stmt.where(ModelAdvance.status == status)
     stmt = stmt.order_by(ModelAdvance.created_at.desc())
+    return db.execute(stmt).scalars().all()
+
+
+def list_pending_advances(db: Session) -> Sequence[ModelAdvance]:
+    """Return all advances with status 'requested' (pending approval)."""
+    stmt = (
+        select(ModelAdvance)
+        .where(ModelAdvance.status == "requested")
+        .order_by(ModelAdvance.created_at.desc())
+    )
     return db.execute(stmt).scalars().all()
 
 
@@ -1828,27 +1954,32 @@ def delete_advance(db: Session, advance: ModelAdvance) -> None:
     db.commit()
 
 
-def _realize_allocations_for_paid_payout(db: Session, payout: Payout) -> None:
+def _realize_allocations_for_paid_payout(db: Session, payout: Payout) -> Decimal:
+    """Realize planned allocations as repayments. Returns total deducted."""
     allocations = db.execute(
         select(PayoutAdvanceAllocation).where(PayoutAdvanceAllocation.payout_id == payout.id)
     ).scalars().all()
     if not allocations:
-        return
+        return Decimal("0")
     # If repayments already exist for this payout, skip (idempotent)
     existing = db.execute(
         select(AdvanceRepayment).where(AdvanceRepayment.payout_id == payout.id)
     ).scalars().first()
     if existing:
-        return
+        return Decimal("0")
 
+    total = Decimal("0")
     for alloc in allocations:
         adv = get_advance(db, alloc.advance_id)
         if not adv:
             continue
-        record_advance_repayment(db, adv, amount=Decimal(alloc.planned_amount or 0), source="auto", payout=payout)
+        amt = Decimal(alloc.planned_amount or 0)
+        total += amt
+        record_advance_repayment(db, adv, amount=amt, source="auto", payout=payout)
         # Allocation will be deleted by cascade when clearing runs is not guaranteed, so delete explicitly on realize
         db.delete(alloc)
     db.flush()
+    return total
 
 
 # --- Export helpers for advances ------------------------------------------

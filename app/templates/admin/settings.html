@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Admin Settings · Payroll Desk{% endblock %}
+{% block title %}Settings · Payroll Desk{% endblock %}
 {% block content %}
-<section class="page-header" style="margin-bottom: 16px;">
+<section class="page-header">
   <div>
-    <h1 class="page-title">⚙️ Admin Settings</h1>
-    <p style="color:#94a3b8; margin:8px 0 0 0;">Payroll configuration, frequency plans, and maintenance tools</p>
+    <h1 class="page-title">⚙️ Settings</h1>
+    <p class="page-header__sub">Payroll configuration, frequency plans, and maintenance tools</p>
   </div>
 </section>
 
@@ -12,31 +12,31 @@
 <div class="alert success">{{ message }}</div>
 {% endif %}
 {% if error %}
-<div class="alert" style="background: rgba(239, 68, 68, 0.12); border:1px solid rgba(239,68,68,0.35); color:#fecaca;">{{ error }}</div>
+<div class="alert error">{{ error }}</div>
 {% endif %}
 
 <!-- Pay Configuration -->
-<section class="card" style="margin-top: 8px;">
+<section class="card">
   <div class="section-heading">
     <div>
       <h2><span class="section-icon">📅</span> Pay Configuration</h2>
-      <p style="color:#94a3b8; margin:4px 0 0 0;">Configure pay dates and default currency for payroll calculations</p>
+      <p class="page-header__sub" style="margin-top:4px;">Configure pay dates and default currency for payroll calculations</p>
     </div>
   </div>
-  <form method="post" action="/admin/settings/pay-config" class="form" style="max-width: 600px;">
+  <form method="post" action="/admin/settings/pay-config" class="form" style="max-width:600px;">
     <div class="form-row">
       <label for="config_name">Config Name</label>
       <input id="config_name" name="config_name" type="text" value="{{ pay_config.name if pay_config else 'Default' }}" required />
     </div>
     <div class="form-row">
-      <label for="pay_days">Pay Days (JSON array)</label>
+      <label for="pay_days">Pay Days</label>
       <input id="pay_days" name="pay_days" type="text" value="{{ pay_config.pay_days if pay_config else '[7, 14, 21, &quot;eom&quot;]' }}" required
              placeholder='[7, 14, 21, "eom"]' />
-      <small style="color:#64748b;">Enter day numbers (1-31) and/or "eom" for end of month. Example: [7, 14, 21, "eom"]</small>
+      <small class="text-muted">Click the day buttons below or type a JSON array. Use numbers (1-31) and "eom" for end of month.</small>
     </div>
     <div class="form-row">
       <label for="currency">Default Currency</label>
-      <input id="currency" name="currency" type="text" value="{{ pay_config.currency if pay_config else 'USD' }}" required style="max-width: 120px;" />
+      <input id="currency" name="currency" type="text" value="{{ pay_config.currency if pay_config else 'USD' }}" required style="max-width:120px;" />
     </div>
     <div class="form-actions">
       <button class="button button--primary" type="submit">Save Pay Config</button>
@@ -45,11 +45,11 @@
 </section>
 
 <!-- Frequency Plans -->
-<section class="card" style="margin-top: 16px;">
+<section class="card">
   <div class="section-heading">
     <div>
       <h2><span class="section-icon">🔄</span> Frequency Plans</h2>
-      <p style="color:#94a3b8; margin:4px 0 0 0;">Define payment frequencies and which pay dates they use</p>
+      <p class="page-header__sub" style="margin-top:4px;">Define payment frequencies and which pay dates they use</p>
     </div>
   </div>
   {% if frequency_plans %}
@@ -60,7 +60,8 @@
           <th>Name</th>
           <th>Display Name</th>
           <th>Pay Day Indices</th>
-          <th>Active</th>
+          <th>Resolved Pay Dates</th>
+          <th class="cell--center">Active</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -70,18 +71,17 @@
           <form method="post" action="/admin/settings/frequency-plans/{{ plan.id }}">
             <td><strong>{{ plan.name }}</strong></td>
             <td>
-              <input name="display_name" type="text" value="{{ plan.display_name or '' }}"
-                     style="background: rgba(15,23,42,0.7); color:#f8fafc; border:1px solid rgba(148,163,184,0.3); border-radius:6px; padding:6px 10px; width: 200px;" />
+              <input name="display_name" type="text" value="{{ plan.display_name or '' }}" class="table-input" />
             </td>
             <td>
-              <input name="pay_day_indices" type="text" value="{{ plan.pay_day_indices }}"
-                     style="background: rgba(15,23,42,0.7); color:#f8fafc; border:1px solid rgba(148,163,184,0.3); border-radius:6px; padding:6px 10px; width: 140px;" />
+              <input name="pay_day_indices" type="text" value="{{ plan.pay_day_indices }}" class="pdi-input table-input" style="width:140px;" />
             </td>
-            <td style="text-align: center;">
+            <td class="pdi-preview text-muted" style="font-size:0.9rem;">—</td>
+            <td class="cell--center">
               <input type="checkbox" name="is_active" value="1" {% if plan.is_active %}checked{% endif %} />
             </td>
             <td>
-              <button class="button button--compact" type="submit">Save</button>
+              <button class="button button--compact button--primary" type="submit">Save</button>
             </td>
           </form>
         </tr>
@@ -89,40 +89,59 @@
       </tbody>
     </table>
   </div>
-  <p style="color:#64748b; font-size: 0.85rem; margin-top: 8px;">
-    Pay day indices reference positions in the pay days array (0-based). Example: [0,1,2,3] = all 4 pay dates; [1,3] = 2nd and 4th pay dates; [3] = last pay date only.
+  <p class="text-muted" style="font-size:0.85rem; margin-top:8px;">
+    Indices reference positions in the pay days array (0-based). Example: [0,1,2,3] = all 4 pay dates; [1,3] = 2nd and 4th only.
   </p>
   {% else %}
   <p class="empty-state">No frequency plans configured. They will be seeded on first run.</p>
   {% endif %}
 </section>
 
-<section class="card" style="margin-top: 8px;">
+<!-- Maintenance -->
+<section class="card">
   <div class="section-heading">
     <div>
-      <h2><span class="section-icon">🧼</span> Maintenance</h2>
-      <p style="color:#94a3b8; margin:4px 0 0 0;">Use with care – actions apply immediately</p>
+      <h2><span class="section-icon">🧹</span> Maintenance</h2>
+      <p class="page-header__sub" style="margin-top:4px;">Cleanup tools — actions apply immediately</p>
     </div>
   </div>
-  <div style="display:flex; gap:12px; flex-wrap: wrap;">
-    <form method="post" action="/admin/maintenance/cleanup-empty-runs">
-      <button class="button button--primary" type="submit">🗑️ Delete Empty Schedule Runs</button>
-    </form>
-    <form method="post" action="/admin/maintenance/cleanup-orphans" onsubmit="return confirm('Remove legacy orphan records (model_id NULL) from payouts and validations? This cannot be undone.');">
-      <button class="button secondary" type="submit" title="Delete payouts/validations that lost their model link">🧹 Remove Legacy Orphan Records</button>
-    </form>
-    <form method="post" action="/admin/maintenance/reset-application-data" onsubmit="return confirm('This will delete ALL models, payouts, runs, validations, adjustments, adhoc payments, and advances. Users will be kept. This cannot be undone. Continue?');" style="display:flex; gap:8px; align-items:center;">
-      <input type="text" name="confirm_text" id="confirm-text" placeholder="Type RESET to confirm" required
-             style="padding:8px 10px; background: rgba(15,23,42,0.7); color:#f8fafc; border:1px solid rgba(148,163,184,0.3); border-radius:6px;" />
-      <button id="reset-submit" class="button" type="submit" disabled style="background:#ef4444; border-color: rgba(239,68,68,0.4);">🧨 Reset Database (Models + Payouts)</button>
-    </form>
+  <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:start;">
+    <div class="maintenance-action">
+      <form method="post" action="/admin/maintenance/cleanup-empty-runs" onsubmit="return confirm('Delete all schedule runs that have zero payouts?');">
+        <button class="button button--primary" type="submit">🗑️ Delete Empty Runs</button>
+      </form>
+      <small class="text-muted">Remove schedule runs with no payouts</small>
+    </div>
+    <div class="maintenance-action">
+      <form method="post" action="/admin/maintenance/cleanup-orphans" onsubmit="return confirm('Remove legacy orphan records (model_id NULL) from payouts and validations? This cannot be undone.');">
+        <button class="button button--secondary" type="submit">🧹 Remove Orphan Records</button>
+      </form>
+      <small class="text-muted">Delete payouts/validations missing their model</small>
+    </div>
   </div>
+</section>
+
+<!-- Danger Zone -->
+<section class="card" style="border:1px solid rgba(239,68,68,0.3);">
+  <div class="section-heading">
+    <div>
+      <h2 style="color:#fca5a5;"><span class="section-icon">⚠️</span> Danger Zone</h2>
+      <p class="page-header__sub" style="margin-top:4px;">Destructive actions that cannot be undone</p>
+    </div>
+  </div>
+  <form method="post" action="/admin/maintenance/reset-application-data"
+        onsubmit="return confirm('This will delete ALL models, payouts, runs, validations, adjustments, adhoc payments, and advances. Users will be kept. THIS CANNOT BE UNDONE. Continue?');"
+        style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+    <input type="text" name="confirm_text" id="confirm-text" placeholder='Type "RESET" to enable' required class="table-input" style="width:200px;" />
+    <button id="reset-submit" class="button button--danger" type="submit" disabled>🧨 Reset All Data</button>
+    <small class="text-muted" style="flex-basis:100%;">Deletes all models, payouts, schedule runs, validations, adjustments, and advances. User accounts are preserved.</small>
+  </form>
 </section>
 
 <script>
   (function(){
-    const input = document.getElementById('confirm-text');
-    const btn = document.getElementById('reset-submit');
+    var input = document.getElementById('confirm-text');
+    var btn = document.getElementById('reset-submit');
     function toggle(){
       if(!input || !btn) return;
       btn.disabled = (input.value.trim().toUpperCase() !== 'RESET');
@@ -134,20 +153,87 @@
   })();
 </script>
 
-<section class="card" style="margin-top: 16px;">
-  <div class="section-heading">
-    <div>
-      <h2><span class="section-icon">🧰</span> Tools</h2>
-      <p style="color:#94a3b8; margin:4px 0 0 0;">Model purge is available from each model view or via the purge link with ID</p>
-    </div>
-  </div>
-  <div>
-    <p>JSON API endpoints:</p>
-    <ul>
-      <li>GET /admin/api/models/{model_id}/purge?dry_run=true</li>
-      <li>POST /admin/api/models/{model_id}/purge</li>
-    </ul>
-  </div>
-</section>
+{% endblock %}
 
+{% block extra_js %}
+<script>
+(function(){
+  /* --- #17: Resolve frequency plan indices to actual pay date labels --- */
+  var payDaysInput = document.getElementById('pay_days');
+  function getPayDays(){
+    try {
+      var raw = payDaysInput ? payDaysInput.value : '[]';
+      return JSON.parse(raw);
+    } catch(e){ return []; }
+  }
+  function ordinal(n){
+    if(n === 'eom' || n === 'EOM') return 'EOM';
+    var s = ['th','st','nd','rd'], v = n % 100;
+    return n + (s[(v-20)%10] || s[v] || s[0]);
+  }
+  function resolveIndices(indicesStr){
+    var payDays = getPayDays();
+    try {
+      var indices = JSON.parse(indicesStr);
+      if(!Array.isArray(indices)) return '—';
+      var labels = indices.map(function(i){
+        if(i < 0 || i >= payDays.length) return '?';
+        return ordinal(payDays[i]);
+      });
+      return labels.join(', ');
+    } catch(e){ return '—'; }
+  }
+  function updateAllPreviews(){
+    document.querySelectorAll('.pdi-input').forEach(function(inp){
+      var preview = inp.closest('tr').querySelector('.pdi-preview');
+      if(preview) preview.textContent = resolveIndices(inp.value);
+    });
+  }
+  document.querySelectorAll('.pdi-input').forEach(function(inp){
+    inp.addEventListener('input', updateAllPreviews);
+  });
+  if(payDaysInput) payDaysInput.addEventListener('input', updateAllPreviews);
+  updateAllPreviews();
+
+  /* --- #15: Visual pay day picker with toggles --- */
+  if(payDaysInput){
+    var pickerWrap = document.createElement('div');
+    pickerWrap.style.cssText = 'display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;';
+    var days = [];
+    for(var d=1; d<=31; d++) days.push(d);
+    days.push('eom');
+    function currentSelected(){
+      try { return JSON.parse(payDaysInput.value); } catch(e){ return []; }
+    }
+    function syncInput(selected){
+      payDaysInput.value = JSON.stringify(selected);
+      renderPicker();
+      updateAllPreviews();
+    }
+    function renderPicker(){
+      pickerWrap.innerHTML = '';
+      var sel = currentSelected();
+      days.forEach(function(day){
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = day === 'eom' ? 'EOM' : day;
+        var active = sel.indexOf(day) !== -1;
+        btn.style.cssText = 'padding:4px 8px; border-radius:6px; border:1px solid rgba(148,163,184,0.3); cursor:pointer; font-size:0.8rem; min-width:36px; transition:all 0.15s;'
+          + (active ? 'background:rgba(37,99,235,0.5); color:#bfdbfe; border-color:rgba(37,99,235,0.6);' : 'background:rgba(15,23,42,0.5); color:#94a3b8;');
+        btn.addEventListener('click', function(){
+          var s = currentSelected();
+          var idx = s.indexOf(day);
+          if(idx !== -1) s.splice(idx, 1);
+          else { s.push(day); s.sort(function(a,b){ if(a==='eom') return 1; if(b==='eom') return -1; return a-b; }); }
+          syncInput(s);
+        });
+        pickerWrap.appendChild(btn);
+      });
+    }
+    payDaysInput.parentNode.insertBefore(pickerWrap, payDaysInput.nextSibling);
+    renderPicker();
+    payDaysInput.addEventListener('input', renderPicker);
+  }
+})();
+</script>
 {% endblock %}

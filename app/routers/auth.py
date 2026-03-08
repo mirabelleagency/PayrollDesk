@@ -22,6 +22,8 @@ from app.security import (
 logger = logging.getLogger(__name__)
 
 _SESSION_SECRET = os.getenv("SESSION_SECRET", os.getenv("SECRET_KEY", "change-me-in-production"))
+if os.getenv("ENVIRONMENT", "development").lower() == "production" and _SESSION_SECRET == "change-me-in-production":
+    raise RuntimeError("SESSION_SECRET or SECRET_KEY must be set in production; refusing to start with default secret.")
 _SESSION_MAX_AGE = 86400  # 24 hours
 _signer = URLSafeTimedSerializer(_SESSION_SECRET, salt="user-session")
 
@@ -109,7 +111,7 @@ def login(
 
     # Set signed session cookie and redirect
     response = RedirectResponse(url=redirect_to, status_code=303)
-    is_production = os.getenv("PAYROLL_DATABASE_URL", "").startswith("postgresql")
+    is_production = os.getenv("ENVIRONMENT", "production").lower() == "production"
     signed_token = _signer.dumps(user.id)
     response.set_cookie(
         key="session",

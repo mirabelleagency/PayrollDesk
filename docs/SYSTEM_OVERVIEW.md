@@ -28,13 +28,13 @@ PayrollDeskAI is a **web-based payroll management application** built for agenci
 |-------|-----------|---------|
 | Framework | **FastAPI** (ASGI) | Lifespan handler for startup, `CacheControlMiddleware` for static asset caching |
 | ORM | **SQLAlchemy 2.0+** | `Mapped[]` type annotations, `mapped_column()`, `selectinload()` for eager loading |
-| Database | **PostgreSQL** (prod) / **SQLite** (dev) | Dual engine support via `PAYROLL_DATABASE_URL` env var; SQLite FK enforcement via PRAGMA listener |
+| Database | **PostgreSQL** | Primary database for dev and production via `PAYROLL_DATABASE_URL` env var; tests use temporary SQLite |
 | Migrations | **Alembic** | 4 migration versions, auto-run on container startup via `entrypoint.sh` |
 | Templates | **Jinja2 + HTMX** | Server-rendered HTML; custom Jinja2 filters (`money`, `display_date`, `display_datetime`); HTMX for partial page updates |
 | Frontend | **Bootstrap 5** | BEM CSS methodology, custom SVG stroke icons (no image dependencies), shimmer skeleton loaders |
 | Auth | **bcrypt** | `User.hash_password()` / `verify_password()` class methods; plain session cookies |
 | Data Processing | **pandas** + **openpyxl** | DataFrame pipeline for payroll math; Excel I/O for import/export |
-| Testing | **pytest** + pytest-cov | 50+ test files, temp SQLite per session, auto-clean domain tables between tests |
+| Testing | **pytest** + pytest-cov | 50+ test files, temp SQLite per session (tests only), auto-clean domain tables between tests |
 | Server | **Uvicorn** (dev) / **Gunicorn** (prod) | Gunicorn with uvicorn workers in Docker |
 | Rate Limiting | **slowapi** | Limiter instance in `core/rate_limiter.py`, currently only on `/models/export` (5/min) |
 | Deployment | **Docker** → **Render** | `python:3.11-slim` base, free tier, health check at `/health` |
@@ -66,7 +66,7 @@ Browser (HTML/HTMX + Bootstrap 5)
           │
           ▼
 ┌──────────────────────────────────────────────────┐
-│  PostgreSQL / SQLite                              │
+│  PostgreSQL                                        │
 │  18 tables, FK constraints, Alembic migrations   │
 └──────────────────────────────────────────────────┘
 ```
@@ -693,15 +693,15 @@ class ModelBase(BaseModel):
 ### Engine Configuration
 
 ```python
-DATABASE_URL = os.getenv("PAYROLL_DATABASE_URL", "sqlite:///data/payroll.db")
+DATABASE_URL = os.getenv("PAYROLL_DATABASE_URL", "postgresql://payroll:payroll@localhost:5432/payroll_dev")
 
 # PostgreSQL: connection pooling enabled by default (SQLAlchemy defaults)
-# SQLite: connect_args={"check_same_thread": False} for FastAPI threading
+# PostgreSQL is the default; connect_args can be customised via env
 ```
 
 ### Event Listeners
 
-1. **SQLite FK enforcement:** `PRAGMA foreign_keys=ON` on every connection (via `@event.listens_for(engine, "connect")`)
+1. **Foreign key enforcement:** PostgreSQL enforces FKs natively. Tests use SQLite with `PRAGMA foreign_keys=ON`.
 2. **Query logging:** When `LOG_QUERIES=true`, logs all queries with timing; warns on queries > 100ms
 3. **URL masking:** `_mask_db_url()` redacts passwords in log output
 
@@ -799,7 +799,7 @@ services:
 
 | Variable | Required | Default | Purpose |
 |----------|----------|---------|---------|
-| `PAYROLL_DATABASE_URL` | No | `sqlite:///data/payroll.db` | Database connection string |
+| `PAYROLL_DATABASE_URL` | No | `postgresql://payroll:payroll@localhost:5432/payroll_dev` | Database connection string |
 | `LOG_QUERIES` | No | `false` | Enable SQL query logging with timing |
 | `PYTHONUNBUFFERED` | No | — | Set to `1` for Docker log flushing |
 
@@ -815,7 +815,7 @@ testpaths = tests
 addopts = -v --tb=short
 ```
 
-**Test database:** Temporary SQLite file per session (not in-memory, to support FK constraints)
+**Test database:** Temporary SQLite file per session (for isolation only; not used in dev/prod)
 
 **Fixture setup:**
 1. Create engine pointing to temp file

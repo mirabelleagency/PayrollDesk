@@ -1,6 +1,9 @@
 """Security utilities for rate limiting and account lockout."""
 from __future__ import annotations
 
+import hashlib
+import hmac
+import os
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -8,6 +11,26 @@ from sqlalchemy import select
 from app.auth import User
 from app.models import LoginAttempt
 from app.core.formatting import format_display_datetime
+
+# CSRF secret – reuse the same session secret so no extra config is needed
+_CSRF_SECRET = os.getenv("SESSION_SECRET", os.getenv("SECRET_KEY", "change-me-in-production"))
+
+
+def generate_csrf_token(session_cookie: str) -> str:
+    """Generate a CSRF token cryptographically bound to the session cookie."""
+    return hmac.new(
+        _CSRF_SECRET.encode("utf-8"),
+        session_cookie.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def validate_csrf_token(token: str, session_cookie: str) -> bool:
+    """Validate a CSRF token against the session cookie."""
+    if not token or not session_cookie:
+        return False
+    expected = generate_csrf_token(session_cookie)
+    return hmac.compare_digest(token, expected)
 
 # Configuration
 MAX_FAILED_ATTEMPTS = 5

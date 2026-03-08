@@ -2,6 +2,105 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.45.0 - 2026-01-11
+
+### Added
+- feat(crud): batch query optimizations for dashboard data (Enhancement #4)
+  - `batch_run_payment_summaries(db, run_ids)` — 4 queries instead of 3×N
+  - `batch_frequency_counts(db, run_ids)` — 1 query with GROUP BY instead of N
+  - Dashboard and runs-by-year views now use batch functions
+
+- feat(schedules): advance deduction confirmation dialog (Enhancement #6)
+  - `confirm()` prompt when marking a payout as "paid" with active advance deduction
+  - Shows deduction amount and asks for explicit confirmation
+  - `update_payout()` and `_realize_allocations_for_paid_payout()` now return deducted amounts
+
+- feat(schedules): advance deduction toast notifications (Enhancement #8)
+  - `showAdvanceToast()` animated bottom-right toast for deducted amounts
+  - Triggers on single payout status change and bulk status updates
+  - 4-second auto-dismiss with close button
+
+- feat(admin): bulk advance approval workflow (Enhancement #10)
+  - New `GET /admin/advances/pending` page with checkbox selection
+  - `POST /admin/advances/bulk-approve` route with audit logging
+  - `list_pending_advances()` CRUD function
+  - "Advances" nav link in admin sidebar with dollar-sign icon
+
+- feat(schedules): export cache with ETag headers (Enhancement #11)
+  - Lightweight data-timestamp ETag (payout count + max updated_at)
+  - 304 Not Modified returned for unchanged exports
+  - File-based ETag (mtime + size) for pre-generated export files
+  - Applied to CSV, Excel, and static file download endpoints
+
+- feat(admin): pay config visual day picker (Enhancement #15)
+  - Toggle buttons for days 1-31 + EOM
+  - Syncs with JSON input field bidirectionally
+  - Updates frequency plan date previews on change
+
+- feat(admin): frequency plan computed dates preview (Enhancement #17)
+  - "Resolved Pay Dates" column in frequency plans table
+  - `resolveIndices()` maps pay_day_indices to ordinal labels (e.g., "7th, 14th, 21st, EOM")
+  - Live updates on index input change
+
+### Changed
+- refactor(admin/users): unify user management styling (Enhancement #12)
+  - `users.html` — removed ~160 lines of inline `<style>`, replaced with design system classes
+  - `user_form.html` — removed all inline styles, uses `.card`, `.form`, `.form-row`, `.form-actions`
+
+- refactor(admin/users): password reset UX improvements (Enhancement #16)
+  - Password reset moved from inline input to `<dialog>` modal per user
+  - New password + confirm password fields with `validateResetForm()` validation
+  - Mismatch error display and cancel button
+
+- refactor(admin/audit_log): fix inconsistent button classes
+  - Replaced `btn btn--sm btn--primary/secondary` with `button button--compact button--primary/secondary`
+  - Replaced inline styles with design system utility classes (`.text-muted`, `.code-badge`, `.pagination`)
+
+- refactor(profile): remove inline style block (~100 lines)
+  - Replaced custom `.profile-container`, `.btn-submit`, `.btn-cancel` with design system classes
+  - Uses `.card`, `.form`, `.form-row`, `.form-actions`, `.button--primary`, `.button--secondary`, `.alert`
+
+- refactor(admin/pending_advances): replace inline styles with utility classes
+  - Uses `.page-header__sub`, `.text-muted`, `.cell--center`, `.form-actions`
+
+- refactor(sidebar): reorganize navigation for clarity
+  - Separate "Admin" section label for admin-only links (was mixed under "Account")
+  - "Account" section now at bottom with My Profile and Changelog
+  - Admin links reordered: Settings → Users → Advances → Audit Log (most-to-least used)
+  - Distinct wallet icon for Advances (was using same dollar sign as Commissions)
+  - Clock icon for Audit Log (was using same document icon as Changelog)
+  - "Admin Settings" renamed to "Settings" (already in Admin section)
+  - "User Admin" renamed to "Users"
+
+- refactor(admin/settings): improve settings page UX
+  - Split Maintenance into "Maintenance" (cleanup) and "Danger Zone" (destructive reset)
+  - Danger Zone has red border and explicit warning styling
+  - Fixed `button secondary` → `button--secondary` (missing `--` prefix)
+  - Fixed reset button: inline danger styles → `button--danger` class
+  - Added confirmation dialog on "Delete Empty Runs"
+  - Removed confusing "Tools" section with raw API endpoints
+  - All section descriptions use `.page-header__sub` instead of inline styles
+  - Table inputs use `.table-input` class instead of inline styles
+
+- style(css): add shared utility classes to design system
+  - `.text-muted`, `.cell--nowrap`, `.cell--sm`, `.cell--center` — table/text helpers
+  - `.code-badge` — inline code chip styling
+  - `.details-toggle`, `.details-pre` — expandable detail formatting
+  - `.page-header__sub` — page header subtitle
+  - `.pagination`, `.pagination__info` — pagination nav component
+  - `.table-input` — inline table input with focus states
+  - `.maintenance-action` — stacked button + description layout
+
+### Verified
+- Enhancement #9 (Bulk compensation alert resolution) — already fully implemented
+  - Backend: `bulk_resolve_alerts` endpoint exists
+  - Frontend: "Apply All Pro-rated" and "Dismiss All" buttons present in UI
+
+### Tests
+- Test count: 233 passed, 7 pre-existing failures (UNIQUE constraint in test fixtures)
+
+---
+
 ## v2.44.0 - 2026-01-10
 
 ### Added

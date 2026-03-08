@@ -9,9 +9,17 @@
     </div>
     <div class="header-actions">
         {% if user.role == 'admin' %}
-        <a class="button button--primary" href="/schedules/new">
+        <form method="post" action="/schedules/auto-generate" style="display:inline;">
+            <input type="hidden" name="months_ahead" value="2">
+            <input type="hidden" name="currency" value="{{ current_year_summary.currency or 'USD' }}">
+            <button class="button button--primary" type="submit">
+                <span class="button__icon">⚡</span>
+                <span>Auto-Generate Drafts</span>
+            </button>
+        </form>
+        <a class="button button--ghost" href="/schedules/new">
             <span class="button__icon">➕</span>
-            <span>New Payroll Cycle</span>
+            <span>Manual Cycle</span>
         </a>
         {% endif %}
     </div>
@@ -345,7 +353,7 @@
                         {% endif %}
                     </td>
                     <td>{{ payment.pay_date.strftime('%b %d, %Y') }}</td>
-                    <td>USD {{ "{:,.2f}".format(payment.amount) }}</td>
+                    <td>{{ current_year_summary.currency or 'USD' }} {{ "{:,.2f}".format(payment.amount) }}</td>
                     <td><span class="status-chip status-chip--danger">{{ payment.status|replace('_', ' ')|title }}</span></td>
                     <td>{{ payment.notes or '—' }}</td>
                     <td>
@@ -395,7 +403,7 @@
                         {% endif %}
                     </td>
                     <td>{{ payment.pay_date.strftime('%b %d, %Y') }}</td>
-                    <td>USD {{ "{:,.2f}".format(payment.amount) }}</td>
+                    <td>{{ current_year_summary.currency or 'USD' }} {{ "{:,.2f}".format(payment.amount) }}</td>
                     <td><span class="status-chip status-chip--danger">{{ payment.status|replace('_', ' ')|title }}</span></td>
                     <td>{{ payment.notes or '—' }}</td>
                     <td>
@@ -445,7 +453,7 @@
                         {% endif %}
                     </td>
                     <td>{{ payment.pay_date.strftime('%b %d, %Y') }}</td>
-                    <td>USD {{ "{:,.2f}".format(payment.amount) }}</td>
+                    <td>{{ current_year_summary.currency or 'USD' }} {{ "{:,.2f}".format(payment.amount) }}</td>
                     <td><span class="status-chip status-chip--warning">{{ payment.status|replace('_', ' ')|title }}</span></td>
                     <td>{{ payment.notes or '—' }}</td>
                     <td>

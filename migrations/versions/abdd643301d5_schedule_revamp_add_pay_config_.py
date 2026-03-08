@@ -43,7 +43,7 @@ def upgrade() -> None:
             sa.Column('name', sa.String(length=100), nullable=False),
             sa.Column('pay_days', sa.Text(), nullable=False, server_default='[7, 14, 21, "eom"]'),
             sa.Column('currency', sa.String(length=10), nullable=False, server_default='USD'),
-            sa.Column('is_default', sa.Boolean(), nullable=False, server_default=sa.text('0')),
+            sa.Column('is_default', sa.Boolean(), nullable=False, server_default=sa.text('false')),
             sa.Column('created_at', sa.DateTime(), nullable=False),
             sa.Column('updated_at', sa.DateTime(), nullable=False),
             sa.PrimaryKeyConstraint('id'),
@@ -55,7 +55,7 @@ def upgrade() -> None:
             sa.Column('name', sa.String(length=50), nullable=False),
             sa.Column('pay_day_indices', sa.Text(), nullable=False),
             sa.Column('display_name', sa.String(length=100), nullable=False),
-            sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('1')),
+            sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('true')),
             sa.Column('created_at', sa.DateTime(), nullable=False),
             sa.PrimaryKeyConstraint('id'),
             sa.UniqueConstraint('name'),
@@ -80,26 +80,26 @@ def upgrade() -> None:
     if count == 0:
         op.execute(
             "INSERT INTO pay_configs (name, pay_days, currency, is_default, created_at, updated_at) "
-            "VALUES ('Default', '[7, 14, 21, \"eom\"]', 'USD', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+            "VALUES ('Default', '[7, 14, 21, \"eom\"]', 'USD', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
         )
     count = bind.execute(sa.text("SELECT COUNT(*) FROM frequency_plans")).scalar()
     if count == 0:
         op.execute(
             "INSERT INTO frequency_plans (name, pay_day_indices, display_name, is_active, created_at) VALUES "
-            "('weekly', '[0, 1, 2, 3]', 'Weekly (4x/month)', 1, CURRENT_TIMESTAMP)"
+            "('weekly', '[0, 1, 2, 3]', 'Weekly (4x/month)', true, CURRENT_TIMESTAMP)"
         )
         op.execute(
             "INSERT INTO frequency_plans (name, pay_day_indices, display_name, is_active, created_at) VALUES "
-            "('biweekly', '[1, 3]', 'Biweekly (2x/month)', 1, CURRENT_TIMESTAMP)"
+            "('biweekly', '[1, 3]', 'Biweekly (2x/month)', true, CURRENT_TIMESTAMP)"
         )
         op.execute(
             "INSERT INTO frequency_plans (name, pay_day_indices, display_name, is_active, created_at) VALUES "
-            "('monthly', '[3]', 'Monthly (1x/month)', 1, CURRENT_TIMESTAMP)"
+            "('monthly', '[3]', 'Monthly (1x/month)', true, CURRENT_TIMESTAMP)"
         )
 
     # Add columns to existing tables (skip if already present)
     if not _column_exists('payouts', 'is_locked'):
-        op.add_column('payouts', sa.Column('is_locked', sa.Boolean(), nullable=False, server_default=sa.text('0')))
+        op.add_column('payouts', sa.Column('is_locked', sa.Boolean(), nullable=False, server_default=sa.text('false')))
     if not _column_exists('payouts', 'gross_amount'):
         op.add_column('payouts', sa.Column('gross_amount', sa.Numeric(precision=12, scale=2), nullable=True))
     if not _column_exists('schedule_runs', 'run_status'):

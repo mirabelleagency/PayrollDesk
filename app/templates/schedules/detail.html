@@ -2,27 +2,12 @@
 {% block title %}Payroll Cycle {{ run.id }} · Payroll Desk{% endblock %}
 {% block content %}
 
-<script>
-document.documentElement.classList.add('js-metrics');
-</script>
-
 <style>
 .schedule-metrics-dashboard {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 20px;
     margin: 24px 0;
-}
-
-.js-metrics .schedule-metrics-dashboard {
-    opacity: 0;
-    transform: translateY(12px);
-    transition: opacity 0.24s ease, transform 0.24s ease;
-}
-
-.schedule-metrics-dashboard.is-ready {
-    opacity: 1;
-    transform: none;
 }
 
 .schedule-metric {
@@ -122,118 +107,7 @@ document.documentElement.classList.add('js-metrics');
 .schedule-metric__divider {
     color: #475569;
 }
-</style>
 
-<!-- Page Header -->
-<section class="page-header" style="margin-bottom: 24px;">
-    <div>
-    <h1 class="page-title">💳 {{ run.cycle_display }} Payroll Cycle</h1>
-        <p style="color: #94a3b8; margin: 8px 0 0 0;">
-            <span>Cycle #{{ run.id }}</span>
-            <span style="margin: 0 8px; color: #475569;">•</span>
-            {% set rs = run.run_status | default('ready') %}
-            {% if rs == 'draft' %}
-            <span class="status-chip status-chip--draft">Draft</span>
-            {% elif rs == 'processing' %}
-            <span class="status-chip status-chip--warning">Processing</span>
-            {% elif rs == 'error' %}
-            <span class="status-chip status-chip--danger">Error</span>
-            {% else %}
-            <span class="status-chip status-chip--success">Ready</span>
-            {% endif %}
-            <span style="margin: 0 8px; color: #475569;">•</span>
-            <span>Generated {{ run.created_at|display_date }}</span>
-            <span style="margin: 0 8px; color: #475569;">•</span>
-            <span>Currency: {{ run.currency }}</span>
-        </p>
-    </div>
-    <div class="header-actions" style="display: flex; gap: 8px; align-items: center;">
-        <a class="button secondary" href="/schedules">
-            <span>← Back to Cycles</span>
-        </a>
-        {# Add New Models button - safely adds models not yet in schedule #}
-        <form action="/schedules/{{ run.id }}/add-new-models" method="POST" style="margin: 0;">
-            <button type="submit" class="button secondary" title="Add payouts for models not yet in this schedule (safe - won't modify existing payouts)">
-                <span>➕</span>
-                <span>Add New Models</span>
-            </button>
-        </form>
-        {# CSV export removed — Excel will export the current status filter #}
-        <a id="export-excel" data-base-href="/schedules/{{ run.id }}/download/schedule_excel" class="button button--primary" href="/schedules/{{ run.id }}/download/schedule_excel{% if filters.status %}?status={{ filters.status }}{% endif %}">
-            <span>📥</span>
-            <span>Export Excel</span>
-        </a>
-    </div>
-</section>
-
-<!-- Processing overlay (shown when run is processing in background) -->
-{% set rs = run.run_status | default('ready') %}
-{% if rs == 'processing' or request.query_params.get('processing') == '1' %}
-<section id="processing-overlay" class="card" style="text-align: center; padding: 48px 24px; margin-bottom: 24px;">
-    <div style="font-size: 48px; margin-bottom: 16px;">⏳</div>
-    <h2 style="color: #f8fafc; margin-bottom: 8px;">Processing Payroll</h2>
-    <p style="color: #94a3b8; margin-bottom: 24px;">Calculating payouts for all models. This page will update automatically.</p>
-    <div style="max-width: 400px; margin: 0 auto 16px auto; background: rgba(30,41,59,0.8); border-radius: 8px; height: 12px; overflow: hidden;">
-        <div id="progress-bar" style="width: {{ run.processing_progress or 0 }}%; height: 100%; background: linear-gradient(90deg, #3b82f6, #6366f1); border-radius: 8px; transition: width 0.5s ease;"></div>
-    </div>
-    <p id="progress-text" style="color: #94a3b8; font-size: 14px;">{{ run.processing_progress or 0 }}%</p>
-    {% if run.error_message %}
-    <div class="alert-banner alert-banner--danger" style="margin-top: 16px; text-align: left;">
-        <div class="alert-banner__icon">⚠️</div>
-        <div class="alert-banner__message">{{ run.error_message }}</div>
-    </div>
-    {% endif %}
-</section>
-<script>
-(function() {
-    var overlay = document.getElementById('processing-overlay');
-    var bar = document.getElementById('progress-bar');
-    var text = document.getElementById('progress-text');
-    var runId = {{ run.id }};
-    var interval = setInterval(function() {
-        fetch('/schedules/' + runId + '/status')
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (bar) bar.style.width = data.processing_progress + '%';
-                if (text) text.textContent = data.processing_progress + '%';
-                if (data.run_status === 'ready' || data.run_status === 'error') {
-                    clearInterval(interval);
-                    // Reload the page to show the full results
-                    window.location.href = '/schedules/' + runId;
-                }
-            })
-            .catch(function() { /* retry next interval */ });
-    }, 2000);
-})();
-</script>
-{% endif %}
-
-<!-- Success message for added models -->
-{% if request.query_params.get('added') %}
-{% set added_codes_param = request.query_params.get('added_codes', '') %}
-{% set added_codes_list = added_codes_param.split(',') if added_codes_param else [] %}
-<section class="alert-banner alert-banner--success" style="margin-bottom: 24px;">
-    <div class="alert-banner__icon">✅</div>
-    <div class="alert-banner__content">
-        <div class="alert-banner__title">Models Added</div>
-        <div class="alert-banner__message">
-            {{ request.query_params.get('added') }} new model(s) added to this schedule
-            {% if added_codes_list %}
-            <br><span style="font-size: 12px; color: #86efac; margin-top: 4px; display: inline-block;">
-                Added: {% for code in added_codes_list %}<strong>{{ code }}</strong>{% if not loop.last %}, {% endif %}{% endfor %}
-            </span>
-            {% endif %}
-        </div>
-    </div>
-    <button class="alert-banner__action" onclick="clearHighlights()">
-        Clear Highlights
-    </button>
-</section>
-<script>
-// Store added codes for highlighting rows
-window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{% if not loop.last %},{% endif %}{% endfor %}];
-</script>
-<style>
 /* Highlight style for newly added model rows */
 .payout-row--newly-added {
     background: linear-gradient(90deg, rgba(34, 197, 94, 0.15), transparent 70%) !important;
@@ -258,10 +132,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
     0% { background: linear-gradient(90deg, rgba(34, 197, 94, 0.35), transparent 70%); }
     100% { background: linear-gradient(90deg, rgba(34, 197, 94, 0.15), transparent 70%); }
 }
-</style>
-{% endif %}
 
-<style>
 /* Model Link Styles */
 .model-link {
     font-weight: 600;
@@ -415,1687 +286,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
     0%, 100% { transform: scale(1); opacity: 1; }
     50% { transform: scale(1.3); opacity: 0.7; }
 }
-</style>
 
-<!-- Validation Alerts (if any) -->
-{% if validations|length > 0 %}
-<section class="alert-banner alert-banner--warning" style="margin-bottom: 24px;">
-    <div class="alert-banner__icon">⚠️</div>
-    <div class="alert-banner__content">
-        <div class="alert-banner__title">{{ validations|length }} Validation Issue{{ 's' if validations|length != 1 else '' }}</div>
-        <div class="alert-banner__message">Review issues before processing payments</div>
-    </div>
-    <button class="alert-banner__action" onclick="toggleValidation()">
-        <span id="validation-toggle-text">Show Details</span>
-    </button>
-</section>
-{% endif %}
-
-<!-- Hero Metrics Dashboard -->
-<section class="schedule-metrics-dashboard">
-    <div class="schedule-metric schedule-metric--primary" id="card-paid">
-        <div class="schedule-metric__header">
-            <span class="schedule-metric__icon">✅</span>
-            <span class="schedule-metric__label">Paid This Cycle</span>
-        </div>
-        <div class="schedule-metric__value">{{ run.currency }} <span id="card-paid-total">{{ summary.paid_total|money }}</span></div>
-        <div class="schedule-metric__breakdown">
-            <span class="schedule-metric__item"><span id="card-paid-models">{{ summary.paid_models }}</span> models</span>
-            <span class="schedule-metric__divider">·</span>
-            <span class="schedule-metric__item"><span id="card-paid-count">{{ status_counts.get('paid', 0) }}</span> payments</span>
-        </div>
-    </div>
-
-    <div class="schedule-metric schedule-metric--warning" id="card-unpaid">
-        <div class="schedule-metric__header">
-            <span class="schedule-metric__icon">⏳</span>
-            <span class="schedule-metric__label">Unpaid This Cycle</span>
-        </div>
-        <div class="schedule-metric__value">{{ run.currency }} <span id="card-unpaid-total">{{ summary.unpaid_total|money }}</span></div>
-        <div class="schedule-metric__breakdown">
-            <span class="schedule-metric__item"><span id="card-unpaid-pending">{{ status_counts.get('not_paid', 0) }}</span> pending</span>
-            <span class="schedule-metric__divider">·</span>
-            <span class="schedule-metric__item"><span id="card-unpaid-hold">{{ status_counts.get('on_hold', 0) }}</span> on hold</span>
-        </div>
-    </div>
-
-    <div class="schedule-metric schedule-metric--danger {% if overdue_count > 0 %}schedule-metric--alert{% endif %}" id="card-overdue">
-        <div class="schedule-metric__header">
-            <span class="schedule-metric__icon">🚨</span>
-            <span class="schedule-metric__label">Overdue</span>
-        </div>
-        <div class="schedule-metric__value"><span id="card-overdue-count">{{ overdue_count }}</span></div>
-        <div class="schedule-metric__breakdown">
-            <span class="schedule-metric__item">{{ run.currency }} <span id="card-overdue-amount">{{ overdue_amount|money }}</span></span>
-            {% if overdue_count > 0 %}
-            <span class="schedule-metric__divider">·</span>
-            <span class="schedule-metric__item" style="color: #ef4444;">Action needed</span>
-            {% else %}
-            <span class="schedule-metric__divider">·</span>
-            <span class="schedule-metric__item">All current</span>
-            {% endif %}
-        </div>
-    </div>
-
-    <div class="schedule-metric schedule-metric--success">
-        <div class="schedule-metric__header">
-            <span class="schedule-metric__icon">💰</span>
-            <span class="schedule-metric__label">Lifetime Paid</span>
-        </div>
-        <div class="schedule-metric__value">{{ run.currency }} {{ summary.overall_paid|money }}</div>
-        <div class="schedule-metric__breakdown">
-            <span class="schedule-metric__item">All-time total</span>
-        </div>
-    </div>
-
-    <div class="schedule-metric schedule-metric--neutral">
-        <div class="schedule-metric__header">
-            <span class="schedule-metric__icon">📊</span>
-            <span class="schedule-metric__label">Frequency Mix</span>
-        </div>
-        <div class="schedule-metric__value schedule-metric__value--compact">{{ payouts|length }}</div>
-        <div class="schedule-metric__breakdown">
-            {% for name, count in frequency_counts.items() %}
-                <span class="schedule-metric__item">{{ name|title }}: {{ count }}</span>
-                {% if not loop.last %}<span class="schedule-metric__divider">·</span>{% endif %}
-            {% else %}
-                <span class="schedule-metric__item">No data</span>
-            {% endfor %}
-        </div>
-    </div>
-</section>
-
-{% if pending_alerts_count > 0 %}
-<!-- Compensation Alerts Banner -->
-<section class="compensation-alert-banner" id="compensation-alerts-section">
-    <div class="compensation-alert-banner__header" onclick="toggleCompensationDetails()" style="cursor: pointer;">
-        <div class="compensation-alert-banner__icon">⚠️</div>
-        <div class="compensation-alert-banner__content">
-            <h3>{{ pending_alerts_count }} Compensation Change{{ 's' if pending_alerts_count != 1 else '' }} Need Review</h3>
-            <p>Some models have had their compensation updated since this schedule was generated.</p>
-        </div>
-        <button type="button" class="button button--warning button--compact" id="toggle-details-btn" onclick="event.stopPropagation(); toggleCompensationDetails();">
-            Show Details
-        </button>
-    </div>
-    
-    <!-- Alert details (collapsible) -->
-    <div class="compensation-alert-banner__details" id="compensation-details" style="display: none;">
-        <table class="compensation-alert-table">
-            <thead>
-                <tr>
-                    <th>Model</th>
-                    <th>Pay Date</th>
-                    <th>Current Amount</th>
-                    <th>New Amount</th>
-                    <th>Pro-rated</th>
-                    <th>Effective</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for alert in compensation_alerts %}
-                <tr data-alert-id="{{ alert.id }}" data-payout-id="{{ alert.payout_id }}">
-                    <td>
-                        <a href="/models/{{ alert.model_id }}/edit" class="model-link" title="Edit model">
-                            <strong>{{ alert.payout.code }}</strong>
-                        </a><br>
-                        <small style="color: #94a3b8;">{{ alert.payout.real_name }}</small>
-                    </td>
-                    <td>{{ alert.payout.pay_date.strftime('%b %d') }}</td>
-                    <td>{{ run.currency }} {{ alert.original_amount|money }}</td>
-                    <td style="color: #22c55e; font-weight: 600;">{{ run.currency }} {{ alert.new_amount|money }}</td>
-                    <td>
-                        {% if alert.prorated_amount %}
-                        {{ run.currency }} {{ alert.prorated_amount|money }}
-                        {% else %}
-                        <span style="color: #64748b;">—</span>
-                        {% endif %}
-                    </td>
-                    <td>{{ alert.effective_date.strftime('%b %d') }}</td>
-                    <td>
-                        <div class="alert-actions">
-                            {% if alert.prorated_amount %}
-                            <button type="button" class="button button--success button--compact" 
-                                    onclick="resolveAlert({{ alert.id }}, 'apply_prorated')" 
-                                    title="Apply pro-rated amount">
-                                Apply Pro-rate
-                            </button>
-                            {% endif %}
-                            <button type="button" class="button button--secondary button--compact" 
-                                    onclick="resolveAlert({{ alert.id }}, 'dismiss')" 
-                                    title="Keep original amount">
-                                Keep Original
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        
-        <div class="compensation-alert-banner__bulk-actions">
-            <span>Bulk Actions:</span>
-            <button type="button" class="button button--success button--compact" onclick="bulkResolveAlerts('apply_prorated')">
-                Apply All Pro-rated
-            </button>
-            <button type="button" class="button button--secondary button--compact" onclick="bulkResolveAlerts('dismiss')">
-                Dismiss All
-            </button>
-        </div>
-    </div>
-</section>
-{% endif %}
-
-<!-- Payouts Section -->
-<section class="card" style="margin-top: 32px;">
-    <div class="section-heading">
-        <div>
-            <h2><span class="section-icon">📋</span> Payment Schedule</h2>
-            <p style="color: #94a3b8; margin: 4px 0 0 0;">{{ payouts|length }} payment{{ 's' if payouts|length != 1 else '' }} in this cycle</p>
-        </div>
-    </div>
-
-    <!-- Compact Filter Toolbar -->
-    <div class="schedule-filter-toolbar">
-        <div class="schedule-filter-toolbar__search">
-            <input type="text" id="quick-search" placeholder="🔍 Search by code, name..." 
-                   onkeyup="filterPayoutTable()" 
-                   class="filter-search-input">
-        </div>
-        
-        <form class="schedule-filter-toolbar__filters" method="get" action="/schedules/{{ run.id }}">
-            <input type="hidden" name="q" id="filter-q-hidden" value="{{ request.query_params.get('q','') if request and request.query_params else '' }}">
-            <div class="filter-group-inline">
-                <label for="filter-status">Status</label>
-                <select id="filter-status" name="status" onchange="this.form.submit()" class="filter-select">
-                    <option value="">All</option>
-                    {% for option in status_options %}
-                        <option value="{{ option }}" {% if filters.status == option %}selected{% endif %}>{{ option.replace('_', ' ')|title }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            {# Code filter removed for single-run schedule view to simplify toolbar #}
-
-            <div class="filter-group-inline">
-                <label for="filter-frequency">Frequency</label>
-                <select id="filter-frequency" name="frequency" onchange="this.form.submit()" class="filter-select">
-                    <option value="">All</option>
-                    {% for value in frequency_options %}
-                        <option value="{{ value }}" {% if filters.frequency == value %}selected{% endif %}>{{ value|title }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="filter-group-inline">
-                <label for="filter-method">Method</label>
-                <select id="filter-method" name="payment_method" onchange="this.form.submit()" class="filter-select">
-                    <option value="">All</option>
-                    {% for value in payment_methods %}
-                        <option value="{{ value }}" {% if filters.payment_method == value %}selected{% endif %}>{{ value }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="filter-group-inline">
-                <label for="filter-pay-date">Pay Date</label>
-                <select id="filter-pay-date" name="pay_date" onchange="this.form.submit()" class="filter-select">
-                    <option value="">All dates</option>
-                    {% for option in pay_date_options %}
-                        <option value="{{ option.value }}" {% if filters.pay_date == option.value %}selected{% endif %} {% if not option.available %}disabled{% endif %}>{{ option.label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            
-            {% if filters.code or filters.status or filters.frequency or filters.payment_method or filters.pay_date %}
-            <a class="filter-clear-button" href="/schedules/{{ run.id }}">
-                <span>✕</span>
-                <span>Clear</span>
-            </a>
-            {% endif %}
-        </form>
-    </div>
-
-    <!-- Status Filter Chips -->
-    <div class="status-filter-chips" style="margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap;">
-        <button class="status-chip-filter {% if not filters.status %}status-chip-filter--active{% endif %}"
-            onclick="filterByStatus('')" type="button" data-status-value="">
-            All (<span id="chip-count-all">{{ payouts|length }}</span>)
-        </button>
-        <button id="chip-overdue" class="status-chip-filter status-chip-filter--overdue {% if filters.status == 'overdue' %}status-chip-filter--active{% endif %}"
-            onclick="filterByOverdue()" type="button" data-status-value="overdue" {% if overdue_count == 0 and filters.status != 'overdue' %}style="display: none;"{% endif %}>
-            🚨 Overdue (<span id="chip-count-overdue">{{ overdue_count }}</span>)
-        </button>
-        {% for option in status_options %}
-        <button class="status-chip-filter status-chip-filter--{{ option }} {% if filters.status == option %}status-chip-filter--active{% endif %}" 
-            onclick="filterByStatus('{{ option }}')" type="button" data-status-value="{{ option }}">
-            {{ option.replace('_', ' ')|title }} (<span id="chip-count-{{ option }}">{{ status_counts.get(option, 0) }}</span>)
-        </button>
-        {% endfor %}
-    </div>
-
-    <div class="filter-toolbar__stats" id="filter-stats" style="margin-top: 16px; padding: 12px 0; border-top: 1px solid rgba(148, 163, 184, 0.08); color: #94a3b8; font-size: 14px;">
-        <span>Showing <strong id="visible-count">{{ payouts|length }}</strong> of <strong>{{ payouts|length }}</strong> payments</span>
-    </div>
-    
-    <!-- Modern Payouts Table -->
-    <div class="data-table-wrapper" style="margin-top: 24px;">
-        <table class="data-table schedule-payouts-table" id="payouts-table">
-            <thead>
-                <tr>
-                    <th data-column-key="select" class="column-select" scope="col" data-draggable="false">
-                        <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" title="Select All">
-                    </th>
-                    <th data-column-key="pay_date" class="column-pay_date" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('pay_date')">
-                        <span class="column-label">Pay Date</span>
-                    </th>
-                    <th data-column-key="code" class="column-code" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('code')">
-                        <span class="column-label">Code</span>
-                    </th>
-                    <th data-column-key="working_name" class="column-working_name" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('working_name')">
-                        <span class="column-label">Working Name</span>
-                    </th>
-                    <th data-column-key="payment_method" class="column-payment_method" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('payment_method')">
-                        <span class="column-label">Method</span>
-                    </th>
-                    <th data-column-key="frequency" class="column-frequency" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('frequency')">
-                        <span class="column-label">Frequency</span>
-                    </th>
-                    <th data-column-key="amount" class="column-amount" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('amount')">
-                        <span class="column-label">Amount</span>
-                    </th>
-                    <th data-column-key="deductions" class="column-deductions" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('deductions')">
-                        <span class="column-label">Deductions</span>
-                    </th>
-                    <th data-column-key="status" class="column-status" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('status')">
-                        <span class="column-label">Status</span>
-                    </th>
-                    <th data-column-key="notes" class="column-notes" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('notes')">
-                        <span class="column-label">Notes</span>
-                    </th>
-                    <th data-column-key="actions" class="column-actions" data-draggable="true" draggable="true">
-                        <span class="column-label">Quick Actions</span>
-                    </th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for payout in payouts %}
-                {% set is_overdue = payout.pay_date and payout.pay_date < today and payout.status in ['not_paid', 'on_hold'] %}
-                <tr class="payout-row payout-row--{{ payout.status }} {% if is_overdue %}payout-row--overdue{% endif %}" 
-                    data-payout-id="{{ payout.id }}"
-                    data-code="{{ payout.code|lower }}"
-                    data-name="{{ (payout.working_name or '')|lower }}"
-                    data-status="{{ payout.status }}"
-                    data-is-overdue="{{ 'true' if is_overdue else 'false' }}"
-                    data-pay-date="{{ payout.pay_date.isoformat() if payout.pay_date else '' }}"
-                    data-amount="{{ payout.amount or 0 }}">
-                    <td data-column-key="select" class="column-select" style="text-align: center;">
-                        <input type="checkbox" class="payout-checkbox" value="{{ payout.id }}" onchange="updateBulkSection()" title="Select payout {{ payout.code }}">
-                    </td>
-                    <td data-column-key="pay_date" class="column-pay_date" style="white-space: nowrap;">
-                        <strong>{{ payout.pay_date|display_date }}</strong>
-                        {% if is_overdue %}
-                        <span class="overdue-badge" title="Payment is overdue">🚨</span>
-                        {% endif %}
-                    </td>
-                    <td data-column-key="code" class="column-code">
-                        {% if payout.model_id %}
-                        <a href="/models/{{ payout.model_id }}/edit" class="model-link" title="Edit model">{{ payout.code }}</a>
-                        {% else %}
-                        <span style="font-weight: 600; color: #60a5fa;">{{ payout.code }}</span>
-                        {% endif %}
-                        {% if payout.is_locked %}
-                        <span title="Locked — paid payout preserved on refresh" style="margin-left: 4px; font-size: 0.8em; opacity: 0.7;">🔒</span>
-                        {% endif %}
-                    </td>
-                    <td data-column-key="working_name" class="column-working_name">{{ payout.working_name or '—' }}</td>
-                    <td data-column-key="payment_method" class="column-payment_method">{{ payout.payment_method or '—' }}</td>
-                    <td data-column-key="frequency" class="column-frequency">
-                        <span class="frequency-badge frequency-badge--{{ payout.payment_frequency }}">
-                            {{ payout.payment_frequency|title if payout.payment_frequency else '—' }}
-                        </span>
-                    </td>
-                    <td data-column-key="amount" class="column-amount">
-                        <strong style="font-size: 15px;">{{ run.currency }} {{ payout.amount|money }}</strong>
-                    </td>
-                    <td data-column-key="deductions" class="column-deductions" style="text-align: center;">
-                        {% set deduction = advance_allocations.get(payout.id, 0) %}
-                        {% if deduction > 0 %}
-                        <span title="Cash advance deduction for this payout" style="color: #ef4444; font-weight: 600;">
-                            -{{ run.currency }} {{ deduction|money }}
-                        </span>
-                        {% else %}
-                        <span style="color: #475569;">—</span>
-                        {% endif %}
-                    </td>
-                    <td data-column-key="status" class="column-status" style="text-align: center;">
-                        {% set variant = (
-                            'success' if payout.status == 'paid' else (
-                            'info' if payout.status == 'approved' else (
-                            'warning' if payout.status == 'not_paid' else (
-                            'danger' if payout.status == 'on_hold' else 'neutral')))) %}
-                        <span class="status-chip status-chip--{{ variant }}">
-                            {{ payout.status.replace('_', ' ')|title }}
-                        </span>
-                        {% if is_overdue %}
-                        <span class="overdue-label">OVERDUE</span>
-                        {% endif %}
-                    </td>
-                    <td data-column-key="notes" class="column-notes payout-note-cell">
-                        {% if payout.notes %}
-                        <span class="payout-note-text" title="{{ payout.notes }}">{{ payout.notes|replace('\n', ' ') }}</span>
-                        {% else %}
-                        <span class="payout-note-text payout-note-text--empty">—</span>
-                        {% endif %}
-                    </td>
-                    <td data-column-key="actions" class="column-actions">
-                        <div style="display: flex; gap: 6px; align-items: center;">
-                            {% if payout.status != 'paid' %}
-                <button class="action-button action-button--success js-quick-update" 
-                    data-payout-id="{{ payout.id }}" data-action="paid"
-                    title="Mark as Paid" aria-label="Mark payment as paid">
-                                ✓
-                            </button>
-                            {% else %}
-                <button class="action-button action-button--neutral js-quick-update" 
-                    data-payout-id="{{ payout.id }}" data-action="not_paid"
-                    title="Unmark Paid" aria-label="Unmark payment as paid">
-                                ↺
-                            </button>
-                            {% endif %}
-                            {% if payout.status != 'approved' %}
-                <button class="action-button action-button--primary js-quick-update" 
-                    data-payout-id="{{ payout.id }}" data-action="approved"
-                    title="Mark Approved" aria-label="Mark payment as approved">
-                                ✔
-                            </button>
-                            {% else %}
-                <button class="action-button action-button--neutral js-quick-update" 
-                    data-payout-id="{{ payout.id }}" data-action="not_paid"
-                    title="Unmark Approved" aria-label="Unmark payment as approved">
-                                ↺
-                            </button>
-                            {% endif %}
-                            {% if payout.status != 'on_hold' %}
-                <button class="action-button action-button--warning js-quick-update" 
-                    data-payout-id="{{ payout.id }}" data-action="on_hold"
-                    title="Put On Hold" aria-label="Put payment on hold">
-                                ⏸
-                            </button>
-                            {% else %}
-                <button class="action-button action-button--neutral js-quick-update" 
-                    data-payout-id="{{ payout.id }}" data-action="not_paid"
-                    title="Remove Hold" aria-label="Remove hold from payment">
-                                ▶
-                            </button>
-                            {% endif %}
-                <button class="action-button action-button--secondary js-toggle-notes" 
-                    data-payout-id="{{ payout.id }}"
-                    title="Edit Notes" aria-label="Edit payment notes">
-                                📝
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-                <!-- Expandable Notes Row -->
-                <tr class="notes-row" id="notes-row-{{ payout.id }}" style="display: none;">
-                    <td colspan="11" style="padding: 0; background: rgba(15, 23, 42, 0.95);">
-                        <div style="padding: 16px; border-top: 1px solid rgba(148, 163, 184, 0.1);">
-                                <form method="post" action="/schedules/{{ run.id }}/payouts/{{ payout.id }}/note" 
-                                    class="notes-edit-form" data-payout-id="{{ payout.id }}" data-no-auto-loading="1"
-                                    style="display: flex; gap: 12px; align-items: flex-start;">
-                                                                <input type="hidden" name="redirect_to" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
-                                <div style="flex: 0 0 180px;">
-                                    <label style="display: block; margin-bottom: 6px; color: #cbd5e1; font-weight: 600; font-size: 13px;">Payment Status</label>
-                                    <select name="status" 
-                                            style="width: 100%; padding: 10px; background: rgba(15, 23, 42, 0.7); color: #f8fafc; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 6px; font-size: 14px;">
-                                        {% for option in status_options %}
-                                            <option value="{{ option }}" {% if payout.status == option %}selected{% endif %}>
-                                                {{ option.replace('_', ' ')|title }}
-                                            </option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                                <div style="flex: 1;">
-                                    <label style="display: block; margin-bottom: 6px; color: #cbd5e1; font-weight: 600; font-size: 13px;">Notes</label>
-                                    <textarea name="notes" 
-                                              placeholder="Add context, tracking info, or payment details..." 
-                                              style="width: 100%; padding: 10px; background: rgba(15, 23, 42, 0.7); color: #f8fafc; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 6px; min-height: 80px; font-family: inherit; resize: vertical; font-size: 14px;">{{ payout.notes or '' }}</textarea>
-                                </div>
-                                <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 28px;">
-                                    <button class="button button--primary button--compact" type="submit">
-                                        <span>💾</span>
-                                        <span>Save</span>
-                                    </button>
-                                    <button class="button secondary button--compact js-toggle-notes" type="button" 
-                                            data-payout-id="{{ payout.id }}">
-                                        Cancel
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td class="empty-state" colspan="11">No payouts match the current filters.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-
-    <div class="table-summary-row">
-        <div class="table-summary-label">Cycle Total</div>
-        <div class="table-summary-value">{{ run.currency }} <span id="visible-total">{{ payout_total|money }}</span></div>
-    </div>
-    
-    <!-- Sticky Bulk Actions Bar -->
-    <div class="bulk-actions-bar" id="bulk-actions-bar" style="display: none;">
-        <div class="bulk-actions-bar__content">
-            <div class="bulk-actions-bar__info">
-                <span class="bulk-actions-bar__icon">☑️</span>
-                <span class="bulk-actions-bar__text">
-                    <strong id="selected-count">0</strong> payment<span id="selected-plural">s</span> selected
-                </span>
-            </div>
-            <form method="post" action="/schedules/{{ run.id }}/payouts/bulk-update" id="bulk-form" data-no-auto-loading="1"
-                  style="display: flex; gap: 12px; align-items: center;">
-                <input type="hidden" id="bulk-payout-ids" name="payout_ids" value="">
-                <input type="hidden" name="redirect_to" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
-                <div style="display: flex; gap: 8px; align-items: center;">
-                    <label for="bulk-status" style="color: #e2e8f0; font-weight: 600; font-size: 14px;">Update Status:</label>
-                    <select id="bulk-status" name="status" 
-                            style="padding: 8px 12px; background: rgba(15, 23, 42, 0.9); color: #f8fafc; border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 6px; font-size: 14px;">
-                        {% for option in status_options %}
-                            <option value="{{ option }}">{{ option.replace('_', ' ')|title }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <button class="button button--primary button--compact" type="submit">
-                    <span>✓</span>
-                    <span>Apply</span>
-                </button>
-                <button class="button secondary button--compact" type="button" onclick="cancelBulkUpdate()">
-                    <span>✕</span>
-                    <span>Cancel</span>
-                </button>
-            </form>
-        </div>
-    </div>
-</section>
-
-<!-- Collapsible Validation Section -->
-{% if validations|length > 0 %}
-<section class="card validation-section" id="validation-section" style="margin-top: 32px; display: none;">
-    <div class="section-heading">
-        <div>
-            <h2><span class="section-icon">⚠️</span> Validation Issues</h2>
-            <p style="color: #94a3b8; margin: 4px 0 0 0;">{{ validations|length }} issue{{ 's' if validations|length != 1 else '' }} detected</p>
-        </div>
-    </div>
-    <div class="data-table-wrapper" style="margin-top: 16px;">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th style="width: 100px;">Severity</th>
-                    <th style="width: 150px;">Model</th>
-                    <th>Issue</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in validations %}
-                <tr>
-                    <td>
-                        <span class="status-chip status-chip--{{ 'danger' if item.severity == 'error' else 'warning' }}">
-                            {{ item.severity|title }}
-                        </span>
-                    </td>
-                    <td>
-                        <span style="font-weight: 600; color: #60a5fa;">{{ item.model.code if item.model else '—' }}</span>
-                    </td>
-                    <td style="color: #cbd5e1;">{{ item.issue }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</section>
-{% endif %}
-
-<script id="status-options-json" type="application/json">{{ status_options | tojson }}</script>
-<script>
-const STATUS_OPTIONS = JSON.parse(document.getElementById('status-options-json')?.textContent || '[]');
-function isRowVisible(row) {
-    if (!row) {
-        return false;
-    }
-    if (row.style && row.style.display === 'none') {
-        return false;
-    }
-    return row.offsetParent !== null;
-}
-
-function sanitizeVisibleSelections() {
-    const selectAll = document.getElementById('select-all');
-    const visibleCheckboxes = [];
-    let checkedVisible = 0;
-
-    document.querySelectorAll('.payout-checkbox').forEach(cb => {
-        const row = cb.closest('tr');
-        if (!isRowVisible(row)) {
-            cb.checked = false;
-            return;
-        }
-        visibleCheckboxes.push(cb);
-        if (cb.checked) {
-            checkedVisible += 1;
-        }
-    });
-
-    if (selectAll) {
-        if (!visibleCheckboxes.length) {
-            selectAll.checked = false;
-            selectAll.indeterminate = false;
-        } else {
-            selectAll.checked = checkedVisible === visibleCheckboxes.length && checkedVisible > 0;
-            selectAll.indeterminate = checkedVisible > 0 && checkedVisible < visibleCheckboxes.length;
-        }
-    }
-
-    return { visibleCount: visibleCheckboxes.length, checkedVisible };
-}
-
-// Toggle select all checkboxes scoped to currently visible rows
-function toggleSelectAll(checkbox) {
-    const shouldCheck = checkbox.checked;
-    document.querySelectorAll('.payout-checkbox').forEach(cb => {
-        const row = cb.closest('tr');
-        if (!isRowVisible(row)) {
-            cb.checked = false;
-            return;
-        }
-        cb.checked = shouldCheck;
-    });
-    updateBulkSection();
-}
-
-// Update bulk actions bar visibility and count
-function updateBulkSection() {
-    const { checkedVisible } = sanitizeVisibleSelections();
-    const checkboxes = Array.from(document.querySelectorAll('.payout-checkbox:checked')).filter(cb => isRowVisible(cb.closest('tr')));
-    const bulkBar = document.getElementById('bulk-actions-bar');
-    if (!bulkBar) {
-        return;
-    }
-    const count = checkedVisible || checkboxes.length;
-    
-    if (count > 0) {
-        bulkBar.style.display = 'block';
-        const selectedCount = document.getElementById('selected-count');
-        const selectedPlural = document.getElementById('selected-plural');
-        const bulkIdsInput = document.getElementById('bulk-payout-ids');
-
-        if (selectedCount) {
-            selectedCount.textContent = count;
-        }
-        if (selectedPlural) {
-            selectedPlural.textContent = count === 1 ? '' : 's';
-        }
-        if (bulkIdsInput) {
-            const ids = Array.from(checkboxes).map(cb => cb.value).join(',');
-            bulkIdsInput.value = ids;
-        }
-    } else {
-        bulkBar.style.display = 'none';
-    }
-}
-
-// Cancel bulk update
-function cancelBulkUpdate() {
-    document.querySelectorAll('.payout-checkbox').forEach(cb => cb.checked = false);
-    const selectAll = document.getElementById('select-all');
-    if (selectAll) {
-        selectAll.checked = false;
-    }
-    updateBulkSection();
-}
-
-// Quick status update via button — optimistic UI
-function quickUpdateStatus(payoutId, status) {
-    const row = document.querySelector(`tr.payout-row[data-payout-id="${payoutId}"]`);
-    if (!row) return;
-
-    // Snapshot current state for rollback
-    const prevStatus = row.getAttribute('data-status');
-    const prevChipHtml = row.querySelector('.status-chip')?.outerHTML;
-    const prevButtons = [];
-    row.querySelectorAll('.js-quick-update').forEach(function(b) {
-        prevButtons.push({ cls: b.className, action: b.getAttribute('data-action'), title: b.title, text: b.textContent });
-    });
-
-    // Apply optimistic update immediately
-    applyRowStatusUpdate(String(payoutId), status, computeRowOverdue(row, status));
-    row.classList.add('opt-pending');
-
-    // Disable action buttons during request
-    row.querySelectorAll('.js-quick-update').forEach(function(b) { b.classList.add('is-loading'); });
-
-    const endpoint = `/schedules/{{ run.id }}/payouts/${payoutId}/status`;
-    const formData = new FormData();
-    formData.append('status', status);
-
-    fetch(endpoint, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'fetch' } })
-        .then(async (res) => {
-            if (!res.ok) throw new Error('Bad response');
-            return res.json();
-        })
-        .then((data) => {
-            if (!data || !data.ok) throw new Error('Update failed');
-            // Server confirmed — apply authoritative state (may differ from optimistic)
-            row.classList.remove('opt-pending');
-            row.querySelectorAll('.js-quick-update').forEach(function(b) { b.classList.remove('is-loading'); });
-            const newStatus = String(data.new_status || '').toLowerCase();
-            const serverOverdue = typeof data.is_overdue === 'boolean' ? data.is_overdue : null;
-            const computedOverdue = computeRowOverdue(row, newStatus);
-            const isOverdue = serverOverdue === null ? computedOverdue : (serverOverdue || computedOverdue);
-            applyRowStatusUpdate(String(payoutId), newStatus, isOverdue);
-            if (typeof recomputeVisibleTotal === 'function') {
-                try { recomputeVisibleTotal(); } catch (_) { }
-            }
-            queueSummaryRefresh();
-            refreshActiveStatusFilter();
-        })
-        .catch(() => {
-            // Revert optimistic update
-            row.classList.remove('opt-pending');
-            row.setAttribute('data-status', prevStatus);
-            const chip = row.querySelector('.status-chip');
-            if (chip && prevChipHtml) {
-                chip.outerHTML = prevChipHtml;
-            }
-            const btns = row.querySelectorAll('.js-quick-update');
-            btns.forEach(function(b, i) {
-                if (prevButtons[i]) {
-                    b.className = prevButtons[i].cls;
-                    b.setAttribute('data-action', prevButtons[i].action);
-                    b.title = prevButtons[i].title;
-                    b.textContent = prevButtons[i].text;
-                }
-                b.classList.remove('is-loading');
-            });
-            // Fallback to form submit
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = `/schedules/{{ run.id }}/payouts/${payoutId}/note`;
-            const statusInput = document.createElement('input');
-            statusInput.type = 'hidden';
-            statusInput.name = 'status';
-            statusInput.value = status;
-            const notesInput = document.createElement('input');
-            notesInput.type = 'hidden';
-            notesInput.name = 'notes';
-            notesInput.value = '';
-            const redirectInput = document.createElement('input');
-            redirectInput.type = 'hidden';
-            redirectInput.name = 'redirect_to';
-            redirectInput.value = window.location.pathname + window.location.search;
-            form.appendChild(statusInput);
-            form.appendChild(notesInput);
-            form.appendChild(redirectInput);
-            document.body.appendChild(form);
-            form.submit();
-        });
-}
-
-// Toggle notes row for editing
-function toggleNotesRow(payoutId) {
-    const notesRow = document.getElementById(`notes-row-${payoutId}`);
-    if (!notesRow) {
-        return;
-    }
-    if (notesRow.style.display === 'none') {
-        // Hide all other notes rows
-        document.querySelectorAll('.notes-row').forEach(row => {
-            row.style.display = 'none';
-        });
-        notesRow.style.display = '';
-    } else {
-        notesRow.style.display = 'none';
-    }
-}
-
-// Toggle validation section
-function toggleValidation() {
-    const section = document.getElementById('validation-section');
-    const toggleText = document.getElementById('validation-toggle-text');
-    if (!section || !toggleText) {
-        return;
-    }
-    if (section.style.display === 'none') {
-        section.style.display = 'block';
-        toggleText.textContent = 'Hide Details';
-    } else {
-        section.style.display = 'none';
-        toggleText.textContent = 'Show Details';
-    }
-}
-
-let currentStatusFilter = (new URL(window.location.href).searchParams.get('status') || '').toLowerCase();
-
-function setCurrentStatusFilter(status) {
-    currentStatusFilter = (status || '').toLowerCase();
-}
-
-function refreshActiveStatusFilter() {
-    if (!currentStatusFilter) {
-        return;
-    }
-    if (currentStatusFilter === 'overdue') {
-        filterByOverdue({ updateUrl: false, resetSearch: false });
-    } else {
-        applyStatusFilterLocally(currentStatusFilter, { updateUrl: false });
-    }
-}
-
-function computeRowOverdue(row, status) {
-    if (!row) return false;
-    const normalizedStatus = (status || '').toLowerCase();
-    if (normalizedStatus !== 'not_paid' && normalizedStatus !== 'on_hold') {
-        return false;
-    }
-    const payDateValue = row.getAttribute('data-pay-date');
-    if (!payDateValue) {
-        return false;
-    }
-    const payDate = new Date(`${payDateValue}T00:00:00`);
-    if (Number.isNaN(payDate.getTime())) {
-        return false;
-    }
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return payDate < today;
-}
-
-function updateOverdueIndicators(row, isOverdue) {
-    if (!row) return;
-    row.setAttribute('data-is-overdue', isOverdue ? 'true' : 'false');
-
-    if (isOverdue) row.classList.add('payout-row--overdue');
-    else row.classList.remove('payout-row--overdue');
-
-    const payDateCell = row.querySelector('[data-column-key="pay_date"]');
-    if (payDateCell) {
-        let badge = payDateCell.querySelector('.overdue-badge');
-        if (isOverdue && !badge) {
-            badge = document.createElement('span');
-            badge.className = 'overdue-badge';
-            badge.title = 'Payment is overdue';
-            badge.textContent = '🚨';
-            payDateCell.appendChild(badge);
-        } else if (!isOverdue && badge) {
-            badge.remove();
-        }
-    }
-
-    const statusCell = row.querySelector('[data-column-key="status"]');
-    if (statusCell) {
-        let label = statusCell.querySelector('.overdue-label');
-        if (isOverdue && !label) {
-            label = document.createElement('span');
-            label.className = 'overdue-label';
-            label.textContent = 'OVERDUE';
-            statusCell.appendChild(label);
-        } else if (!isOverdue && label) {
-            label.remove();
-        }
-    }
-}
-
-function syncStatusDropdown(status) {
-    const statusSelect = document.getElementById('filter-status');
-    if (!statusSelect) return false;
-
-    const hasOption = Array.from(statusSelect.options).some(option => option.value === (status || ''));
-    if (!hasOption) {
-        return false;
-    }
-
-    statusSelect.value = status || '';
-    updateExportExcelHref(status);
-    return true;
-}
-
-// Filter by status (chip buttons). Keep dropdown selection mirrored, then filter locally.
-function filterByStatus(status) {
-    setCurrentStatusFilter(status);
-    syncStatusDropdown(status);
-    applyStatusFilterLocally(status);
-}
-
-function applyStatusFilterLocally(status, options = {}) {
-    const { updateUrl = true } = options;
-    const tableBody = document.querySelector('#payouts-table tbody');
-    if (!tableBody) return;
-
-    const rows = Array.from(tableBody.querySelectorAll('tr.payout-row'));
-    let visibleCount = 0;
-
-    rows.forEach(row => {
-        const rowStatus = (row.getAttribute('data-status') || '').toLowerCase();
-        const match = !status || rowStatus === status.toLowerCase();
-        if (match) {
-            row.style.display = '';
-            const payoutId = row.getAttribute('data-payout-id');
-            const notesRow = document.getElementById(`notes-row-${payoutId}`);
-            if (notesRow && notesRow.style.display !== 'none') {
-                notesRow.style.display = '';
-            }
-            visibleCount++;
-        } else {
-            row.style.display = 'none';
-            const payoutId = row.getAttribute('data-payout-id');
-            const notesRow = document.getElementById(`notes-row-${payoutId}`);
-            if (notesRow) notesRow.style.display = 'none';
-        }
-    });
-
-    const visibleCountEl = document.getElementById('visible-count');
-    if (visibleCountEl) visibleCountEl.textContent = visibleCount;
-
-    if (updateUrl) {
-        const url = new URL(window.location.href);
-        if (status) url.searchParams.set('status', status);
-        else url.searchParams.delete('status');
-        history.replaceState(null, '', url.toString());
-    }
-
-    if (typeof recomputeVisibleTotal === 'function') {
-        try { recomputeVisibleTotal(); } catch (_) { }
-    }
-
-    updateBulkSection();
-}
-
-// Filter by overdue (client-side)
-function filterByOverdue(options = {}) {
-    const { updateUrl = true, resetSearch = true } = options;
-    setCurrentStatusFilter('overdue');
-    syncStatusDropdown('overdue');
-    updateExportExcelHref('overdue');
-
-    const searchInput = document.getElementById('quick-search');
-    if (resetSearch && searchInput) {
-        searchInput.value = '';
-    }
-    
-    const tableBody = document.querySelector('#payouts-table tbody');
-    if (!tableBody) {
-        return;
-    }
-    const rows = Array.from(tableBody.querySelectorAll('tr.payout-row'));
-    
-    let visibleCount = 0;
-    
-    rows.forEach(row => {
-        const isOverdue = row.getAttribute('data-is-overdue') === 'true';
-        
-        if (isOverdue) {
-            row.style.display = '';
-            const payoutId = row.getAttribute('data-payout-id');
-            const notesRow = document.getElementById(`notes-row-${payoutId}`);
-            if (notesRow && notesRow.style.display !== 'none') {
-                notesRow.style.display = '';
-            }
-            visibleCount++;
-        } else {
-            row.style.display = 'none';
-            const payoutId = row.getAttribute('data-payout-id');
-            const notesRow = document.getElementById(`notes-row-${payoutId}`);
-            if (notesRow) {
-                notesRow.style.display = 'none';
-            }
-        }
-    });
-    
-    const visibleCountEl = document.getElementById('visible-count');
-    if (visibleCountEl) {
-        visibleCountEl.textContent = visibleCount;
-    }
-    if (resetSearch) {
-        const hiddenQ = document.getElementById('filter-q-hidden');
-        if (hiddenQ) hiddenQ.value = '';
-        const urlQ = new URL(window.location.href);
-        urlQ.searchParams.delete('q');
-        if (updateUrl) {
-            history.replaceState(null, '', urlQ.toString());
-        }
-    }
-
-    if (updateUrl) {
-        const url = new URL(window.location.href);
-        url.searchParams.set('status', 'overdue');
-        history.replaceState(null, '', url.toString());
-    }
-
-    recomputeVisibleTotal();
-    updateBulkSection();
-}
-
-function updateExportExcelHref(status) {
-    const excelLink = document.getElementById('export-excel');
-    if (!excelLink) return;
-
-    const base = excelLink.getAttribute('data-base-href') || excelLink.href.split('?')[0];
-    const url = new URL(base, window.location.origin);
-
-    // If caller provided an explicit status, prefer it; otherwise fall back to dropdown value
-    let newStatus = status;
-    if (!newStatus) {
-        const statusSelect = document.getElementById('filter-status');
-        newStatus = statusSelect ? statusSelect.value : '';
-    }
-
-    url.searchParams.delete('status');
-    if (newStatus) {
-        url.searchParams.set('status', newStatus);
-    }
-
-    // Keep existing path and query params - update only to new status
-    excelLink.href = url.pathname + url.search;
-}
-
-// Ensure export link is correct on load and whenever select changes
-document.addEventListener('DOMContentLoaded', () => {
-    updateExportExcelHref();
-    const statusSelect = document.getElementById('filter-status');
-    if (statusSelect) statusSelect.addEventListener('change', () => updateExportExcelHref());
-
-    const metricsDashboard = document.querySelector('.schedule-metrics-dashboard');
-    const finalizeMetrics = () => {
-        if (metricsDashboard) {
-            metricsDashboard.classList.add('is-ready');
-        }
-        document.documentElement.classList.remove('js-metrics');
-    };
-    if (window.requestAnimationFrame) {
-        requestAnimationFrame(finalizeMetrics);
-    } else {
-        setTimeout(finalizeMetrics, 0);
-    }
-});
-
-// Client-side quick search filter
-function filterPayoutTable() {
-    const searchInput = document.getElementById('quick-search');
-    const tableBody = document.querySelector('#payouts-table tbody');
-    if (!searchInput || !tableBody) {
-        return;
-    }
-    const searchTerm = searchInput.value.toLowerCase();
-    const rows = Array.from(tableBody.querySelectorAll('tr.payout-row'));
-    
-    let visibleCount = 0;
-    
-    rows.forEach(row => {
-        const code = row.getAttribute('data-code') || '';
-        const name = row.getAttribute('data-name') || '';
-        
-        const matchesSearch = !searchTerm || 
-            code.includes(searchTerm) || 
-            name.includes(searchTerm);
-        
-        if (matchesSearch) {
-            row.style.display = '';
-            // Also show the associated notes row if it was visible
-            const payoutId = row.getAttribute('data-payout-id');
-            const notesRow = document.getElementById(`notes-row-${payoutId}`);
-            if (notesRow && notesRow.style.display !== 'none') {
-                notesRow.style.display = '';
-            }
-            visibleCount++;
-        } else {
-            row.style.display = 'none';
-            // Hide associated notes row
-            const payoutId = row.getAttribute('data-payout-id');
-            const notesRow = document.getElementById(`notes-row-${payoutId}`);
-            if (notesRow) {
-                notesRow.style.display = 'none';
-            }
-        }
-    });
-    
-    // Update count
-    const visibleCountEl = document.getElementById('visible-count');
-    if (visibleCountEl) {
-        visibleCountEl.textContent = visibleCount;
-    }
-    // Persist quick search to URL and hidden form field
-    const hiddenQ = document.getElementById('filter-q-hidden');
-    if (hiddenQ) hiddenQ.value = searchTerm;
-    const url = new URL(window.location.href);
-    if (searchTerm) {
-        url.searchParams.set('q', searchTerm);
-    } else {
-        url.searchParams.delete('q');
-    }
-    history.replaceState(null, '', url.toString());
-    recomputeVisibleTotal();
-    updateBulkSection();
-}
-
-// Column order + sorting state
-const DEFAULT_COLUMN_ORDER = [
-    'select',
-    'pay_date',
-    'code',
-    'working_name',
-    'payment_method',
-    'frequency',
-    'amount',
-    'deductions',
-    'status',
-    'notes',
-    'actions',
-];
-const COLUMN_STORAGE_KEY = `schedule_columns_run_{{ run.id }}`;
-let columnOrderState = [...DEFAULT_COLUMN_ORDER];
-let draggingColumnKey = null;
-let sortDirection = {};
-
-function sortTable(columnKey) {
-    const table = document.querySelector('#payouts-table');
-    if (!table) return;
-    const tbody = table.querySelector('tbody');
-    if (!tbody) return;
-
-    const rows = Array.from(tbody.querySelectorAll('tr.payout-row'));
-    if (!rows.length) return;
-
-    const isAscending = sortDirection[columnKey] !== true;
-    sortDirection = { [columnKey]: isAscending };
-
-    const parseDate = (value) => {
-        const parts = value.split('/');
-        if (parts.length === 3) {
-            return new Date(`${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`);
-        }
-        return new Date(value);
-    };
-
-    rows.sort((rowA, rowB) => {
-        const cellA = rowA.querySelector(`[data-column-key="${columnKey}"]`);
-        const cellB = rowB.querySelector(`[data-column-key="${columnKey}"]`);
-        const valueA = (cellA ? cellA.textContent : '').trim();
-        const valueB = (cellB ? cellB.textContent : '').trim();
-
-        if (columnKey === 'pay_date') {
-            const dateA = parseDate(valueA);
-            const dateB = parseDate(valueB);
-            return isAscending ? dateA - dateB : dateB - dateA;
-        }
-
-        if (columnKey === 'amount' || columnKey === 'deductions') {
-            const numA = parseFloat(valueA.replace(/[^\d.-]/g, ''));
-            const numB = parseFloat(valueB.replace(/[^\d.-]/g, ''));
-            if (!isNaN(numA) && !isNaN(numB)) {
-                return isAscending ? numA - numB : numB - numA;
-            }
-        }
-
-        const textA = valueA.toLowerCase();
-        const textB = valueB.toLowerCase();
-        return isAscending ? textA.localeCompare(textB) : textB.localeCompare(textA);
-    });
-
-    rows.forEach(row => {
-        tbody.appendChild(row);
-        const payoutId = row.getAttribute('data-payout-id');
-        const notesRow = document.getElementById(`notes-row-${payoutId}`);
-        if (notesRow) {
-            tbody.appendChild(notesRow);
-        }
-    });
-
-    document.querySelectorAll('#payouts-table thead th[data-sortable="true"]').forEach(th => {
-        if (th.dataset.columnKey === columnKey) {
-            th.dataset.sortDirection = isAscending ? 'asc' : 'desc';
-        } else {
-            th.dataset.sortDirection = '';
-        }
-    });
-}
-
-function initializeColumnOrder() {
-    columnOrderState = loadColumnOrder();
-    applyColumnOrder(columnOrderState);
-
-    const headerCells = document.querySelectorAll('#payouts-table thead th[data-draggable="true"]');
-    headerCells.forEach(cell => {
-        cell.addEventListener('dragstart', handleColumnDragStart);
-        cell.addEventListener('dragover', handleColumnDragOver);
-        cell.addEventListener('dragleave', handleColumnDragLeave);
-        cell.addEventListener('drop', handleColumnDrop);
-        cell.addEventListener('dragend', handleColumnDragEnd);
-    });
-}
-
-function loadColumnOrder() {
-    try {
-        const stored = localStorage.getItem(COLUMN_STORAGE_KEY);
-        if (stored) {
-            const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed) && parsed.length) {
-                return normalizeColumnOrder(parsed);
-            }
-        }
-    } catch (err) {
-        console.warn('Unable to load column order', err);
-    }
-    return [...DEFAULT_COLUMN_ORDER];
-}
-
-function saveColumnOrder(order) {
-    try {
-        localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(order));
-    } catch (err) {
-        console.warn('Unable to persist column order', err);
-    }
-}
-
-function normalizeColumnOrder(order) {
-    const cleaned = order.filter(key => DEFAULT_COLUMN_ORDER.includes(key));
-    DEFAULT_COLUMN_ORDER.forEach(key => {
-        if (!cleaned.includes(key)) {
-            cleaned.push(key);
-        }
-    });
-    return cleaned;
-}
-
-function applyColumnOrder(order) {
-    const normalized = normalizeColumnOrder(order);
-    columnOrderState = normalized;
-    const table = document.getElementById('payouts-table');
-    if (!table) return;
-
-    const headerRow = table.querySelector('thead tr');
-    if (headerRow) reorderRowCells(headerRow, normalized);
-
-    table.querySelectorAll('tbody tr.payout-row').forEach(row => reorderRowCells(row, normalized));
-    const footerRows = table.querySelectorAll('tfoot tr');
-    footerRows.forEach(row => reorderRowCells(row, normalized));
-}
-
-function reorderRowCells(row, order) {
-    const cells = Array.from(row.children);
-    if (!cells.length) return;
-    const fragment = document.createDocumentFragment();
-    order.forEach(key => {
-        const cell = cells.find(c => c.dataset && c.dataset.columnKey === key);
-        if (cell) {
-            fragment.appendChild(cell);
-        }
-    });
-    row.appendChild(fragment);
-}
-
-function handleColumnDragStart(event) {
-    const target = event.currentTarget;
-    draggingColumnKey = target.dataset.columnKey;
-    if (!draggingColumnKey) return;
-    target.dataset.dragging = 'true';
-    event.dataTransfer.effectAllowed = 'move';
-    event.dataTransfer.setData('text/plain', draggingColumnKey);
-}
-
-function handleColumnDragOver(event) {
-    if (!draggingColumnKey) return;
-    const target = event.currentTarget;
-    const targetKey = target.dataset.columnKey;
-    if (!targetKey || targetKey === draggingColumnKey) return;
-    event.preventDefault();
-    document.querySelectorAll('#payouts-table thead th[data-drop-target="true"]').forEach(th => th.removeAttribute('data-drop-target'));
-    target.dataset.dropTarget = 'true';
-}
-
-function handleColumnDragLeave(event) {
-    event.currentTarget.removeAttribute('data-drop-target');
-}
-
-function handleColumnDrop(event) {
-    if (!draggingColumnKey) return;
-    event.preventDefault();
-    const targetKey = event.currentTarget.dataset.columnKey;
-    if (!targetKey || targetKey === draggingColumnKey) return;
-
-    const newOrder = moveColumnKey(columnOrderState, draggingColumnKey, targetKey);
-    columnOrderState = newOrder;
-    saveColumnOrder(columnOrderState);
-    applyColumnOrder(columnOrderState);
-}
-
-function handleColumnDragEnd() {
-    draggingColumnKey = null;
-    document.querySelectorAll('#payouts-table thead th').forEach(th => {
-        th.removeAttribute('data-drop-target');
-        th.removeAttribute('data-dragging');
-    });
-}
-
-function moveColumnKey(order, fromKey, toKey) {
-    const normalized = normalizeColumnOrder(order);
-    const fromIndex = normalized.indexOf(fromKey);
-    const toIndex = normalized.indexOf(toKey);
-    if (fromIndex === -1 || toIndex === -1) {
-        return normalized;
-    }
-    normalized.splice(toIndex, 0, normalized.splice(fromIndex, 1)[0]);
-    return normalized;
-}
-
-// Auto-filter on page load if URL parameter is present
-document.addEventListener('DOMContentLoaded', function() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const showFilter = urlParams.get('show');
-    const persistedQ = urlParams.get('q') || '';
-    
-    if (showFilter === 'overdue') {
-        // Trigger the overdue filter
-        filterByOverdue();
-        
-        // Scroll to the table
-        const table = document.getElementById('payouts-table');
-        if (table) {
-            setTimeout(() => {
-                table.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 100);
-        }
-    }
-    // Reapply persisted quick search
-    if (persistedQ) {
-        const searchInput = document.getElementById('quick-search');
-        const hiddenQ = document.getElementById('filter-q-hidden');
-        if (searchInput) searchInput.value = persistedQ;
-        if (hiddenQ) hiddenQ.value = persistedQ;
-        filterPayoutTable();
-    }
-    // Compute initial visible total on load as well
-    recomputeVisibleTotal();
-    // Ensure notes forms redirect back including current quick search and filters
-    document.querySelectorAll('form[action$="/note"]').forEach(form => {
-        form.addEventListener('submit', function() {
-            const redirectInput = form.querySelector('input[name="redirect_to"]');
-            if (redirectInput) {
-                redirectInput.value = window.location.pathname + window.location.search;
-            }
-        });
-    });
-
-    initializeColumnOrder();
-    queueSummaryRefresh();
-});
-
-// Money formatting helper (US style, 2 decimals)
-function formatMoney(value) {
-    try {
-        return (Number(value) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    } catch (e) {
-        const n = Math.round((Number(value) || 0) * 100) / 100;
-        return n.toFixed(2);
-    }
-}
-
-let scheduleSummaryRefreshHandle = null;
-function queueSummaryRefresh() {
-    if (scheduleSummaryRefreshHandle !== null) {
-        return;
-    }
-    const scheduler = (window && window.requestAnimationFrame) ? window.requestAnimationFrame.bind(window) : (cb) => setTimeout(cb, 16);
-    scheduleSummaryRefreshHandle = scheduler(() => {
-        scheduleSummaryRefreshHandle = null;
-        try {
-            recomputeSummaryCards();
-        } catch (_) {
-            // ignore
-        }
-    });
-}
-
-function setChipCount(key, value) {
-    const chipValue = document.getElementById(`chip-count-${key}`);
-    if (chipValue) chipValue.textContent = value;
-    if (key === 'overdue') {
-        const overdueChip = document.getElementById('chip-overdue');
-        if (overdueChip) {
-            if (value > 0 || currentStatusFilter === 'overdue') {
-                overdueChip.style.display = '';
-            } else {
-                overdueChip.style.display = 'none';
-            }
-        }
-    }
-}
-
-function recomputeSummaryCards() {
-    const rows = Array.from(document.querySelectorAll('#payouts-table tbody tr.payout-row'));
-    if (!rows.length) {
-        setChipCount('all', 0);
-        setChipCount('overdue', 0);
-        if (Array.isArray(STATUS_OPTIONS)) {
-            STATUS_OPTIONS.forEach(status => setChipCount(status, 0));
-        }
-        return;
-    }
-
-    let paidTotal = 0;
-    let paidCount = 0;
-    let unpaidTotal = 0;
-    let pendingCount = 0;
-    let holdCount = 0;
-    let overdueCount = 0;
-    let overdueAmount = 0;
-    const statusCounts = {};
-
-    rows.forEach(row => {
-        const status = (row.getAttribute('data-status') || '').toLowerCase();
-        const amount = parseFloat(row.getAttribute('data-amount') || '0') || 0;
-        const isOverdue = row.getAttribute('data-is-overdue') === 'true';
-
-        statusCounts[status] = (statusCounts[status] || 0) + 1;
-
-        if (status === 'paid') {
-            paidTotal += amount;
-            paidCount++;
-        } else if (status === 'not_paid') {
-            unpaidTotal += amount;
-            pendingCount++;
-        } else if (status === 'on_hold') {
-            unpaidTotal += amount;
-            holdCount++;
-        }
-
-        if (isOverdue && (status === 'not_paid' || status === 'on_hold')) {
-            overdueCount++;
-            overdueAmount += amount;
-        }
-    });
-
-    const setText = (id, value) => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = value;
-    };
-
-    setText('card-paid-total', formatMoney(paidTotal));
-    setText('card-paid-count', paidCount);
-    setText('card-paid-models', paidCount);
-
-    setText('card-unpaid-total', formatMoney(unpaidTotal));
-    setText('card-unpaid-pending', pendingCount);
-    setText('card-unpaid-hold', holdCount);
-
-    setText('card-overdue-count', overdueCount);
-    setText('card-overdue-amount', formatMoney(overdueAmount));
-
-    const overdueCard = document.getElementById('card-overdue');
-    if (overdueCard) {
-        if (overdueCount > 0) overdueCard.classList.add('schedule-metric--alert');
-        else overdueCard.classList.remove('schedule-metric--alert');
-    }
-
-    setChipCount('all', rows.length);
-    if (Array.isArray(STATUS_OPTIONS)) {
-        STATUS_OPTIONS.forEach(status => setChipCount(status, statusCounts[status] || 0));
-    }
-    setChipCount('overdue', overdueCount);
-}
-
-// Recompute visible total based on currently visible rows
-function recomputeVisibleTotal() {
-    const rows = Array.from(document.querySelectorAll('#payouts-table tbody tr.payout-row'));
-    if (!rows.length) {
-        const el = document.getElementById('visible-total');
-        if (el) el.textContent = formatMoney(0);
-        return;
-    }
-    let total = 0;
-    rows.forEach(row => {
-        if (row.style.display === 'none') return;
-        const amount = parseFloat(row.getAttribute('data-amount') || '0');
-        if (!isNaN(amount)) total += amount;
-    });
-    const totalEl = document.getElementById('visible-total');
-    if (totalEl) {
-        totalEl.textContent = formatMoney(total);
-    }
-}
-
-// Delegated click handlers for quick updates and toggling notes
-document.addEventListener('click', function (e) {
-    const quickBtn = e.target.closest('.js-quick-update');
-    if (quickBtn) {
-        const payoutId = quickBtn.getAttribute('data-payout-id');
-        const action = quickBtn.getAttribute('data-action');
-        if (payoutId && action) {
-            quickUpdateStatus(payoutId, action);
-        }
-        return;
-    }
-    const notesBtn = e.target.closest('.js-toggle-notes');
-    if (notesBtn) {
-        const payoutId = notesBtn.getAttribute('data-payout-id');
-        if (payoutId) {
-            toggleNotesRow(payoutId);
-        }
-    }
-});
-
-// Intercept bulk form submit for in-place updates
-document.addEventListener('submit', function (e) {
-    const notesForm = e.target.closest('.notes-edit-form');
-    if (notesForm) {
-        if (notesForm.dataset.ajaxFallback === '1') {
-            return;
-        }
-        e.preventDefault();
-        submitNotesFormAjax(notesForm);
-        return;
-    }
-
-    const form = e.target.closest('#bulk-form');
-    if (!form) return;
-    e.preventDefault();
-    const ids = document.getElementById('bulk-payout-ids')?.value || '';
-    const statusSel = document.getElementById('bulk-status');
-    const status = statusSel ? statusSel.value : '';
-    if (!ids || !status) return;
-
-    // Optimistic: apply status to all selected rows immediately
-    const idList = ids.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-    const prevStates = {};
-    idList.forEach(function(pid) {
-        var row = document.querySelector('tr.payout-row[data-payout-id="' + pid + '"]');
-        if (row) {
-            prevStates[pid] = row.getAttribute('data-status');
-            applyRowStatusUpdate(pid, status, computeRowOverdue(row, status));
-            row.classList.add('opt-pending');
-        }
-    });
-
-    // Disable bulk button
-    var bulkBtn = form.querySelector('button[type="submit"]');
-    if (bulkBtn) {
-        bulkBtn.dataset.origHtml = bulkBtn.innerHTML;
-        bulkBtn.innerHTML = '<span class="opt-spinner"></span>';
-        bulkBtn.classList.add('is-loading');
-    }
-
-    const endpoint = `/schedules/{{ run.id }}/payouts/bulk-update/status`;
-    const fd = new FormData();
-    fd.append('payout_ids', ids);
-    fd.append('status', status);
-
-    fetch(endpoint, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'fetch' } })
-        .then(async (res) => {
-            if (!res.ok) throw new Error('Bad response');
-            return res.json();
-        })
-        .then((data) => {
-            if (!data || !data.ok) throw new Error('Update failed');
-            // Server confirmed — remove pending state
-            idList.forEach(function(pid) {
-                var row = document.querySelector('tr.payout-row[data-payout-id="' + pid + '"]');
-                if (row) row.classList.remove('opt-pending');
-            });
-            const updatedIds = data.updated_ids || [];
-            const overdue_flags = data.overdue_flags || {};
-            const newStatus = String(data.new_status || '').toLowerCase();
-
-            updatedIds.forEach((pid) => {
-                applyRowStatusUpdate(String(pid), newStatus, !!overdue_flags[pid]);
-            });
-
-            // Clear selection and hide bulk bar
-            cancelBulkUpdate();
-            if (typeof recomputeVisibleTotal === 'function') {
-                try { recomputeVisibleTotal(); } catch (_) { }
-            }
-            queueSummaryRefresh();
-        })
-        .catch(() => {
-            // Revert optimistic updates
-            idList.forEach(function(pid) {
-                var row = document.querySelector('tr.payout-row[data-payout-id="' + pid + '"]');
-                if (row) {
-                    row.classList.remove('opt-pending');
-                    if (prevStates[pid]) applyRowStatusUpdate(pid, prevStates[pid], computeRowOverdue(row, prevStates[pid]));
-                }
-            });
-            if (bulkBtn) {
-                if (bulkBtn.dataset.origHtml) bulkBtn.innerHTML = bulkBtn.dataset.origHtml;
-                bulkBtn.classList.remove('is-loading');
-            }
-            form.submit();
-        });
-});
-
-function submitNotesFormAjax(form) {
-    const payoutId = form.getAttribute('data-payout-id');
-    if (!payoutId) {
-        form.dataset.ajaxFallback = '1';
-        form.submit();
-        return;
-    }
-
-    // Show loading state on save button
-    var saveBtn = form.querySelector('button[type="submit"]');
-    if (saveBtn) {
-        saveBtn.dataset.origHtml = saveBtn.innerHTML;
-        saveBtn.innerHTML = '<span class="opt-spinner"></span>';
-        saveBtn.classList.add('is-loading');
-    }
-
-    const formData = new FormData(form);
-    formData.set('redirect_to', window.location.pathname + window.location.search);
-
-    fetch(form.action, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'fetch' } })
-        .then(async (res) => {
-            if (!res.ok) throw new Error('Bad response');
-            return res.json();
-        })
-        .then((data) => {
-            if (!data || !data.ok) throw new Error('Update failed');
-            updateNoteDisplay(payoutId, data.note || '');
-            if (typeof applyRowStatusUpdate === 'function' && data.status) {
-                try {
-                    applyRowStatusUpdate(String(payoutId), String(data.status).toLowerCase(), !!data.is_overdue);
-                } catch (_) {
-                    // no-op if helper unavailable
-                }
-            }
-            toggleNotesRow(payoutId);
-        })
-        .catch(() => {
-            form.dataset.ajaxFallback = '1';
-            form.submit();
-        });
-}
-
-function updateNoteDisplay(payoutId, noteText) {
-    const row = document.querySelector(`tr.payout-row[data-payout-id="${payoutId}"]`);
-    if (!row) return;
-    const noteEl = row.querySelector('.payout-note-text');
-    if (!noteEl) return;
-
-    const trimmed = (noteText || '').trim();
-    if (trimmed) {
-        noteEl.textContent = trimmed;
-        noteEl.title = trimmed;
-        noteEl.classList.remove('payout-note-text--empty');
-    } else {
-        noteEl.textContent = '—';
-        noteEl.title = 'No notes yet';
-        noteEl.classList.add('payout-note-text--empty');
-    }
-}
-
-// Helper to apply DOM updates after a status change
-function applyRowStatusUpdate(payoutId, newStatus, isOverdue) {
-    const row = document.querySelector(`tr.payout-row[data-payout-id="${payoutId}"]`);
-    if (!row) return;
-    row.setAttribute('data-status', newStatus);
-    updateOverdueIndicators(row, isOverdue);
-
-    const chip = row.querySelector('.status-chip');
-    if (chip) {
-        chip.textContent = newStatus.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
-    chip.classList.remove('status-chip--success', 'status-chip--warning', 'status-chip--danger', 'status-chip--info', 'status-chip--neutral');
-    if (newStatus === 'paid') chip.classList.add('status-chip--success');
-    else if (newStatus === 'approved') chip.classList.add('status-chip--info');
-    else if (newStatus === 'not_paid') chip.classList.add('status-chip--warning');
-    else if (newStatus === 'on_hold') chip.classList.add('status-chip--danger');
-    else chip.classList.add('status-chip--neutral');
-    }
-
-    const buttons = row.querySelectorAll('.js-quick-update');
-    if (buttons && buttons.length >= 2) {
-        const primaryBtn = buttons[0];
-        const holdBtn = buttons[1];
-        if (newStatus === 'paid') {
-            primaryBtn.classList.remove('action-button--success');
-            primaryBtn.classList.add('action-button--neutral');
-            primaryBtn.setAttribute('data-action', 'not_paid');
-            primaryBtn.setAttribute('title', 'Unmark Paid');
-            primaryBtn.textContent = '↺';
-        } else {
-            primaryBtn.classList.remove('action-button--neutral');
-            primaryBtn.classList.add('action-button--success');
-            primaryBtn.setAttribute('data-action', 'paid');
-            primaryBtn.setAttribute('title', 'Mark as Paid');
-            primaryBtn.textContent = '✓';
-        }
-        if (newStatus === 'on_hold') {
-            holdBtn.classList.remove('action-button--warning');
-            holdBtn.classList.add('action-button--neutral');
-            holdBtn.setAttribute('data-action', 'not_paid');
-            holdBtn.setAttribute('title', 'Remove Hold');
-            holdBtn.textContent = '▶';
-        } else {
-            holdBtn.classList.remove('action-button--neutral');
-            holdBtn.classList.add('action-button--warning');
-            holdBtn.setAttribute('data-action', 'on_hold');
-            holdBtn.setAttribute('title', 'Put On Hold');
-            holdBtn.textContent = '⏸';
-        }
-    }
-
-    queueSummaryRefresh();
-    refreshActiveStatusFilter();
-}
-</script>
-
-<style>
 /* Schedule payouts table header and column sizing */
 .data-table.schedule-payouts-table {
     table-layout: auto;
@@ -2735,7 +926,1847 @@ th[data-drop-target="true"]::after {
         justify-content: center;
     }
 }
+
+/* Toast Animations */
+@keyframes slideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+@keyframes slideOutRight {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(100%); opacity: 0; }
+}
+.payout-row--updated {
+    animation: highlight-update 2s ease;
+}
+@keyframes highlight-update {
+    0%, 50% { background: rgba(34, 197, 94, 0.2); }
+    100% { background: transparent; }
+}
 </style>
+
+<!-- Page Header -->
+<section class="page-header" style="margin-bottom: 24px;">
+    <div>
+    <h1 class="page-title">💳 {{ run.cycle_display }} Payroll Cycle</h1>
+        <p style="color: #94a3b8; margin: 8px 0 0 0;">
+            <span>Cycle #{{ run.id }}</span>
+            <span style="margin: 0 8px; color: #475569;">•</span>
+            {% set rs = run.run_status | default('ready') %}
+            {% if rs == 'draft' %}
+            <span class="status-chip status-chip--draft">Draft</span>
+            {% elif rs == 'processing' %}
+            <span class="status-chip status-chip--warning">Processing</span>
+            {% elif rs == 'error' %}
+            <span class="status-chip status-chip--danger">Error</span>
+            {% else %}
+            <span class="status-chip status-chip--success">Ready</span>
+            {% endif %}
+            <span style="margin: 0 8px; color: #475569;">•</span>
+            <span>Generated {{ run.created_at|display_date }}</span>
+            <span style="margin: 0 8px; color: #475569;">•</span>
+            <span>Currency: {{ run.currency }}</span>
+        </p>
+    </div>
+    <div class="header-actions" style="display: flex; gap: 8px; align-items: center;">
+        <a class="button secondary" href="/schedules">
+            <span>← Back to Cycles</span>
+        </a>
+        {# Add New Models button - safely adds models not yet in schedule #}
+        <form action="/schedules/{{ run.id }}/add-new-models" method="POST" style="margin: 0;">
+            <button type="submit" class="button secondary" title="Add payouts for models not yet in this schedule (safe - won't modify existing payouts)">
+                <span>➕</span>
+                <span>Add New Models</span>
+            </button>
+        </form>
+        {# Refresh Schedule - recalculate unlocked payouts and pick up new models #}
+        <form action="/schedules/{{ run.id }}/refresh" method="POST" style="margin: 0;" onsubmit="return confirm('Refresh this schedule? Paid/locked payouts will be preserved. Unlocked payouts will be recalculated with the latest data.');">
+            <button type="submit" class="button button--warning" title="Recalculate unlocked payouts using latest model data and pay config. Paid payouts are preserved.">
+                <span>🔄</span>
+                <span>Refresh Schedule</span>
+            </button>
+        </form>
+        {# CSV export removed — Excel will export the current status filter #}
+        <a id="export-excel" data-base-href="/schedules/{{ run.id }}/download/schedule_excel" class="button button--primary" href="/schedules/{{ run.id }}/download/schedule_excel{% if filters.status %}?status={{ filters.status }}{% endif %}">
+            <span>📥</span>
+            <span>Export Excel</span>
+        </a>
+    </div>
+</section>
+
+<!-- Processing overlay (shown when run is processing in background) -->
+{% set rs = run.run_status | default('ready') %}
+{% if rs == 'processing' or request.query_params.get('processing') == '1' %}
+<section id="processing-overlay" class="card" style="text-align: center; padding: 48px 24px; margin-bottom: 24px;">
+    <div style="font-size: 48px; margin-bottom: 16px;">⏳</div>
+    <h2 style="color: #f8fafc; margin-bottom: 8px;">Processing Payroll</h2>
+    <p style="color: #94a3b8; margin-bottom: 24px;">Calculating payouts for all models. This page will update automatically.</p>
+    <div style="max-width: 400px; margin: 0 auto 16px auto; background: rgba(30,41,59,0.8); border-radius: 8px; height: 12px; overflow: hidden;">
+        <div id="progress-bar" style="width: {{ run.processing_progress or 0 }}%; height: 100%; background: linear-gradient(90deg, #3b82f6, #6366f1); border-radius: 8px; transition: width 0.5s ease;"></div>
+    </div>
+    <p id="progress-text" style="color: #94a3b8; font-size: 14px;">{{ run.processing_progress or 0 }}%</p>
+    {% if run.error_message %}
+    <div class="alert-banner alert-banner--danger" style="margin-top: 16px; text-align: left;">
+        <div class="alert-banner__icon">⚠️</div>
+        <div class="alert-banner__message">{{ run.error_message }}</div>
+    </div>
+    {% endif %}
+</section>
+<script>
+(function() {
+    var overlay = document.getElementById('processing-overlay');
+    var bar = document.getElementById('progress-bar');
+    var text = document.getElementById('progress-text');
+    var runId = {{ run.id }};
+    var interval = setInterval(function() {
+        fetch('/schedules/' + runId + '/status')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (bar) bar.style.width = data.processing_progress + '%';
+                if (text) text.textContent = data.processing_progress + '%';
+                if (data.run_status === 'ready' || data.run_status === 'error') {
+                    clearInterval(interval);
+                    // Reload the page to show the full results
+                    window.location.href = '/schedules/' + runId;
+                }
+            })
+            .catch(function() { /* retry next interval */ });
+    }, 2000);
+})();
+</script>
+{% endif %}
+
+<!-- Success message for added models -->
+{% if request.query_params.get('added') %}
+{% set added_codes_param = request.query_params.get('added_codes', '') %}
+{% set added_codes_list = added_codes_param.split(',') if added_codes_param else [] %}
+<section class="alert-banner alert-banner--success" style="margin-bottom: 24px;">
+    <div class="alert-banner__icon">✅</div>
+    <div class="alert-banner__content">
+        <div class="alert-banner__title">Models Added</div>
+        <div class="alert-banner__message">
+            {{ request.query_params.get('added') }} new model(s) added to this schedule
+            {% if added_codes_list %}
+            <br><span style="font-size: 12px; color: #86efac; margin-top: 4px; display: inline-block;">
+                Added: {% for code in added_codes_list %}<strong>{{ code }}</strong>{% if not loop.last %}, {% endif %}{% endfor %}
+            </span>
+            {% endif %}
+        </div>
+    </div>
+    <button class="alert-banner__action" onclick="clearHighlights()">
+        Clear Highlights
+    </button>
+</section>
+<script>
+// Store added codes for highlighting rows
+window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{% if not loop.last %},{% endif %}{% endfor %}];
+</script>
+{% endif %}
+
+<!-- Validation Alerts (if any) -->
+{% if validations|length > 0 %}
+<section class="alert-banner alert-banner--warning" style="margin-bottom: 24px;">
+    <div class="alert-banner__icon">⚠️</div>
+    <div class="alert-banner__content">
+        <div class="alert-banner__title">{{ validations|length }} Validation Issue{{ 's' if validations|length != 1 else '' }}</div>
+        <div class="alert-banner__message">Review issues before processing payments</div>
+    </div>
+    <button class="alert-banner__action" onclick="toggleValidation()">
+        <span id="validation-toggle-text">Show Details</span>
+    </button>
+</section>
+{% endif %}
+
+<!-- Hero Metrics Dashboard -->
+<section class="schedule-metrics-dashboard">
+    <div class="schedule-metric schedule-metric--primary" id="card-paid">
+        <div class="schedule-metric__header">
+            <span class="schedule-metric__icon">✅</span>
+            <span class="schedule-metric__label">Paid This Cycle</span>
+        </div>
+        <div class="schedule-metric__value">{{ run.currency }} <span id="card-paid-total">{{ summary.paid_total|money }}</span></div>
+        <div class="schedule-metric__breakdown">
+            <span class="schedule-metric__item"><span id="card-paid-models">{{ summary.paid_models }}</span> models</span>
+            <span class="schedule-metric__divider">·</span>
+            <span class="schedule-metric__item"><span id="card-paid-count">{{ status_counts.get('paid', 0) }}</span> payments</span>
+        </div>
+    </div>
+
+    <div class="schedule-metric schedule-metric--warning" id="card-unpaid">
+        <div class="schedule-metric__header">
+            <span class="schedule-metric__icon">⏳</span>
+            <span class="schedule-metric__label">Unpaid This Cycle</span>
+        </div>
+        <div class="schedule-metric__value">{{ run.currency }} <span id="card-unpaid-total">{{ summary.unpaid_total|money }}</span></div>
+        <div class="schedule-metric__breakdown">
+            <span class="schedule-metric__item"><span id="card-unpaid-pending">{{ status_counts.get('not_paid', 0) }}</span> pending</span>
+            <span class="schedule-metric__divider">·</span>
+            <span class="schedule-metric__item"><span id="card-unpaid-hold">{{ status_counts.get('on_hold', 0) }}</span> on hold</span>
+        </div>
+    </div>
+
+    <div class="schedule-metric schedule-metric--danger {% if overdue_count > 0 %}schedule-metric--alert{% endif %}" id="card-overdue">
+        <div class="schedule-metric__header">
+            <span class="schedule-metric__icon">🚨</span>
+            <span class="schedule-metric__label">Overdue</span>
+        </div>
+        <div class="schedule-metric__value"><span id="card-overdue-count">{{ overdue_count }}</span></div>
+        <div class="schedule-metric__breakdown">
+            <span class="schedule-metric__item">{{ run.currency }} <span id="card-overdue-amount">{{ overdue_amount|money }}</span></span>
+            {% if overdue_count > 0 %}
+            <span class="schedule-metric__divider">·</span>
+            <span class="schedule-metric__item" style="color: #ef4444;">Action needed</span>
+            {% else %}
+            <span class="schedule-metric__divider">·</span>
+            <span class="schedule-metric__item">All current</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="schedule-metric schedule-metric--success">
+        <div class="schedule-metric__header">
+            <span class="schedule-metric__icon">💰</span>
+            <span class="schedule-metric__label">Lifetime Paid</span>
+        </div>
+        <div class="schedule-metric__value">{{ run.currency }} {{ summary.overall_paid|money }}</div>
+        <div class="schedule-metric__breakdown">
+            <span class="schedule-metric__item">All-time total</span>
+        </div>
+    </div>
+
+    <div class="schedule-metric schedule-metric--neutral">
+        <div class="schedule-metric__header">
+            <span class="schedule-metric__icon">📊</span>
+            <span class="schedule-metric__label">Frequency Mix</span>
+        </div>
+        <div class="schedule-metric__value schedule-metric__value--compact">{{ payouts|length }}</div>
+        <div class="schedule-metric__breakdown">
+            {% for name, count in frequency_counts.items() %}
+                <span class="schedule-metric__item">{{ name|title }}: {{ count }}</span>
+                {% if not loop.last %}<span class="schedule-metric__divider">·</span>{% endif %}
+            {% else %}
+                <span class="schedule-metric__item">No data</span>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+{% if pending_alerts_count > 0 %}
+<!-- Compensation Alerts Banner -->
+<section class="compensation-alert-banner" id="compensation-alerts-section">
+    <div class="compensation-alert-banner__header" onclick="toggleCompensationDetails()" style="cursor: pointer;">
+        <div class="compensation-alert-banner__icon">⚠️</div>
+        <div class="compensation-alert-banner__content">
+            <h3>{{ pending_alerts_count }} Compensation Change{{ 's' if pending_alerts_count != 1 else '' }} Need Review</h3>
+            <p>Some models have had their compensation updated since this schedule was generated.</p>
+        </div>
+        <button type="button" class="button button--warning button--compact" id="toggle-details-btn" onclick="event.stopPropagation(); toggleCompensationDetails();">
+            Show Details
+        </button>
+    </div>
+    
+    <!-- Alert details (collapsible) -->
+    <div class="compensation-alert-banner__details" id="compensation-details" style="display: none;">
+        <table class="compensation-alert-table">
+            <thead>
+                <tr>
+                    <th>Model</th>
+                    <th>Pay Date</th>
+                    <th>Current Amount</th>
+                    <th>New Amount</th>
+                    <th>Pro-rated</th>
+                    <th>Effective</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for alert in compensation_alerts %}
+                <tr data-alert-id="{{ alert.id }}" data-payout-id="{{ alert.payout_id }}">
+                    <td>
+                        <a href="/models/{{ alert.model_id }}/edit" class="model-link" title="Edit model">
+                            <strong>{{ alert.payout.code }}</strong>
+                        </a><br>
+                        <small style="color: #94a3b8;">{{ alert.payout.real_name }}</small>
+                    </td>
+                    <td>{{ alert.payout.pay_date.strftime('%b %d') }}</td>
+                    <td>{{ run.currency }} {{ alert.original_amount|money }}</td>
+                    <td style="color: #22c55e; font-weight: 600;">{{ run.currency }} {{ alert.new_amount|money }}</td>
+                    <td>
+                        {% if alert.prorated_amount %}
+                        {{ run.currency }} {{ alert.prorated_amount|money }}
+                        {% else %}
+                        <span style="color: #64748b;">—</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ alert.effective_date.strftime('%b %d') }}</td>
+                    <td>
+                        <div class="alert-actions">
+                            {% if alert.prorated_amount %}
+                            <button type="button" class="button button--success button--compact" 
+                                    onclick="resolveAlert({{ alert.id }}, 'apply_prorated')" 
+                                    title="Apply pro-rated amount">
+                                Apply Pro-rate
+                            </button>
+                            {% endif %}
+                            <button type="button" class="button button--secondary button--compact" 
+                                    onclick="resolveAlert({{ alert.id }}, 'dismiss')" 
+                                    title="Keep original amount">
+                                Keep Original
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <div class="compensation-alert-banner__bulk-actions">
+            <span>Bulk Actions:</span>
+            <button type="button" class="button button--success button--compact" onclick="bulkResolveAlerts('apply_prorated')">
+                Apply All Pro-rated
+            </button>
+            <button type="button" class="button button--secondary button--compact" onclick="bulkResolveAlerts('dismiss')">
+                Dismiss All
+            </button>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- Payouts Section -->
+<section class="card" style="margin-top: 32px;">
+    <div class="section-heading">
+        <div>
+            <h2><span class="section-icon">📋</span> Payment Schedule</h2>
+            <p style="color: #94a3b8; margin: 4px 0 0 0;">{{ payouts|length }} payment{{ 's' if payouts|length != 1 else '' }} in this cycle</p>
+        </div>
+    </div>
+
+    <!-- Compact Filter Toolbar -->
+    <div class="schedule-filter-toolbar">
+        <div class="schedule-filter-toolbar__search">
+            <input type="text" id="quick-search" placeholder="🔍 Search by code, name..." 
+                   onkeyup="filterPayoutTable()" 
+                   class="filter-search-input">
+        </div>
+        
+        <form class="schedule-filter-toolbar__filters" method="get" action="/schedules/{{ run.id }}">
+            <input type="hidden" name="q" id="filter-q-hidden" value="{{ request.query_params.get('q','') if request and request.query_params else '' }}">
+            <div class="filter-group-inline">
+                <label for="filter-status">Status</label>
+                <select id="filter-status" name="status" onchange="this.form.submit()" class="filter-select">
+                    <option value="">All</option>
+                    {% for option in status_options %}
+                        <option value="{{ option }}" {% if filters.status == option %}selected{% endif %}>{{ option.replace('_', ' ')|title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            {# Code filter removed for single-run schedule view to simplify toolbar #}
+
+            <div class="filter-group-inline">
+                <label for="filter-frequency">Frequency</label>
+                <select id="filter-frequency" name="frequency" onchange="this.form.submit()" class="filter-select">
+                    <option value="">All</option>
+                    {% for value in frequency_options %}
+                        <option value="{{ value }}" {% if filters.frequency == value %}selected{% endif %}>{{ value|title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-group-inline">
+                <label for="filter-method">Method</label>
+                <select id="filter-method" name="payment_method" onchange="this.form.submit()" class="filter-select">
+                    <option value="">All</option>
+                    {% for value in payment_methods %}
+                        <option value="{{ value }}" {% if filters.payment_method == value %}selected{% endif %}>{{ value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-group-inline">
+                <label for="filter-pay-date">Pay Date</label>
+                <select id="filter-pay-date" name="pay_date" onchange="this.form.submit()" class="filter-select">
+                    <option value="">All dates</option>
+                    {% for option in pay_date_options %}
+                        <option value="{{ option.value }}" {% if filters.pay_date == option.value %}selected{% endif %} {% if not option.available %}disabled{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            {% if filters.code or filters.status or filters.frequency or filters.payment_method or filters.pay_date %}
+            <a class="filter-clear-button" href="/schedules/{{ run.id }}">
+                <span>✕</span>
+                <span>Clear</span>
+            </a>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- Status Filter Chips -->
+    <div class="status-filter-chips" style="margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap;">
+        <button class="status-chip-filter {% if not filters.status %}status-chip-filter--active{% endif %}"
+            onclick="filterByStatus('')" type="button" data-status-value="">
+            All (<span id="chip-count-all">{{ payouts|length }}</span>)
+        </button>
+        <button id="chip-overdue" class="status-chip-filter status-chip-filter--overdue {% if filters.status == 'overdue' %}status-chip-filter--active{% endif %}"
+            onclick="filterByOverdue()" type="button" data-status-value="overdue" {% if overdue_count == 0 and filters.status != 'overdue' %}style="display: none;"{% endif %}>
+            🚨 Overdue (<span id="chip-count-overdue">{{ overdue_count }}</span>)
+        </button>
+        {% for option in status_options %}
+        <button class="status-chip-filter status-chip-filter--{{ option }} {% if filters.status == option %}status-chip-filter--active{% endif %}" 
+            onclick="filterByStatus('{{ option }}')" type="button" data-status-value="{{ option }}">
+            {{ option.replace('_', ' ')|title }} (<span id="chip-count-{{ option }}">{{ status_counts.get(option, 0) }}</span>)
+        </button>
+        {% endfor %}
+    </div>
+
+    <div class="filter-toolbar__stats" id="filter-stats" style="margin-top: 16px; padding: 12px 0; border-top: 1px solid rgba(148, 163, 184, 0.08); color: #94a3b8; font-size: 14px;">
+        <span>Showing <strong id="visible-count">{{ payouts|length }}</strong> of <strong>{{ payouts|length }}</strong> payments</span>
+    </div>
+    
+    <!-- Modern Payouts Table -->
+    <div class="data-table-wrapper" style="margin-top: 24px;">
+        <table class="data-table schedule-payouts-table" id="payouts-table">
+            <thead>
+                <tr>
+                    <th data-column-key="select" class="column-select" scope="col" data-draggable="false">
+                        <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" title="Select All">
+                    </th>
+                    <th data-column-key="pay_date" class="column-pay_date" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('pay_date')">
+                        <span class="column-label">Pay Date</span>
+                    </th>
+                    <th data-column-key="code" class="column-code" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('code')">
+                        <span class="column-label">Code</span>
+                    </th>
+                    <th data-column-key="working_name" class="column-working_name" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('working_name')">
+                        <span class="column-label">Working Name</span>
+                    </th>
+                    <th data-column-key="payment_method" class="column-payment_method" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('payment_method')">
+                        <span class="column-label">Method</span>
+                    </th>
+                    <th data-column-key="frequency" class="column-frequency" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('frequency')">
+                        <span class="column-label">Frequency</span>
+                    </th>
+                    <th data-column-key="amount" class="column-amount" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('amount')">
+                        <span class="column-label">Amount</span>
+                    </th>
+                    <th data-column-key="deductions" class="column-deductions" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('deductions')">
+                        <span class="column-label">Deductions</span>
+                    </th>
+                    <th data-column-key="status" class="column-status" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('status')">
+                        <span class="column-label">Status</span>
+                    </th>
+                    <th data-column-key="notes" class="column-notes" data-sortable="true" data-draggable="true" draggable="true" onclick="sortTable('notes')">
+                        <span class="column-label">Notes</span>
+                    </th>
+                    <th data-column-key="actions" class="column-actions" data-draggable="true" draggable="true">
+                        <span class="column-label">Quick Actions</span>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for payout in payouts %}
+                {% set is_overdue = payout.pay_date and payout.pay_date < today and payout.status in ['not_paid', 'on_hold'] %}
+                <tr class="payout-row payout-row--{{ payout.status }} {% if is_overdue %}payout-row--overdue{% endif %}" 
+                    data-payout-id="{{ payout.id }}"
+                    data-code="{{ payout.code|lower }}"
+                    data-name="{{ (payout.working_name or '')|lower }}"
+                    data-status="{{ payout.status }}"
+                    data-is-overdue="{{ 'true' if is_overdue else 'false' }}"
+                    data-pay-date="{{ payout.pay_date.isoformat() if payout.pay_date else '' }}"
+                    data-amount="{{ payout.amount or 0 }}"
+                    data-deduction="{{ advance_allocations.get(payout.id, 0) }}">
+                    <td data-column-key="select" class="column-select" style="text-align: center;">
+                        <input type="checkbox" class="payout-checkbox" value="{{ payout.id }}" onchange="updateBulkSection()" title="Select payout {{ payout.code }}">
+                    </td>
+                    <td data-column-key="pay_date" class="column-pay_date" style="white-space: nowrap;">
+                        <strong>{{ payout.pay_date|display_date }}</strong>
+                        {% if is_overdue %}
+                        <span class="overdue-badge" title="Payment is overdue">🚨</span>
+                        {% endif %}
+                    </td>
+                    <td data-column-key="code" class="column-code">
+                        {% if payout.model_id %}
+                        <a href="/models/{{ payout.model_id }}/edit" class="model-link" title="Edit model">{{ payout.code }}</a>
+                        {% else %}
+                        <span style="font-weight: 600; color: #60a5fa;">{{ payout.code }}</span>
+                        {% endif %}
+                        {% if payout.is_locked %}
+                        <span title="Locked — paid payout preserved on refresh" style="margin-left: 4px; font-size: 0.8em; opacity: 0.7;">🔒</span>
+                        {% endif %}
+                    </td>
+                    <td data-column-key="working_name" class="column-working_name">{{ payout.working_name or '—' }}</td>
+                    <td data-column-key="payment_method" class="column-payment_method">{{ payout.payment_method or '—' }}</td>
+                    <td data-column-key="frequency" class="column-frequency">
+                        <span class="frequency-badge frequency-badge--{{ payout.payment_frequency }}">
+                            {{ payout.payment_frequency|title if payout.payment_frequency else '—' }}
+                        </span>
+                    </td>
+                    <td data-column-key="amount" class="column-amount">
+                        <strong style="font-size: 15px;">{{ run.currency }} {{ payout.amount|money }}</strong>
+                    </td>
+                    <td data-column-key="deductions" class="column-deductions" style="text-align: center;">
+                        {% set deduction = advance_allocations.get(payout.id, 0) %}
+                        {% if deduction > 0 %}
+                        <span title="Cash advance deduction for this payout" style="color: #ef4444; font-weight: 600;">
+                            -{{ run.currency }} {{ deduction|money }}
+                        </span>
+                        {% else %}
+                        <span style="color: #475569;">—</span>
+                        {% endif %}
+                    </td>
+                    <td data-column-key="status" class="column-status" style="text-align: center;">
+                        {% set variant = (
+                            'success' if payout.status == 'paid' else (
+                            'info' if payout.status == 'approved' else (
+                            'warning' if payout.status == 'not_paid' else (
+                            'danger' if payout.status == 'on_hold' else 'neutral')))) %}
+                        <span class="status-chip status-chip--{{ variant }}">
+                            {{ payout.status.replace('_', ' ')|title }}
+                        </span>
+                        {% if is_overdue %}
+                        <span class="overdue-label">OVERDUE</span>
+                        {% endif %}
+                    </td>
+                    <td data-column-key="notes" class="column-notes payout-note-cell">
+                        {% if payout.notes %}
+                        <span class="payout-note-text" title="{{ payout.notes }}">{{ payout.notes|replace('\n', ' ') }}</span>
+                        {% else %}
+                        <span class="payout-note-text payout-note-text--empty">—</span>
+                        {% endif %}
+                    </td>
+                    <td data-column-key="actions" class="column-actions">
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            {% if payout.status != 'paid' %}
+                <button class="action-button action-button--success js-quick-update" 
+                    data-payout-id="{{ payout.id }}" data-action="paid"
+                    title="Mark as Paid" aria-label="Mark payment as paid">
+                                ✓
+                            </button>
+                            {% else %}
+                <button class="action-button action-button--neutral js-quick-update" 
+                    data-payout-id="{{ payout.id }}" data-action="not_paid"
+                    title="Unmark Paid" aria-label="Unmark payment as paid">
+                                ↺
+                            </button>
+                            {% endif %}
+                            {% if payout.status != 'approved' %}
+                <button class="action-button action-button--primary js-quick-update" 
+                    data-payout-id="{{ payout.id }}" data-action="approved"
+                    title="Mark Approved" aria-label="Mark payment as approved">
+                                ✔
+                            </button>
+                            {% else %}
+                <button class="action-button action-button--neutral js-quick-update" 
+                    data-payout-id="{{ payout.id }}" data-action="not_paid"
+                    title="Unmark Approved" aria-label="Unmark payment as approved">
+                                ↺
+                            </button>
+                            {% endif %}
+                            {% if payout.status != 'on_hold' %}
+                <button class="action-button action-button--warning js-quick-update" 
+                    data-payout-id="{{ payout.id }}" data-action="on_hold"
+                    title="Put On Hold" aria-label="Put payment on hold">
+                                ⏸
+                            </button>
+                            {% else %}
+                <button class="action-button action-button--neutral js-quick-update" 
+                    data-payout-id="{{ payout.id }}" data-action="not_paid"
+                    title="Remove Hold" aria-label="Remove hold from payment">
+                                ▶
+                            </button>
+                            {% endif %}
+                <button class="action-button action-button--secondary js-toggle-notes" 
+                    data-payout-id="{{ payout.id }}"
+                    title="Edit Notes" aria-label="Edit payment notes">
+                                📝
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                <!-- Expandable Notes Row -->
+                <tr class="notes-row" id="notes-row-{{ payout.id }}" style="display: none;">
+                    <td colspan="11" style="padding: 0; background: rgba(15, 23, 42, 0.95);">
+                        <div style="padding: 16px; border-top: 1px solid rgba(148, 163, 184, 0.1);">
+                                <form method="post" action="/schedules/{{ run.id }}/payouts/{{ payout.id }}/note" 
+                                    class="notes-edit-form" data-payout-id="{{ payout.id }}" data-no-auto-loading="1"
+                                    style="display: flex; gap: 12px; align-items: flex-start;">
+                                                                <input type="hidden" name="redirect_to" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+                                <div style="flex: 0 0 180px;">
+                                    <label style="display: block; margin-bottom: 6px; color: #cbd5e1; font-weight: 600; font-size: 13px;">Payment Status</label>
+                                    <select name="status" 
+                                            style="width: 100%; padding: 10px; background: rgba(15, 23, 42, 0.7); color: #f8fafc; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 6px; font-size: 14px;">
+                                        {% for option in status_options %}
+                                            <option value="{{ option }}" {% if payout.status == option %}selected{% endif %}>
+                                                {{ option.replace('_', ' ')|title }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div style="flex: 1;">
+                                    <label style="display: block; margin-bottom: 6px; color: #cbd5e1; font-weight: 600; font-size: 13px;">Notes</label>
+                                    <textarea name="notes" 
+                                              placeholder="Add context, tracking info, or payment details..." 
+                                              style="width: 100%; padding: 10px; background: rgba(15, 23, 42, 0.7); color: #f8fafc; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 6px; min-height: 80px; font-family: inherit; resize: vertical; font-size: 14px;">{{ payout.notes or '' }}</textarea>
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 28px;">
+                                    <button class="button button--primary button--compact" type="submit">
+                                        <span>💾</span>
+                                        <span>Save</span>
+                                    </button>
+                                    <button class="button secondary button--compact js-toggle-notes" type="button" 
+                                            data-payout-id="{{ payout.id }}">
+                                        Cancel
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td class="empty-state" colspan="11">No payouts match the current filters.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="table-summary-row">
+        <div class="table-summary-label">Cycle Total</div>
+        <div class="table-summary-value">{{ run.currency }} <span id="visible-total">{{ payout_total|money }}</span></div>
+    </div>
+    
+    <!-- Sticky Bulk Actions Bar -->
+    <div class="bulk-actions-bar" id="bulk-actions-bar" style="display: none;">
+        <div class="bulk-actions-bar__content">
+            <div class="bulk-actions-bar__info">
+                <span class="bulk-actions-bar__icon">☑️</span>
+                <span class="bulk-actions-bar__text">
+                    <strong id="selected-count">0</strong> payment<span id="selected-plural">s</span> selected
+                </span>
+            </div>
+            <form method="post" action="/schedules/{{ run.id }}/payouts/bulk-update" id="bulk-form" data-no-auto-loading="1"
+                  style="display: flex; gap: 12px; align-items: center;">
+                <input type="hidden" id="bulk-payout-ids" name="payout_ids" value="">
+                <input type="hidden" name="redirect_to" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <label for="bulk-status" style="color: #e2e8f0; font-weight: 600; font-size: 14px;">Update Status:</label>
+                    <select id="bulk-status" name="status" 
+                            style="padding: 8px 12px; background: rgba(15, 23, 42, 0.9); color: #f8fafc; border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 6px; font-size: 14px;">
+                        {% for option in status_options %}
+                            <option value="{{ option }}">{{ option.replace('_', ' ')|title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button class="button button--primary button--compact" type="submit">
+                    <span>✓</span>
+                    <span>Apply</span>
+                </button>
+                <button class="button secondary button--compact" type="button" onclick="cancelBulkUpdate()">
+                    <span>✕</span>
+                    <span>Cancel</span>
+                </button>
+            </form>
+        </div>
+    </div>
+</section>
+
+<!-- Collapsible Validation Section -->
+{% if validations|length > 0 %}
+<section class="card validation-section" id="validation-section" style="margin-top: 32px; display: none;">
+    <div class="section-heading">
+        <div>
+            <h2><span class="section-icon">⚠️</span> Validation Issues</h2>
+            <p style="color: #94a3b8; margin: 4px 0 0 0;">{{ validations|length }} issue{{ 's' if validations|length != 1 else '' }} detected</p>
+        </div>
+    </div>
+    <div class="data-table-wrapper" style="margin-top: 16px;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width: 100px;">Severity</th>
+                    <th style="width: 150px;">Model</th>
+                    <th>Issue</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in validations %}
+                <tr>
+                    <td>
+                        <span class="status-chip status-chip--{{ 'danger' if item.severity == 'error' else 'warning' }}">
+                            {{ item.severity|title }}
+                        </span>
+                    </td>
+                    <td>
+                        <span style="font-weight: 600; color: #60a5fa;">{{ item.model.code if item.model else '—' }}</span>
+                    </td>
+                    <td style="color: #cbd5e1;">{{ item.issue }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}
+
+<script id="status-options-json" type="application/json">{{ status_options | tojson }}</script>
+<script>
+const STATUS_OPTIONS = JSON.parse(document.getElementById('status-options-json')?.textContent || '[]');
+function isRowVisible(row) {
+    if (!row) {
+        return false;
+    }
+    if (row.style && row.style.display === 'none') {
+        return false;
+    }
+    return row.offsetParent !== null;
+}
+
+function sanitizeVisibleSelections() {
+    const selectAll = document.getElementById('select-all');
+    const visibleCheckboxes = [];
+    let checkedVisible = 0;
+
+    document.querySelectorAll('.payout-checkbox').forEach(cb => {
+        const row = cb.closest('tr');
+        if (!isRowVisible(row)) {
+            cb.checked = false;
+            return;
+        }
+        visibleCheckboxes.push(cb);
+        if (cb.checked) {
+            checkedVisible += 1;
+        }
+    });
+
+    if (selectAll) {
+        if (!visibleCheckboxes.length) {
+            selectAll.checked = false;
+            selectAll.indeterminate = false;
+        } else {
+            selectAll.checked = checkedVisible === visibleCheckboxes.length && checkedVisible > 0;
+            selectAll.indeterminate = checkedVisible > 0 && checkedVisible < visibleCheckboxes.length;
+        }
+    }
+
+    return { visibleCount: visibleCheckboxes.length, checkedVisible };
+}
+
+// Toggle select all checkboxes scoped to currently visible rows
+function toggleSelectAll(checkbox) {
+    const shouldCheck = checkbox.checked;
+    document.querySelectorAll('.payout-checkbox').forEach(cb => {
+        const row = cb.closest('tr');
+        if (!isRowVisible(row)) {
+            cb.checked = false;
+            return;
+        }
+        cb.checked = shouldCheck;
+    });
+    updateBulkSection();
+}
+
+// Update bulk actions bar visibility and count
+function updateBulkSection() {
+    const { checkedVisible } = sanitizeVisibleSelections();
+    const checkboxes = Array.from(document.querySelectorAll('.payout-checkbox:checked')).filter(cb => isRowVisible(cb.closest('tr')));
+    const bulkBar = document.getElementById('bulk-actions-bar');
+    if (!bulkBar) {
+        return;
+    }
+    const count = checkedVisible || checkboxes.length;
+    
+    if (count > 0) {
+        bulkBar.style.display = 'block';
+        const selectedCount = document.getElementById('selected-count');
+        const selectedPlural = document.getElementById('selected-plural');
+        const bulkIdsInput = document.getElementById('bulk-payout-ids');
+
+        if (selectedCount) {
+            selectedCount.textContent = count;
+        }
+        if (selectedPlural) {
+            selectedPlural.textContent = count === 1 ? '' : 's';
+        }
+        if (bulkIdsInput) {
+            const ids = Array.from(checkboxes).map(cb => cb.value).join(',');
+            bulkIdsInput.value = ids;
+        }
+    } else {
+        bulkBar.style.display = 'none';
+    }
+}
+
+// Cancel bulk update
+function cancelBulkUpdate() {
+    document.querySelectorAll('.payout-checkbox').forEach(cb => cb.checked = false);
+    const selectAll = document.getElementById('select-all');
+    if (selectAll) {
+        selectAll.checked = false;
+    }
+    updateBulkSection();
+}
+
+// Advance deduction toast (#6/#8)
+function showAdvanceToast(msg) {
+    var el = document.getElementById('advance-toast');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'advance-toast';
+        el.setAttribute('role', 'status');
+        el.setAttribute('aria-live', 'polite');
+        el.style.cssText = 'position:fixed;bottom:24px;right:24px;background:rgba(16,185,129,0.95);color:#fff;padding:14px 22px;border-radius:10px;font-weight:600;font-size:0.95rem;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.3);transform:translateY(80px);opacity:0;transition:all 0.3s ease;pointer-events:none;';
+        document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    requestAnimationFrame(function() {
+        el.style.transform = 'translateY(0)';
+        el.style.opacity = '1';
+    });
+    clearTimeout(el._timer);
+    el._timer = setTimeout(function() {
+        el.style.transform = 'translateY(80px)';
+        el.style.opacity = '0';
+    }, 4000);
+}
+
+// Quick status update via button — optimistic UI
+function quickUpdateStatus(payoutId, status) {
+    const row = document.querySelector(`tr.payout-row[data-payout-id="${payoutId}"]`);
+    if (!row) return;
+
+    // #6: Confirm advance deduction before marking as paid
+    if (status === 'paid') {
+        var deduction = parseFloat(row.getAttribute('data-deduction') || '0');
+        if (deduction > 0) {
+            if (!confirm('This will apply an advance deduction of $' + deduction.toFixed(2) + '. Continue?')) return;
+        }
+    }
+
+    // Snapshot current state for rollback
+    const prevStatus = row.getAttribute('data-status');
+    const prevChipHtml = row.querySelector('.status-chip')?.outerHTML;
+    const prevButtons = [];
+    row.querySelectorAll('.js-quick-update').forEach(function(b) {
+        prevButtons.push({ cls: b.className, action: b.getAttribute('data-action'), title: b.title, text: b.textContent });
+    });
+
+    // Apply optimistic update immediately
+    applyRowStatusUpdate(String(payoutId), status, computeRowOverdue(row, status));
+    row.classList.add('opt-pending');
+
+    // Disable action buttons during request
+    row.querySelectorAll('.js-quick-update').forEach(function(b) { b.classList.add('is-loading'); });
+
+    const endpoint = `/schedules/{{ run.id }}/payouts/${payoutId}/status`;
+    const formData = new FormData();
+    formData.append('status', status);
+
+    fetch(endpoint, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'fetch' } })
+        .then(async (res) => {
+            if (!res.ok) throw new Error('Bad response');
+            return res.json();
+        })
+        .then((data) => {
+            if (!data || !data.ok) throw new Error('Update failed');
+            // Server confirmed — apply authoritative state (may differ from optimistic)
+            row.classList.remove('opt-pending');
+            row.querySelectorAll('.js-quick-update').forEach(function(b) { b.classList.remove('is-loading'); });
+            const newStatus = String(data.new_status || '').toLowerCase();
+            const serverOverdue = typeof data.is_overdue === 'boolean' ? data.is_overdue : null;
+            const computedOverdue = computeRowOverdue(row, newStatus);
+            const isOverdue = serverOverdue === null ? computedOverdue : (serverOverdue || computedOverdue);
+            applyRowStatusUpdate(String(payoutId), newStatus, isOverdue);
+            if (typeof recomputeVisibleTotal === 'function') {
+                try { recomputeVisibleTotal(); } catch (_) { }
+            }
+            // Show advance deduction toast (#6/#8)
+            if (data.advance_deducted) {
+                showAdvanceToast('Advance repayment of $' + parseFloat(data.advance_deducted).toFixed(2) + ' applied');
+            }
+            queueSummaryRefresh();
+            refreshActiveStatusFilter();
+        })
+        .catch(() => {
+            // Revert optimistic update
+            row.classList.remove('opt-pending');
+            row.setAttribute('data-status', prevStatus);
+            const chip = row.querySelector('.status-chip');
+            if (chip && prevChipHtml) {
+                chip.outerHTML = prevChipHtml;
+            }
+            const btns = row.querySelectorAll('.js-quick-update');
+            btns.forEach(function(b, i) {
+                if (prevButtons[i]) {
+                    b.className = prevButtons[i].cls;
+                    b.setAttribute('data-action', prevButtons[i].action);
+                    b.title = prevButtons[i].title;
+                    b.textContent = prevButtons[i].text;
+                }
+                b.classList.remove('is-loading');
+            });
+            // Fallback to form submit
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/schedules/{{ run.id }}/payouts/${payoutId}/note`;
+            const statusInput = document.createElement('input');
+            statusInput.type = 'hidden';
+            statusInput.name = 'status';
+            statusInput.value = status;
+            const notesInput = document.createElement('input');
+            notesInput.type = 'hidden';
+            notesInput.name = 'notes';
+            notesInput.value = '';
+            const redirectInput = document.createElement('input');
+            redirectInput.type = 'hidden';
+            redirectInput.name = 'redirect_to';
+            redirectInput.value = window.location.pathname + window.location.search;
+            form.appendChild(statusInput);
+            form.appendChild(notesInput);
+            form.appendChild(redirectInput);
+            document.body.appendChild(form);
+            form.submit();
+        });
+}
+
+// Toggle notes row for editing
+function toggleNotesRow(payoutId) {
+    const notesRow = document.getElementById(`notes-row-${payoutId}`);
+    if (!notesRow) {
+        return;
+    }
+    if (notesRow.style.display === 'none') {
+        // Hide all other notes rows
+        document.querySelectorAll('.notes-row').forEach(row => {
+            row.style.display = 'none';
+        });
+        notesRow.style.display = '';
+    } else {
+        notesRow.style.display = 'none';
+    }
+}
+
+// Toggle validation section
+function toggleValidation() {
+    const section = document.getElementById('validation-section');
+    const toggleText = document.getElementById('validation-toggle-text');
+    if (!section || !toggleText) {
+        return;
+    }
+    if (section.style.display === 'none') {
+        section.style.display = 'block';
+        toggleText.textContent = 'Hide Details';
+    } else {
+        section.style.display = 'none';
+        toggleText.textContent = 'Show Details';
+    }
+}
+
+let currentStatusFilter = (new URL(window.location.href).searchParams.get('status') || '').toLowerCase();
+
+function setCurrentStatusFilter(status) {
+    currentStatusFilter = (status || '').toLowerCase();
+}
+
+function refreshActiveStatusFilter() {
+    if (!currentStatusFilter) {
+        return;
+    }
+    if (currentStatusFilter === 'overdue') {
+        filterByOverdue({ updateUrl: false, resetSearch: false });
+    } else {
+        applyStatusFilterLocally(currentStatusFilter, { updateUrl: false });
+    }
+}
+
+function computeRowOverdue(row, status) {
+    if (!row) return false;
+    const normalizedStatus = (status || '').toLowerCase();
+    if (normalizedStatus !== 'not_paid' && normalizedStatus !== 'on_hold') {
+        return false;
+    }
+    const payDateValue = row.getAttribute('data-pay-date');
+    if (!payDateValue) {
+        return false;
+    }
+    const payDate = new Date(`${payDateValue}T00:00:00`);
+    if (Number.isNaN(payDate.getTime())) {
+        return false;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return payDate < today;
+}
+
+function updateOverdueIndicators(row, isOverdue) {
+    if (!row) return;
+    row.setAttribute('data-is-overdue', isOverdue ? 'true' : 'false');
+
+    if (isOverdue) row.classList.add('payout-row--overdue');
+    else row.classList.remove('payout-row--overdue');
+
+    const payDateCell = row.querySelector('[data-column-key="pay_date"]');
+    if (payDateCell) {
+        let badge = payDateCell.querySelector('.overdue-badge');
+        if (isOverdue && !badge) {
+            badge = document.createElement('span');
+            badge.className = 'overdue-badge';
+            badge.title = 'Payment is overdue';
+            badge.textContent = '🚨';
+            payDateCell.appendChild(badge);
+        } else if (!isOverdue && badge) {
+            badge.remove();
+        }
+    }
+
+    const statusCell = row.querySelector('[data-column-key="status"]');
+    if (statusCell) {
+        let label = statusCell.querySelector('.overdue-label');
+        if (isOverdue && !label) {
+            label = document.createElement('span');
+            label.className = 'overdue-label';
+            label.textContent = 'OVERDUE';
+            statusCell.appendChild(label);
+        } else if (!isOverdue && label) {
+            label.remove();
+        }
+    }
+}
+
+function syncStatusDropdown(status) {
+    const statusSelect = document.getElementById('filter-status');
+    if (!statusSelect) return false;
+
+    const hasOption = Array.from(statusSelect.options).some(option => option.value === (status || ''));
+    if (!hasOption) {
+        return false;
+    }
+
+    statusSelect.value = status || '';
+    updateExportExcelHref(status);
+    return true;
+}
+
+// Filter by status (chip buttons). Keep dropdown selection mirrored, then filter locally.
+function filterByStatus(status) {
+    setCurrentStatusFilter(status);
+    syncStatusDropdown(status);
+    applyStatusFilterLocally(status);
+}
+
+function applyStatusFilterLocally(status, options = {}) {
+    const { updateUrl = true } = options;
+    const tableBody = document.querySelector('#payouts-table tbody');
+    if (!tableBody) return;
+
+    const rows = Array.from(tableBody.querySelectorAll('tr.payout-row'));
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+        const rowStatus = (row.getAttribute('data-status') || '').toLowerCase();
+        const match = !status || rowStatus === status.toLowerCase();
+        if (match) {
+            row.style.display = '';
+            const payoutId = row.getAttribute('data-payout-id');
+            const notesRow = document.getElementById(`notes-row-${payoutId}`);
+            if (notesRow && notesRow.style.display !== 'none') {
+                notesRow.style.display = '';
+            }
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+            const payoutId = row.getAttribute('data-payout-id');
+            const notesRow = document.getElementById(`notes-row-${payoutId}`);
+            if (notesRow) notesRow.style.display = 'none';
+        }
+    });
+
+    const visibleCountEl = document.getElementById('visible-count');
+    if (visibleCountEl) visibleCountEl.textContent = visibleCount;
+
+    if (updateUrl) {
+        const url = new URL(window.location.href);
+        if (status) url.searchParams.set('status', status);
+        else url.searchParams.delete('status');
+        history.replaceState(null, '', url.toString());
+    }
+
+    if (typeof recomputeVisibleTotal === 'function') {
+        try { recomputeVisibleTotal(); } catch (_) { }
+    }
+
+    updateBulkSection();
+}
+
+// Filter by overdue (client-side)
+function filterByOverdue(options = {}) {
+    const { updateUrl = true, resetSearch = true } = options;
+    setCurrentStatusFilter('overdue');
+    syncStatusDropdown('overdue');
+    updateExportExcelHref('overdue');
+
+    const searchInput = document.getElementById('quick-search');
+    if (resetSearch && searchInput) {
+        searchInput.value = '';
+    }
+    
+    const tableBody = document.querySelector('#payouts-table tbody');
+    if (!tableBody) {
+        return;
+    }
+    const rows = Array.from(tableBody.querySelectorAll('tr.payout-row'));
+    
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        const isOverdue = row.getAttribute('data-is-overdue') === 'true';
+        
+        if (isOverdue) {
+            row.style.display = '';
+            const payoutId = row.getAttribute('data-payout-id');
+            const notesRow = document.getElementById(`notes-row-${payoutId}`);
+            if (notesRow && notesRow.style.display !== 'none') {
+                notesRow.style.display = '';
+            }
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+            const payoutId = row.getAttribute('data-payout-id');
+            const notesRow = document.getElementById(`notes-row-${payoutId}`);
+            if (notesRow) {
+                notesRow.style.display = 'none';
+            }
+        }
+    });
+    
+    const visibleCountEl = document.getElementById('visible-count');
+    if (visibleCountEl) {
+        visibleCountEl.textContent = visibleCount;
+    }
+    if (resetSearch) {
+        const hiddenQ = document.getElementById('filter-q-hidden');
+        if (hiddenQ) hiddenQ.value = '';
+        const urlQ = new URL(window.location.href);
+        urlQ.searchParams.delete('q');
+        if (updateUrl) {
+            history.replaceState(null, '', urlQ.toString());
+        }
+    }
+
+    if (updateUrl) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('status', 'overdue');
+        history.replaceState(null, '', url.toString());
+    }
+
+    recomputeVisibleTotal();
+    updateBulkSection();
+}
+
+function updateExportExcelHref(status) {
+    const excelLink = document.getElementById('export-excel');
+    if (!excelLink) return;
+
+    const base = excelLink.getAttribute('data-base-href') || excelLink.href.split('?')[0];
+    const url = new URL(base, window.location.origin);
+
+    // If caller provided an explicit status, prefer it; otherwise fall back to dropdown value
+    let newStatus = status;
+    if (!newStatus) {
+        const statusSelect = document.getElementById('filter-status');
+        newStatus = statusSelect ? statusSelect.value : '';
+    }
+
+    url.searchParams.delete('status');
+    if (newStatus) {
+        url.searchParams.set('status', newStatus);
+    }
+
+    // Keep existing path and query params - update only to new status
+    excelLink.href = url.pathname + url.search;
+}
+
+// Ensure export link is correct on load and whenever select changes
+document.addEventListener('DOMContentLoaded', () => {
+    updateExportExcelHref();
+    const statusSelect = document.getElementById('filter-status');
+    if (statusSelect) statusSelect.addEventListener('change', () => updateExportExcelHref());
+});
+
+// Client-side quick search filter
+function filterPayoutTable() {
+    const searchInput = document.getElementById('quick-search');
+    const tableBody = document.querySelector('#payouts-table tbody');
+    if (!searchInput || !tableBody) {
+        return;
+    }
+    const searchTerm = searchInput.value.toLowerCase();
+    const rows = Array.from(tableBody.querySelectorAll('tr.payout-row'));
+    
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        const code = row.getAttribute('data-code') || '';
+        const name = row.getAttribute('data-name') || '';
+        
+        const matchesSearch = !searchTerm || 
+            code.includes(searchTerm) || 
+            name.includes(searchTerm);
+        
+        if (matchesSearch) {
+            row.style.display = '';
+            // Also show the associated notes row if it was visible
+            const payoutId = row.getAttribute('data-payout-id');
+            const notesRow = document.getElementById(`notes-row-${payoutId}`);
+            if (notesRow && notesRow.style.display !== 'none') {
+                notesRow.style.display = '';
+            }
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+            // Hide associated notes row
+            const payoutId = row.getAttribute('data-payout-id');
+            const notesRow = document.getElementById(`notes-row-${payoutId}`);
+            if (notesRow) {
+                notesRow.style.display = 'none';
+            }
+        }
+    });
+    
+    // Update count
+    const visibleCountEl = document.getElementById('visible-count');
+    if (visibleCountEl) {
+        visibleCountEl.textContent = visibleCount;
+    }
+    // Persist quick search to URL and hidden form field
+    const hiddenQ = document.getElementById('filter-q-hidden');
+    if (hiddenQ) hiddenQ.value = searchTerm;
+    const url = new URL(window.location.href);
+    if (searchTerm) {
+        url.searchParams.set('q', searchTerm);
+    } else {
+        url.searchParams.delete('q');
+    }
+    history.replaceState(null, '', url.toString());
+    recomputeVisibleTotal();
+    updateBulkSection();
+}
+
+// Column order + sorting state
+const DEFAULT_COLUMN_ORDER = [
+    'select',
+    'pay_date',
+    'code',
+    'working_name',
+    'payment_method',
+    'frequency',
+    'amount',
+    'deductions',
+    'status',
+    'notes',
+    'actions',
+];
+const COLUMN_STORAGE_KEY = `schedule_columns_run_{{ run.id }}`;
+let columnOrderState = [...DEFAULT_COLUMN_ORDER];
+let draggingColumnKey = null;
+let sortDirection = {};
+
+function sortTable(columnKey) {
+    const table = document.querySelector('#payouts-table');
+    if (!table) return;
+    const tbody = table.querySelector('tbody');
+    if (!tbody) return;
+
+    const rows = Array.from(tbody.querySelectorAll('tr.payout-row'));
+    if (!rows.length) return;
+
+    const isAscending = sortDirection[columnKey] !== true;
+    sortDirection = { [columnKey]: isAscending };
+
+    const parseDate = (value) => {
+        const parts = value.split('/');
+        if (parts.length === 3) {
+            return new Date(`${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`);
+        }
+        return new Date(value);
+    };
+
+    rows.sort((rowA, rowB) => {
+        const cellA = rowA.querySelector(`[data-column-key="${columnKey}"]`);
+        const cellB = rowB.querySelector(`[data-column-key="${columnKey}"]`);
+        const valueA = (cellA ? cellA.textContent : '').trim();
+        const valueB = (cellB ? cellB.textContent : '').trim();
+
+        if (columnKey === 'pay_date') {
+            const dateA = parseDate(valueA);
+            const dateB = parseDate(valueB);
+            return isAscending ? dateA - dateB : dateB - dateA;
+        }
+
+        if (columnKey === 'amount' || columnKey === 'deductions') {
+            const numA = parseFloat(valueA.replace(/[^\d.-]/g, ''));
+            const numB = parseFloat(valueB.replace(/[^\d.-]/g, ''));
+            if (!isNaN(numA) && !isNaN(numB)) {
+                return isAscending ? numA - numB : numB - numA;
+            }
+        }
+
+        const textA = valueA.toLowerCase();
+        const textB = valueB.toLowerCase();
+        return isAscending ? textA.localeCompare(textB) : textB.localeCompare(textA);
+    });
+
+    rows.forEach(row => {
+        tbody.appendChild(row);
+        const payoutId = row.getAttribute('data-payout-id');
+        const notesRow = document.getElementById(`notes-row-${payoutId}`);
+        if (notesRow) {
+            tbody.appendChild(notesRow);
+        }
+    });
+
+    document.querySelectorAll('#payouts-table thead th[data-sortable="true"]').forEach(th => {
+        if (th.dataset.columnKey === columnKey) {
+            th.dataset.sortDirection = isAscending ? 'asc' : 'desc';
+        } else {
+            th.dataset.sortDirection = '';
+        }
+    });
+}
+
+function initializeColumnOrder() {
+    columnOrderState = loadColumnOrder();
+    applyColumnOrder(columnOrderState);
+
+    const headerCells = document.querySelectorAll('#payouts-table thead th[data-draggable="true"]');
+    headerCells.forEach(cell => {
+        cell.addEventListener('dragstart', handleColumnDragStart);
+        cell.addEventListener('dragover', handleColumnDragOver);
+        cell.addEventListener('dragleave', handleColumnDragLeave);
+        cell.addEventListener('drop', handleColumnDrop);
+        cell.addEventListener('dragend', handleColumnDragEnd);
+    });
+}
+
+function loadColumnOrder() {
+    try {
+        const stored = localStorage.getItem(COLUMN_STORAGE_KEY);
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed) && parsed.length) {
+                return normalizeColumnOrder(parsed);
+            }
+        }
+    } catch (err) {
+        console.warn('Unable to load column order', err);
+    }
+    return [...DEFAULT_COLUMN_ORDER];
+}
+
+function saveColumnOrder(order) {
+    try {
+        localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(order));
+    } catch (err) {
+        console.warn('Unable to persist column order', err);
+    }
+}
+
+function normalizeColumnOrder(order) {
+    const cleaned = order.filter(key => DEFAULT_COLUMN_ORDER.includes(key));
+    DEFAULT_COLUMN_ORDER.forEach(key => {
+        if (!cleaned.includes(key)) {
+            cleaned.push(key);
+        }
+    });
+    return cleaned;
+}
+
+function applyColumnOrder(order) {
+    const normalized = normalizeColumnOrder(order);
+    columnOrderState = normalized;
+    const table = document.getElementById('payouts-table');
+    if (!table) return;
+
+    const headerRow = table.querySelector('thead tr');
+    if (headerRow) reorderRowCells(headerRow, normalized);
+
+    table.querySelectorAll('tbody tr.payout-row').forEach(row => reorderRowCells(row, normalized));
+    const footerRows = table.querySelectorAll('tfoot tr');
+    footerRows.forEach(row => reorderRowCells(row, normalized));
+}
+
+function reorderRowCells(row, order) {
+    const cells = Array.from(row.children);
+    if (!cells.length) return;
+    const fragment = document.createDocumentFragment();
+    order.forEach(key => {
+        const cell = cells.find(c => c.dataset && c.dataset.columnKey === key);
+        if (cell) {
+            fragment.appendChild(cell);
+        }
+    });
+    row.appendChild(fragment);
+}
+
+function handleColumnDragStart(event) {
+    const target = event.currentTarget;
+    draggingColumnKey = target.dataset.columnKey;
+    if (!draggingColumnKey) return;
+    target.dataset.dragging = 'true';
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', draggingColumnKey);
+}
+
+function handleColumnDragOver(event) {
+    if (!draggingColumnKey) return;
+    const target = event.currentTarget;
+    const targetKey = target.dataset.columnKey;
+    if (!targetKey || targetKey === draggingColumnKey) return;
+    event.preventDefault();
+    document.querySelectorAll('#payouts-table thead th[data-drop-target="true"]').forEach(th => th.removeAttribute('data-drop-target'));
+    target.dataset.dropTarget = 'true';
+}
+
+function handleColumnDragLeave(event) {
+    event.currentTarget.removeAttribute('data-drop-target');
+}
+
+function handleColumnDrop(event) {
+    if (!draggingColumnKey) return;
+    event.preventDefault();
+    const targetKey = event.currentTarget.dataset.columnKey;
+    if (!targetKey || targetKey === draggingColumnKey) return;
+
+    const newOrder = moveColumnKey(columnOrderState, draggingColumnKey, targetKey);
+    columnOrderState = newOrder;
+    saveColumnOrder(columnOrderState);
+    applyColumnOrder(columnOrderState);
+}
+
+function handleColumnDragEnd() {
+    draggingColumnKey = null;
+    document.querySelectorAll('#payouts-table thead th').forEach(th => {
+        th.removeAttribute('data-drop-target');
+        th.removeAttribute('data-dragging');
+    });
+}
+
+function moveColumnKey(order, fromKey, toKey) {
+    const normalized = normalizeColumnOrder(order);
+    const fromIndex = normalized.indexOf(fromKey);
+    const toIndex = normalized.indexOf(toKey);
+    if (fromIndex === -1 || toIndex === -1) {
+        return normalized;
+    }
+    normalized.splice(toIndex, 0, normalized.splice(fromIndex, 1)[0]);
+    return normalized;
+}
+
+// Auto-filter on page load if URL parameter is present
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const showFilter = urlParams.get('show');
+    const persistedQ = urlParams.get('q') || '';
+    
+    if (showFilter === 'overdue') {
+        // Trigger the overdue filter
+        filterByOverdue();
+        
+        // Scroll to the table
+        const table = document.getElementById('payouts-table');
+        if (table) {
+            setTimeout(() => {
+                table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
+        }
+    }
+    // Reapply persisted quick search
+    if (persistedQ) {
+        const searchInput = document.getElementById('quick-search');
+        const hiddenQ = document.getElementById('filter-q-hidden');
+        if (searchInput) searchInput.value = persistedQ;
+        if (hiddenQ) hiddenQ.value = persistedQ;
+        filterPayoutTable();
+    }
+    // Compute initial visible total on load as well
+    recomputeVisibleTotal();
+    // Ensure notes forms redirect back including current quick search and filters
+    document.querySelectorAll('form[action$="/note"]').forEach(form => {
+        form.addEventListener('submit', function() {
+            const redirectInput = form.querySelector('input[name="redirect_to"]');
+            if (redirectInput) {
+                redirectInput.value = window.location.pathname + window.location.search;
+            }
+        });
+    });
+
+    initializeColumnOrder();
+    queueSummaryRefresh();
+});
+
+// Money formatting helper (US style, 2 decimals)
+function formatMoney(value) {
+    try {
+        return (Number(value) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    } catch (e) {
+        const n = Math.round((Number(value) || 0) * 100) / 100;
+        return n.toFixed(2);
+    }
+}
+
+let scheduleSummaryRefreshHandle = null;
+function queueSummaryRefresh() {
+    if (scheduleSummaryRefreshHandle !== null) {
+        return;
+    }
+    const scheduler = (window && window.requestAnimationFrame) ? window.requestAnimationFrame.bind(window) : (cb) => setTimeout(cb, 16);
+    scheduleSummaryRefreshHandle = scheduler(() => {
+        scheduleSummaryRefreshHandle = null;
+        try {
+            recomputeSummaryCards();
+        } catch (_) {
+            // ignore
+        }
+    });
+}
+
+function setChipCount(key, value) {
+    const chipValue = document.getElementById(`chip-count-${key}`);
+    if (chipValue) chipValue.textContent = value;
+    if (key === 'overdue') {
+        const overdueChip = document.getElementById('chip-overdue');
+        if (overdueChip) {
+            if (value > 0 || currentStatusFilter === 'overdue') {
+                overdueChip.style.display = '';
+            } else {
+                overdueChip.style.display = 'none';
+            }
+        }
+    }
+}
+
+function recomputeSummaryCards() {
+    const rows = Array.from(document.querySelectorAll('#payouts-table tbody tr.payout-row'));
+    if (!rows.length) {
+        setChipCount('all', 0);
+        setChipCount('overdue', 0);
+        if (Array.isArray(STATUS_OPTIONS)) {
+            STATUS_OPTIONS.forEach(status => setChipCount(status, 0));
+        }
+        return;
+    }
+
+    let paidTotal = 0;
+    let paidCount = 0;
+    let unpaidTotal = 0;
+    let pendingCount = 0;
+    let holdCount = 0;
+    let overdueCount = 0;
+    let overdueAmount = 0;
+    const statusCounts = {};
+
+    rows.forEach(row => {
+        const status = (row.getAttribute('data-status') || '').toLowerCase();
+        const amount = parseFloat(row.getAttribute('data-amount') || '0') || 0;
+        const isOverdue = row.getAttribute('data-is-overdue') === 'true';
+
+        statusCounts[status] = (statusCounts[status] || 0) + 1;
+
+        if (status === 'paid') {
+            paidTotal += amount;
+            paidCount++;
+        } else if (status === 'not_paid') {
+            unpaidTotal += amount;
+            pendingCount++;
+        } else if (status === 'on_hold') {
+            unpaidTotal += amount;
+            holdCount++;
+        }
+
+        if (isOverdue && (status === 'not_paid' || status === 'on_hold')) {
+            overdueCount++;
+            overdueAmount += amount;
+        }
+    });
+
+    const setText = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    };
+
+    setText('card-paid-total', formatMoney(paidTotal));
+    setText('card-paid-count', paidCount);
+    setText('card-paid-models', paidCount);
+
+    setText('card-unpaid-total', formatMoney(unpaidTotal));
+    setText('card-unpaid-pending', pendingCount);
+    setText('card-unpaid-hold', holdCount);
+
+    setText('card-overdue-count', overdueCount);
+    setText('card-overdue-amount', formatMoney(overdueAmount));
+
+    const overdueCard = document.getElementById('card-overdue');
+    if (overdueCard) {
+        if (overdueCount > 0) overdueCard.classList.add('schedule-metric--alert');
+        else overdueCard.classList.remove('schedule-metric--alert');
+    }
+
+    setChipCount('all', rows.length);
+    if (Array.isArray(STATUS_OPTIONS)) {
+        STATUS_OPTIONS.forEach(status => setChipCount(status, statusCounts[status] || 0));
+    }
+    setChipCount('overdue', overdueCount);
+}
+
+// Recompute visible total based on currently visible rows
+function recomputeVisibleTotal() {
+    const rows = Array.from(document.querySelectorAll('#payouts-table tbody tr.payout-row'));
+    if (!rows.length) {
+        const el = document.getElementById('visible-total');
+        if (el) el.textContent = formatMoney(0);
+        return;
+    }
+    let total = 0;
+    rows.forEach(row => {
+        if (row.style.display === 'none') return;
+        const amount = parseFloat(row.getAttribute('data-amount') || '0');
+        if (!isNaN(amount)) total += amount;
+    });
+    const totalEl = document.getElementById('visible-total');
+    if (totalEl) {
+        totalEl.textContent = formatMoney(total);
+    }
+}
+
+// Delegated click handlers for quick updates and toggling notes
+document.addEventListener('click', function (e) {
+    const quickBtn = e.target.closest('.js-quick-update');
+    if (quickBtn) {
+        const payoutId = quickBtn.getAttribute('data-payout-id');
+        const action = quickBtn.getAttribute('data-action');
+        if (payoutId && action) {
+            quickUpdateStatus(payoutId, action);
+        }
+        return;
+    }
+    const notesBtn = e.target.closest('.js-toggle-notes');
+    if (notesBtn) {
+        const payoutId = notesBtn.getAttribute('data-payout-id');
+        if (payoutId) {
+            toggleNotesRow(payoutId);
+        }
+    }
+});
+
+// Intercept bulk form submit for in-place updates
+document.addEventListener('submit', function (e) {
+    const notesForm = e.target.closest('.notes-edit-form');
+    if (notesForm) {
+        if (notesForm.dataset.ajaxFallback === '1') {
+            return;
+        }
+        e.preventDefault();
+        submitNotesFormAjax(notesForm);
+        return;
+    }
+
+    const form = e.target.closest('#bulk-form');
+    if (!form) return;
+    e.preventDefault();
+    const ids = document.getElementById('bulk-payout-ids')?.value || '';
+    const statusSel = document.getElementById('bulk-status');
+    const status = statusSel ? statusSel.value : '';
+    if (!ids || !status) return;
+
+    // Optimistic: apply status to all selected rows immediately
+    const idList = ids.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+    const prevStates = {};
+    idList.forEach(function(pid) {
+        var row = document.querySelector('tr.payout-row[data-payout-id="' + pid + '"]');
+        if (row) {
+            prevStates[pid] = row.getAttribute('data-status');
+            applyRowStatusUpdate(pid, status, computeRowOverdue(row, status));
+            row.classList.add('opt-pending');
+        }
+    });
+
+    // Disable bulk button
+    var bulkBtn = form.querySelector('button[type="submit"]');
+    if (bulkBtn) {
+        bulkBtn.dataset.origHtml = bulkBtn.innerHTML;
+        bulkBtn.innerHTML = '<span class="opt-spinner"></span>';
+        bulkBtn.classList.add('is-loading');
+    }
+
+    const endpoint = `/schedules/{{ run.id }}/payouts/bulk-update/status`;
+    const fd = new FormData();
+    fd.append('payout_ids', ids);
+    fd.append('status', status);
+
+    fetch(endpoint, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'fetch' } })
+        .then(async (res) => {
+            if (!res.ok) throw new Error('Bad response');
+            return res.json();
+        })
+        .then((data) => {
+            if (!data || !data.ok) throw new Error('Update failed');
+            // Server confirmed — remove pending state
+            idList.forEach(function(pid) {
+                var row = document.querySelector('tr.payout-row[data-payout-id="' + pid + '"]');
+                if (row) row.classList.remove('opt-pending');
+            });
+            const updatedIds = data.updated_ids || [];
+            const overdue_flags = data.overdue_flags || {};
+            const newStatus = String(data.new_status || '').toLowerCase();
+
+            updatedIds.forEach((pid) => {
+                applyRowStatusUpdate(String(pid), newStatus, !!overdue_flags[pid]);
+            });
+
+            // Clear selection and hide bulk bar
+            cancelBulkUpdate();
+            if (typeof recomputeVisibleTotal === 'function') {
+                try { recomputeVisibleTotal(); } catch (_) { }
+            }
+            // Show advance deduction toast (#6/#8)
+            if (data.advance_deducted) {
+                showAdvanceToast('Advance repayment of $' + parseFloat(data.advance_deducted).toFixed(2) + ' applied');
+            }
+            queueSummaryRefresh();
+        })
+        .catch(() => {
+            // Revert optimistic updates
+            idList.forEach(function(pid) {
+                var row = document.querySelector('tr.payout-row[data-payout-id="' + pid + '"]');
+                if (row) {
+                    row.classList.remove('opt-pending');
+                    if (prevStates[pid]) applyRowStatusUpdate(pid, prevStates[pid], computeRowOverdue(row, prevStates[pid]));
+                }
+            });
+            if (bulkBtn) {
+                if (bulkBtn.dataset.origHtml) bulkBtn.innerHTML = bulkBtn.dataset.origHtml;
+                bulkBtn.classList.remove('is-loading');
+            }
+            form.submit();
+        });
+});
+
+function submitNotesFormAjax(form) {
+    const payoutId = form.getAttribute('data-payout-id');
+    if (!payoutId) {
+        form.dataset.ajaxFallback = '1';
+        form.submit();
+        return;
+    }
+
+    // Show loading state on save button
+    var saveBtn = form.querySelector('button[type="submit"]');
+    if (saveBtn) {
+        saveBtn.dataset.origHtml = saveBtn.innerHTML;
+        saveBtn.innerHTML = '<span class="opt-spinner"></span>';
+        saveBtn.classList.add('is-loading');
+    }
+
+    const formData = new FormData(form);
+    formData.set('redirect_to', window.location.pathname + window.location.search);
+
+    fetch(form.action, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'fetch' } })
+        .then(async (res) => {
+            if (!res.ok) throw new Error('Bad response');
+            return res.json();
+        })
+        .then((data) => {
+            if (!data || !data.ok) throw new Error('Update failed');
+            updateNoteDisplay(payoutId, data.note || '');
+            if (typeof applyRowStatusUpdate === 'function' && data.status) {
+                try {
+                    applyRowStatusUpdate(String(payoutId), String(data.status).toLowerCase(), !!data.is_overdue);
+                } catch (_) {
+                    // no-op if helper unavailable
+                }
+            }
+            toggleNotesRow(payoutId);
+        })
+        .catch(() => {
+            form.dataset.ajaxFallback = '1';
+            form.submit();
+        });
+}
+
+function updateNoteDisplay(payoutId, noteText) {
+    const row = document.querySelector(`tr.payout-row[data-payout-id="${payoutId}"]`);
+    if (!row) return;
+    const noteEl = row.querySelector('.payout-note-text');
+    if (!noteEl) return;
+
+    const trimmed = (noteText || '').trim();
+    if (trimmed) {
+        noteEl.textContent = trimmed;
+        noteEl.title = trimmed;
+        noteEl.classList.remove('payout-note-text--empty');
+    } else {
+        noteEl.textContent = '—';
+        noteEl.title = 'No notes yet';
+        noteEl.classList.add('payout-note-text--empty');
+    }
+}
+
+// Helper to apply DOM updates after a status change
+function applyRowStatusUpdate(payoutId, newStatus, isOverdue) {
+    const row = document.querySelector(`tr.payout-row[data-payout-id="${payoutId}"]`);
+    if (!row) return;
+    row.setAttribute('data-status', newStatus);
+    updateOverdueIndicators(row, isOverdue);
+
+    const chip = row.querySelector('.status-chip');
+    if (chip) {
+        chip.textContent = newStatus.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+    chip.classList.remove('status-chip--success', 'status-chip--warning', 'status-chip--danger', 'status-chip--info', 'status-chip--neutral');
+    if (newStatus === 'paid') chip.classList.add('status-chip--success');
+    else if (newStatus === 'approved') chip.classList.add('status-chip--info');
+    else if (newStatus === 'not_paid') chip.classList.add('status-chip--warning');
+    else if (newStatus === 'on_hold') chip.classList.add('status-chip--danger');
+    else chip.classList.add('status-chip--neutral');
+    }
+
+    const buttons = row.querySelectorAll('.js-quick-update');
+    if (buttons && buttons.length >= 2) {
+        const primaryBtn = buttons[0];
+        const holdBtn = buttons[1];
+        if (newStatus === 'paid') {
+            primaryBtn.classList.remove('action-button--success');
+            primaryBtn.classList.add('action-button--neutral');
+            primaryBtn.setAttribute('data-action', 'not_paid');
+            primaryBtn.setAttribute('title', 'Unmark Paid');
+            primaryBtn.textContent = '↺';
+        } else {
+            primaryBtn.classList.remove('action-button--neutral');
+            primaryBtn.classList.add('action-button--success');
+            primaryBtn.setAttribute('data-action', 'paid');
+            primaryBtn.setAttribute('title', 'Mark as Paid');
+            primaryBtn.textContent = '✓';
+        }
+        if (newStatus === 'on_hold') {
+            holdBtn.classList.remove('action-button--warning');
+            holdBtn.classList.add('action-button--neutral');
+            holdBtn.setAttribute('data-action', 'not_paid');
+            holdBtn.setAttribute('title', 'Remove Hold');
+            holdBtn.textContent = '▶';
+        } else {
+            holdBtn.classList.remove('action-button--neutral');
+            holdBtn.classList.add('action-button--warning');
+            holdBtn.setAttribute('data-action', 'on_hold');
+            holdBtn.setAttribute('title', 'Put On Hold');
+            holdBtn.textContent = '⏸';
+        }
+    }
+
+    queueSummaryRefresh();
+    refreshActiveStatusFilter();
+}
+</script>
 
 <script>
 // Highlight newly added models when page loads
@@ -2982,23 +3013,5 @@ function showToast(message, type = 'info') {
     }, 3000);
 }
 </script>
-
-<style>
-@keyframes slideInRight {
-    from { transform: translateX(100%); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-}
-@keyframes slideOutRight {
-    from { transform: translateX(0); opacity: 1; }
-    to { transform: translateX(100%); opacity: 0; }
-}
-.payout-row--updated {
-    animation: highlight-update 2s ease;
-}
-@keyframes highlight-update {
-    0%, 50% { background: rgba(34, 197, 94, 0.2); }
-    100% { background: transparent; }
-}
-</style>
 
 {% endblock %}

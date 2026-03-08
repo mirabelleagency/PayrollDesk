@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import calendar
 import csv
+import hashlib
 import io
 import json
 import time
@@ -14,7 +15,7 @@ from pathlib import Path
 
 import pandas as pd
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
-from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse, JSONResponse
+from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse, JSONResponse, Response
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 from urllib.parse import urlencode
@@ -66,6 +67,28 @@ def _set_cached_dashboard(month: str | None, year: int | None, data: dict[str, A
     _dashboard_cache[cache_key] = (time.time(), data)
 
 DEFAULT_EXPORT_DIR = Path("exports")
+
+
+def _compute_run_etag(db: Session, run_id: int, status_filter: str | None = None) -> str:
+    """Compute a lightweight ETag from payout data timestamps without building the export."""
+    from app.models import Payout
+    q = db.query(
+        func.count(Payout.id),
+        func.max(Payout.updated_at),
+    ).filter(Payout.schedule_run_id == run_id)
+    if status_filter and status_filter != "overdue":
+        q = q.filter(Payout.status == status_filter)
+    cnt, max_updated = q.one()
+    raw = f"{run_id}:{status_filter}:{cnt}:{max_updated}"
+    return hashlib.md5(raw.encode()).hexdigest()
+
+
+def _check_etag(request: Request, etag: str) -> Response | None:
+    """Return a 304 Response if the client's If-None-Match header matches."""
+    client_etag = request.headers.get("if-none-match", "").strip('" ')
+    if client_etag == etag:
+        return Response(status_code=304, headers={"ETag": f'"{etag}"'})
+    return None
 
 QUICK_RANGE_OPTIONS = [
     {"id": "past_7_days", "label": "Past 7 Days", "days": 7},
@@ -270,17 +293,22 @@ def _prepare_runs_by_year(db: Session, target_year: int) -> tuple[list, list[int
 
     zero = Decimal("0")
 
+    # Batch-load payment summaries and frequency counts
+    all_run_ids = [run.id for run in all_runs]
+    summaries = crud.batch_run_payment_summaries(db, all_run_ids)
+    freq_counts = crud.batch_frequency_counts(db, all_run_ids)
+
     for run in all_runs:
         try:
             run.frequency_counts = json.loads(run.summary_frequency_counts)
         except json.JSONDecodeError:
             run.frequency_counts = {}
 
-        summary = crud.run_payment_summary(db, run.id)
+        summary = summaries.get(run.id, {})
         run.summary_models_paid = summary.get("paid_models", 0)
         run.paid_total = summary.get("paid_total", Decimal("0"))
         run.unpaid_total = summary.get("unpaid_total", Decimal("0"))
-        run.frequency_counts = _compute_frequency_counts(db, run.id)
+        run.frequency_counts = freq_counts.get(run.id, {})
         computed_total = summary.get("total_payout", run.paid_total + run.unpaid_total)
         run.computed_total_payout = computed_total
         run.summary_total_payout = computed_total
@@ -351,6 +379,11 @@ def _gather_dashboard_data(db: Session, month: str | None, year: int | None = No
 
     zero = Decimal("0")
 
+    # Batch-load payment summaries and frequency counts (N+1 → 4 queries)
+    all_run_ids = [run.id for run in all_runs]
+    summaries = crud.batch_run_payment_summaries(db, all_run_ids)
+    freq_counts = crud.batch_frequency_counts(db, all_run_ids)
+
     grouped_runs: dict[tuple[int, int], list] = {}
     filtered_runs: list = []
     for run in all_runs:
@@ -359,11 +392,11 @@ def _gather_dashboard_data(db: Session, month: str | None, year: int | None = No
         except json.JSONDecodeError:
             run.frequency_counts = {}
 
-        summary = crud.run_payment_summary(db, run.id)
+        summary = summaries.get(run.id, {})
         run.summary_models_paid = summary.get("paid_models", 0)
         run.paid_total = summary.get("paid_total", Decimal("0"))
         run.unpaid_total = summary.get("unpaid_total", Decimal("0"))
-        run.frequency_counts = _compute_frequency_counts(db, run.id)
+        run.frequency_counts = freq_counts.get(run.id, {})
         computed_total = summary.get("total_payout", run.paid_total + run.unpaid_total)
         run.computed_total_payout = computed_total
         run.summary_total_payout = computed_total
@@ -852,16 +885,6 @@ def list_runs(
     if export_query:
         export_url = f"{export_url}?{export_query}"
 
-    monthly_adhoc_summary_for_defaults = cast(dict[str, object], dashboard.get("monthly_adhoc_summary", {}))
-    monthly_adhoc_count = int(monthly_adhoc_summary_for_defaults.get("count", 0) or 0)
-    export_defaults = {
-        "monthly_summary": True,
-        "run_details": bool(dashboard["selected_runs"]),
-        "adhoc_summary": monthly_adhoc_count > 0,
-        "adhoc_details": monthly_adhoc_count > 0,
-        "recent_runs": bool(dashboard["recent_run_cards"]),
-    }
-
     # Aggregate counts for overdue and on-hold payouts
     overdue_count = (
         db.query(func.count(Payout.id))
@@ -1042,31 +1065,10 @@ def list_runs(
         {
             "request": request,
             "user": user,
-            "runs": dashboard["selected_runs"],
-            "filters": dashboard["filters"],
-            "month_options": dashboard["month_options"],
-            "selected_month_label": dashboard["selected_month_label"],
-            "selected_month_short_label": dashboard["selected_month_short_label"],
-            "selected_month_year_label": dashboard["selected_month_year_label"],
-            "current_month_label": dashboard["current_month_label"],
-            "current_month_year_label": dashboard["current_month_year_label"],
-            "monthly_summary": dashboard["monthly_summary"],
-            "monthly_frequency": dashboard["monthly_frequency"],
             "has_runs": bool(dashboard["all_runs"]),
-            "recent_runs": dashboard["recent_run_cards"],
-            "selected_run_cards": dashboard["selected_run_cards"],
-            "monthly_adhoc_summary": dashboard["monthly_adhoc_summary"],
-            "monthly_adhoc_payments": dashboard["monthly_adhoc_payments"],
-            "monthly_adhoc_single": dashboard["monthly_adhoc_single"],
-            "year_overview": dashboard["year_overview"],
-            "current_year": dashboard["current_year"],
-            "view_all_url": f"/schedules/all?year={dashboard['current_year']}",
-            "table_view_url": f"/schedules/all-table?year={dashboard['current_year']}",
             "export_url": export_url,
             "current_year_runs": filtered_runs,
             "current_year_summary": filtered_summary,
-            "export_defaults": export_defaults,
-            "export_month_value": dashboard["selected_month_value"],
             "show_filter": show,
             "overdue_payments": overdue_payments,
             "on_hold_payments": on_hold_payments,
@@ -1080,7 +1082,6 @@ def list_runs(
             "filter_start_value": filter_start_value,
             "filter_end_value": filter_end_value,
             "clear_filter_url": clear_filter_url,
-            "has_custom_range": bool(start_input or end_input),
             "filtered_adhoc_summary": filtered_adhoc_summary,
             "adhoc_filter_url": adhoc_filter_url,
             "current_month_url": current_month_url,
@@ -2284,10 +2285,40 @@ def add_new_models_to_schedule(
     )
 
 
+@router.post("/{run_id}/refresh")
+def refresh_schedule(
+    run_id: int,
+    request: Request,
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    """Refresh an existing schedule run: recalculate unlocked payouts and add new models.
+
+    Paid/locked payouts are preserved. Unlocked payouts are cleared and
+    regenerated using the latest model data and pay configuration.
+    """
+    run = crud.get_schedule_run(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Schedule run not found")
+
+    currency = run.currency or "USD"
+    refreshed_run_id = PayrollService.run_payroll_async(
+        target_year=run.target_year,
+        target_month=run.target_month,
+        currency=currency,
+        include_inactive=False,
+        output_dir=DEFAULT_EXPORT_DIR,
+    )
+
+    _invalidate_dashboard_cache()
+    return RedirectResponse(url=f"/schedules/{refreshed_run_id}", status_code=303)
+
+
 @router.get("/{run_id}/download/{file_type}")
 def download_export(
     run_id: int,
     file_type: str,
+    request: Request,
     status: str | None = Query(None, description="Filter payouts by status before exporting"),
     db: Session = Depends(get_session),
     user: User = Depends(get_current_user),
@@ -2303,6 +2334,13 @@ def download_export(
     # Accept a client-side only 'overdue' pseudo-status for exports. It's not a real payout status.
     if status_filter and status_filter not in PAYOUT_STATUS_ENUM and status_filter != 'overdue':
         raise HTTPException(status_code=400, detail="Invalid status filter")
+
+    # ETag: return 304 if data hasn't changed since last download
+    if file_type in ("schedule_csv", "schedule_excel"):
+        etag = _compute_run_etag(db, run_id, status_filter)
+        cached = _check_etag(request, etag)
+        if cached:
+            return cached
 
     # For schedule_csv, generate from database payouts to include status
     if file_type == "schedule_csv":
@@ -2350,7 +2388,10 @@ def download_export(
         return StreamingResponse(
             iter([output.getvalue()]),
             media_type="text/csv",
-            headers={"Content-Disposition": f"attachment; filename={base_filename}{f'_{status_filter}' if status_filter else ''}.csv"},
+            headers={
+                "Content-Disposition": f"attachment; filename={base_filename}{f'_{status_filter}' if status_filter else ''}.csv",
+                "ETag": f'"{etag}"',
+            },
         )
 
     if file_type == "schedule_excel":
@@ -2410,7 +2451,8 @@ def download_export(
             headers={
                 "Content-Disposition": (
                     f"attachment; filename={base_filename}{filename_suffix}.xlsx"
-                )
+                ),
+                "ETag": f'"{etag}"',
             },
         )
 
@@ -2425,7 +2467,16 @@ def download_export(
     if not path or not path.exists():
         raise HTTPException(status_code=404, detail="Requested file not available")
 
-    return FileResponse(path, filename=path.name)
+    # ETag for pre-generated files based on modification time + size
+    stat = path.stat()
+    file_etag = hashlib.md5(f"{stat.st_mtime}:{stat.st_size}".encode()).hexdigest()
+    cached = _check_etag(request, file_etag)
+    if cached:
+        return cached
+
+    resp = FileResponse(path, filename=path.name)
+    resp.headers["ETag"] = f'"{file_etag}"'
+    return resp
 
 
 @router.post("/{run_id}/payouts/{payout_id}/note")
@@ -2448,7 +2499,7 @@ def update_payout_record(
         raise HTTPException(status_code=400, detail="Invalid payout status")
 
     trimmed = notes.strip()
-    crud.update_payout(db, payout, trimmed if trimmed else None, status_value)
+    advance_deducted = crud.update_payout(db, payout, trimmed if trimmed else None, status_value)
     _invalidate_dashboard_cache()  # Clear cache after payout update
 
     wants_json = request.headers.get("x-requested-with", "").lower() == "fetch"
@@ -2457,17 +2508,18 @@ def update_payout_record(
         is_overdue = bool(
             payout.pay_date
             and payout.pay_date < today
-            and payout.status in ("not_paid", "on_hold", "approved")
+            and payout.status in ("not_paid", "on_hold")
         )
-        return JSONResponse(
-            {
-                "ok": True,
-                "payout_id": payout.id,
-                "note": payout.notes or "",
-                "status": payout.status,
-                "is_overdue": is_overdue,
-            }
-        )
+        resp = {
+            "ok": True,
+            "payout_id": payout.id,
+            "note": payout.notes or "",
+            "status": payout.status,
+            "is_overdue": is_overdue,
+        }
+        if advance_deducted > 0:
+            resp["advance_deducted"] = str(advance_deducted)
+        return JSONResponse(resp)
 
     target_url = redirect_to or f"/schedules/{run_id}"
     if not target_url.startswith("/schedules/"):
@@ -2541,22 +2593,23 @@ def api_update_payout_status(
         raise HTTPException(status_code=400, detail="Invalid payout status")
 
     # Preserve existing notes, only update status
-    crud.update_payout(db, payout, payout.notes, status_value)
+    advance_deducted = crud.update_payout(db, payout, payout.notes, status_value)
     _invalidate_dashboard_cache()  # Clear cache after status update
 
     # Compute overdue flag server-side to reduce client logic differences
     today = date.today()
     is_overdue = bool(payout.pay_date and payout.pay_date < today and status_value in ("not_paid", "on_hold"))
 
-    return JSONResponse(
-        {
-            "ok": True,
-            "payout_id": payout.id,
-            "run_id": run_id,
-            "new_status": status_value,
-            "is_overdue": is_overdue,
-        }
-    )
+    resp = {
+        "ok": True,
+        "payout_id": payout.id,
+        "run_id": run_id,
+        "new_status": status_value,
+        "is_overdue": is_overdue,
+    }
+    if advance_deducted > 0:
+        resp["advance_deducted"] = str(advance_deducted)
+    return JSONResponse(resp)
 
 
 @router.post("/{run_id}/payouts/bulk-update/status")
@@ -2587,23 +2640,28 @@ def api_bulk_update_payouts(
     today = date.today()
     updated: list[int] = []
     overdue_flags: dict[int, bool] = {}
+    total_advance_deducted = Decimal("0")
 
     for pid in ids:
         payout = crud.get_payout(db, pid)
         if payout and payout.schedule_run_id == run_id:
-            crud.update_payout(db, payout, payout.notes, status_value)
+            deducted = crud.update_payout(db, payout, payout.notes, status_value)
+            total_advance_deducted += deducted
             updated.append(pid)
             overdue_flags[pid] = bool(payout.pay_date and payout.pay_date < today and status_value in ("not_paid", "on_hold"))
 
     if updated:
         _invalidate_dashboard_cache()  # Clear cache after bulk status update
     
-    return JSONResponse({
+    resp: dict[str, object] = {
         "ok": True,
         "updated_ids": updated,
         "new_status": status_value,
         "overdue_flags": overdue_flags,
-    })
+    }
+    if total_advance_deducted > 0:
+        resp["advance_deducted"] = str(total_advance_deducted)
+    return JSONResponse(resp)
 
 
 # ============================================================================
