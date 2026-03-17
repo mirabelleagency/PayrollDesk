@@ -532,6 +532,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const formData = new FormData();
             formData.append('action', action);
+            formData.append('_csrf_token', getCsrfToken());
 
             const response = await fetch(`/commissions/${commissionId}/status`, {
                 method: 'POST',

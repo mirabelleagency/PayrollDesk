@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Payroll Desk{% endblock %}</title>
     <!-- Preload critical CSS for faster first paint -->
-    <link rel="preload" href="/static/css/styles.min.css?v=3" as="style">
-    <link rel="stylesheet" href="/static/css/styles.min.css?v=3">
+    <link rel="preload" href="/static/css/styles.min.css?v=4" as="style">
+    <link rel="stylesheet" href="/static/css/styles.min.css?v=4">
     <meta name="csrf-token" content="{{ csrf_token(request) }}">
 </head>
 <body>
@@ -412,10 +412,15 @@
     })();
 </script>
 <script>
+    // Global CSRF helper for fetch calls
+    function getCsrfToken() {
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        return meta ? meta.content : '';
+    }
     // Auto-inject CSRF tokens into all POST forms
     (function() {
-        var meta = document.querySelector('meta[name="csrf-token"]');
-        if (!meta || !meta.content) return;
+        var token = getCsrfToken();
+        if (!token) return;
         document.querySelectorAll('form').forEach(function(form) {
             var method = (form.getAttribute('method') || 'get').toLowerCase();
             if (method !== 'post') return;
@@ -423,7 +428,7 @@
             var input = document.createElement('input');
             input.type = 'hidden';
             input.name = '_csrf_token';
-            input.value = meta.content;
+            input.value = token;
             form.appendChild(input);
         });
     })();

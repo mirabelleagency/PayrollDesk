@@ -1767,6 +1767,7 @@ function quickUpdateStatus(payoutId, status) {
     const endpoint = `/schedules/{{ run.id }}/payouts/${payoutId}/status`;
     const formData = new FormData();
     formData.append('status', status);
+    formData.append('_csrf_token', getCsrfToken());
 
     fetch(endpoint, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'fetch' } })
         .then(async (res) => {
@@ -2608,6 +2609,7 @@ document.addEventListener('submit', function (e) {
     const fd = new FormData();
     fd.append('payout_ids', ids);
     fd.append('status', status);
+    fd.append('_csrf_token', getCsrfToken());
 
     fetch(endpoint, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'fetch' } })
         .then(async (res) => {
@@ -2736,22 +2738,42 @@ function applyRowStatusUpdate(payoutId, newStatus, isOverdue) {
     }
 
     const buttons = row.querySelectorAll('.js-quick-update');
-    if (buttons && buttons.length >= 2) {
-        const primaryBtn = buttons[0];
-        const holdBtn = buttons[1];
+    if (buttons && buttons.length >= 3) {
+        const paidBtn = buttons[0];
+        const approveBtn = buttons[1];
+        const holdBtn = buttons[2];
+
+        // Paid / Not Paid toggle
         if (newStatus === 'paid') {
-            primaryBtn.classList.remove('action-button--success');
-            primaryBtn.classList.add('action-button--neutral');
-            primaryBtn.setAttribute('data-action', 'not_paid');
-            primaryBtn.setAttribute('title', 'Unmark Paid');
-            primaryBtn.textContent = '↺';
+            paidBtn.classList.remove('action-button--success');
+            paidBtn.classList.add('action-button--neutral');
+            paidBtn.setAttribute('data-action', 'not_paid');
+            paidBtn.setAttribute('title', 'Unmark Paid');
+            paidBtn.textContent = '↺';
         } else {
-            primaryBtn.classList.remove('action-button--neutral');
-            primaryBtn.classList.add('action-button--success');
-            primaryBtn.setAttribute('data-action', 'paid');
-            primaryBtn.setAttribute('title', 'Mark as Paid');
-            primaryBtn.textContent = '✓';
+            paidBtn.classList.remove('action-button--neutral');
+            paidBtn.classList.add('action-button--success');
+            paidBtn.setAttribute('data-action', 'paid');
+            paidBtn.setAttribute('title', 'Mark as Paid');
+            paidBtn.textContent = '✓';
         }
+
+        // Approved / Unapprove toggle
+        if (newStatus === 'approved') {
+            approveBtn.classList.remove('action-button--primary');
+            approveBtn.classList.add('action-button--neutral');
+            approveBtn.setAttribute('data-action', 'not_paid');
+            approveBtn.setAttribute('title', 'Unmark Approved');
+            approveBtn.textContent = '↺';
+        } else {
+            approveBtn.classList.remove('action-button--neutral');
+            approveBtn.classList.add('action-button--primary');
+            approveBtn.setAttribute('data-action', 'approved');
+            approveBtn.setAttribute('title', 'Mark Approved');
+            approveBtn.textContent = '✔';
+        }
+
+        // On Hold / Remove Hold toggle
         if (newStatus === 'on_hold') {
             holdBtn.classList.remove('action-button--warning');
             holdBtn.classList.add('action-button--neutral');
@@ -2850,6 +2872,7 @@ async function resolveAlert(alertId, action) {
 
     const formData = new FormData();
     formData.append('action', action);
+    formData.append('_csrf_token', getCsrfToken());
     
     try {
         const response = await fetch(`/schedules/${runId}/compensation-alerts/${alertId}/resolve`, {
@@ -2928,6 +2951,7 @@ async function bulkResolveAlerts(action) {
     const formData = new FormData();
     formData.append('alert_ids', alertIds);
     formData.append('action', action);
+    formData.append('_csrf_token', getCsrfToken());
 
     // Optimistic: fade all alert rows immediately
     rows.forEach(function(r) {

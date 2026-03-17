@@ -1974,7 +1974,7 @@ def combined_payouts_view(
 
     # Apply actionable filter after query
     if is_actionable:
-        payouts = [p for p in payouts if p.status in ("on_hold", "approved")]
+        payouts = [p for p in payouts if p.status == "approved"]
 
     zero = Decimal("0")
     total_amount = sum((p.amount or zero) for p in payouts)

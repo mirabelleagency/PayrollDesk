@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.48.0 - 2026-03-17
+
+### Added
+- feat(ui): Settings page UX redesign
+  - Breadcrumb navigation (Dashboard > Settings)
+  - Config Name + Currency fields side-by-side (two-column grid)
+  - Pay day picker rendered in a styled bordered container with CSS classes
+  - Hidden raw JSON input — day picker buttons are the primary interaction
+  - Frequency Plans help text moved to a styled callout box with code formatting
+  - Maintenance actions redesigned as individual sub-cards in a responsive grid
+  - Amber "warning" buttons for maintenance actions (replacing mismatched primary/secondary)
+  - Danger Zone with red-tinted background, stacked layout, prominent warning copy
+- feat(css): New CSS components — `.settings-day-picker`, `.settings-day-btn`, `.settings-help-callout`, `.settings-maintenance-grid`, `.settings-maintenance-card`, `.settings-danger-zone`, `.button--warning`
+- feat(security): Global `getCsrfToken()` JS helper function in base template for fetch calls
+
+### Fixed
+- fix(security): CSRF token missing from all AJAX/fetch POST calls — status changes, bulk updates, commission toggles, and alert resolutions now include `_csrf_token` in FormData
+  - Fixed in: combined_payouts.html, detail.html, commissions/index.html
+- fix(ui): Approve button toggle on schedule detail page — clicking "Unmark Approved" was incorrectly changing status to `on_hold` instead of `not_paid`
+  - Root cause: JS `applyRowStatusUpdate` only handled 2 buttons but template renders 3 (Paid, Approved, Hold); `buttons[1]` (Approve) was treated as Hold button
+
+### Changed
+- Combined Payouts "actionable" filter now shows only `approved` items (previously included `on_hold`)
+- CSS cache-bust version bumped to `v=4`
+
+---
+
 ## v2.47.0 - 2026-03-17
 
 ### Added

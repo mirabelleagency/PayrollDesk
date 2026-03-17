@@ -479,6 +479,7 @@ function quickUpdateStatus(payoutId, runId, status) {
 
     var fd = new FormData();
     fd.append('status', status);
+    fd.append('_csrf_token', getCsrfToken());
 
     fetch('/schedules/' + runId + '/payouts/' + payoutId + '/status', {
         method: 'POST',
@@ -510,6 +511,7 @@ function bulkMarkPaid() {
     var fd = new FormData();
     fd.append('payout_ids', ids.join(','));
     fd.append('status', 'paid');
+    fd.append('_csrf_token', getCsrfToken());
 
     var bar = document.getElementById('bulk-bar');
     bar.innerHTML = '<span>Updating ' + ids.length + ' payouts...</span>';
