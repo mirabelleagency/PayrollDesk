@@ -946,6 +946,13 @@ th[data-drop-target="true"]::after {
 </style>
 
 <!-- Page Header -->
+<nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="/dashboard">Dashboard</a>
+    <span class="breadcrumb__sep">›</span>
+    <a href="/schedules">Payroll Hub</a>
+    <span class="breadcrumb__sep">›</span>
+    <span class="breadcrumb__current">{{ '{:04d}'.format(run.target_year) }}-{{ '{:02d}'.format(run.target_month) }} Cycle</span>
+</nav>
 <section class="page-header" style="margin-bottom: 24px;">
     <div>
     <h1 class="page-title">💳 {{ run.cycle_display }} Payroll Cycle</h1>
@@ -969,9 +976,6 @@ th[data-drop-target="true"]::after {
         </p>
     </div>
     <div class="header-actions" style="display: flex; gap: 8px; align-items: center;">
-        <a class="button secondary" href="/schedules">
-            <span>← Back to Cycles</span>
-        </a>
         {# Add New Models button - safely adds models not yet in schedule #}
         <form action="/schedules/{{ run.id }}/add-new-models" method="POST" style="margin: 0;">
             <button type="submit" class="button secondary" title="Add payouts for models not yet in this schedule (safe - won't modify existing payouts)">
@@ -987,7 +991,7 @@ th[data-drop-target="true"]::after {
             </button>
         </form>
         {# CSV export removed — Excel will export the current status filter #}
-        <a id="export-excel" data-base-href="/schedules/{{ run.id }}/download/schedule_excel" class="button button--primary" href="/schedules/{{ run.id }}/download/schedule_excel{% if filters.status %}?status={{ filters.status }}{% endif %}">
+        <a id="export-excel" data-base-href="/schedules/{{ run.id }}/download/schedule_excel" class="button button--primary" href="/schedules/{{ run.id }}/download/schedule_excel{% if filters.status %}?status={{ filters.status }}{% endif %}" title="Download this schedule as an Excel spreadsheet">
             <span>📥</span>
             <span>Export Excel</span>
         </a>
@@ -1160,7 +1164,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
             <h3>{{ pending_alerts_count }} Compensation Change{{ 's' if pending_alerts_count != 1 else '' }} Need Review</h3>
             <p>Some models have had their compensation updated since this schedule was generated.</p>
         </div>
-        <button type="button" class="button button--warning button--compact" id="toggle-details-btn" onclick="event.stopPropagation(); toggleCompensationDetails();">
+        <button type="button" class="button button--warning button--compact" id="toggle-details-btn" onclick="event.stopPropagation(); toggleCompensationDetails();" title="Show or hide compensation change details">
             Show Details
         </button>
     </div>

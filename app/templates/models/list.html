@@ -8,20 +8,20 @@
     </div>
     <div class="header-actions">
         {% if user.role == 'admin' %}
-        <button class="button secondary" type="button" onclick="openImportModal()">
+        <button class="button secondary" type="button" onclick="openImportModal()" title="Import models and payouts from Excel workbook">
             <span>📥</span>
             <span>Import Excel</span>
         </button>
-        <a class="button secondary" href="/models/snapshot" style="margin-left: 8px;">
+        <a class="button secondary" href="/models/snapshot" style="margin-left: 8px;" title="View point-in-time snapshot of all models">
             <span>📸</span>
             <span>Snapshot</span>
         </a>
-        <a class="button button--primary" href="/models/new" style="margin-left: 8px;">
+        <a class="button button--primary" href="/models/new" style="margin-left: 8px;" title="Register a new model">
             <span>➕</span>
             <span>Register Model</span>
         </a>
         {% endif %}
-        <button class="button export" type="button" id="open-export-button">
+        <button class="button export" type="button" id="open-export-button" title="Export data to Excel spreadsheet">
             <span>📊</span>
             <span>Export to Excel</span>
         </button>
@@ -207,7 +207,7 @@
             {% if filters.code or filters.status or filters.frequency or filters.payment_method %}
             <div class="filter-group filter-group--compact filter-group--clear">
                 <label for="filter-clear">&nbsp;</label>
-                <a id="filter-clear" class="button secondary button--compact" href="/models">
+                <a id="filter-clear" class="button secondary button--compact" href="/models" title="Clear all filters">
                     <span>✕</span>
                     <span>Clear</span>
                 </a>
@@ -232,11 +232,11 @@
             <p>Click any row to view detailed payment history and financial records</p>
         </div>
         <div class="heading-actions">
-            <button class="button secondary button--compact" onclick="toggleAllPayments()">
+            <button class="button secondary button--compact" onclick="toggleAllPayments()" title="Show or hide payment history for all models">
                 <span>📊</span>
                 <span id="toggle-all-text">Expand All Payments</span>
             </button>
-            <a class="button button--compact" href="/models/payments">
+            <a class="button button--compact" href="/models/payments" title="View all payments across all models">
                 <span>💳</span>
                 <span>View All Payments</span>
             </a>
@@ -300,11 +300,11 @@
                     </td>
                     <td onclick="event.stopPropagation();">
                         <div class="actions">
-                            <a class="button secondary button--compact" href="/models/{{ model.id }}">View</a>
+                            <a class="button secondary button--compact" href="/models/{{ model.id }}" title="View model profile">View</a>
                             {% if user.role == 'admin' %}
-                            <a class="button secondary button--compact" href="/models/{{ model.id }}/edit">Edit</a>
+                            <a class="button secondary button--compact" href="/models/{{ model.id }}/edit" title="Edit model details">Edit</a>
                             <form action="/models/{{ model.id }}/delete" method="post" onsubmit="return confirm('Delete this model?');" style="display:inline; margin:0;">
-                                <button class="button secondary button--compact" type="submit">Delete</button>
+                                <button class="button secondary button--compact" type="submit" title="Delete this model">Delete</button>
                             </form>
                             {% endif %}
                         </div>
@@ -365,8 +365,8 @@
             <label for="update_existing">Update existing models when codes already exist</label>
         </div>
         <div class="modal-actions">
-            <button class="button" type="submit">Import Data</button>
-            <button class="button secondary" type="button" onclick="closeImportModal()">Cancel</button>
+            <button class="button" type="submit" title="Upload and import Excel data">Import Data</button>
+            <button class="button secondary" type="button" onclick="closeImportModal()" title="Cancel import">Cancel</button>
         </div>
     </form>
 </div>
@@ -429,8 +429,8 @@
         </div>
 
         <div class="export-modal__actions">
-            <button class="button secondary" type="button" onclick="closeExportModal()">Cancel</button>
-            <button class="button button--primary" type="submit">
+            <button class="button secondary" type="button" onclick="closeExportModal()" title="Cancel export">Cancel</button>
+            <button class="button button--primary" type="submit" title="Generate and download Excel export">
                 <span>📥</span>
                 <span>Generate Export</span>
             </button>

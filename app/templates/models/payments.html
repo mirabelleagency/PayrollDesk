@@ -1,16 +1,20 @@
 {% extends "base.html" %}
 {% block title %}All Model Payments · Payroll Desk{% endblock %}
 {% block content %}
+<nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="/dashboard">Dashboard</a>
+    <span class="breadcrumb__sep">›</span>
+    <a href="/models">Models</a>
+    <span class="breadcrumb__sep">›</span>
+    <span class="breadcrumb__current">All Payments</span>
+</nav>
 <section class="page-header">
     <div>
         <h1 class="page-title">💳 All Model Payments</h1>
         <p>Comprehensive payment tracking across all registered models</p>
     </div>
     <div class="header-actions">
-        <a class="button secondary" href="/models">
-            <span>← Back to Models</span>
-        </a>
-        <button class="button export" onclick="exportPaymentsCSV()">
+        <button class="button export" onclick="exportPaymentsCSV()" title="Export payment data to Excel">
             <span>�</span>
             <span>Export to Excel</span>
         </button>

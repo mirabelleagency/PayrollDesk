@@ -2,18 +2,145 @@
 {% block title %}Combined Payouts · Payroll Desk{% endblock %}
 
 {% block content %}
+<style>
+.schedule-metrics-dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin: 24px 0;
+}
+.schedule-metric {
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(148, 163, 184, 0.08);
+    border-radius: 12px;
+    padding: 20px;
+    transition: all 0.2s ease;
+    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.35);
+}
+.schedule-metric:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.5);
+}
+.schedule-metric--primary {
+    border-left: 4px solid #3b82f6;
+    background: linear-gradient(145deg, rgba(59, 130, 246, 0.15), rgba(15, 23, 42, 0.9));
+}
+.schedule-metric--success {
+    border-left: 4px solid #22c55e;
+    background: linear-gradient(145deg, rgba(34, 197, 94, 0.15), rgba(15, 23, 42, 0.9));
+}
+.schedule-metric--warning {
+    border-left: 4px solid #eab308;
+    background: linear-gradient(145deg, rgba(234, 179, 8, 0.15), rgba(15, 23, 42, 0.9));
+}
+.schedule-metric--neutral {
+    border-left: 4px solid #94a3b8;
+}
+.schedule-metric--danger {
+    border-left: 4px solid #ef4444;
+    background: linear-gradient(145deg, rgba(239, 68, 68, 0.15), rgba(15, 23, 42, 0.9));
+}
+.schedule-metric--alert {
+    animation: pulse-alert 2s ease-in-out infinite;
+}
+@keyframes pulse-alert {
+    0%, 100% { box-shadow: 0 20px 60px rgba(239, 68, 68, 0.3); }
+    50% { box-shadow: 0 20px 60px rgba(239, 68, 68, 0.6); }
+}
+.schedule-metric__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.schedule-metric__icon { font-size: 20px; }
+.schedule-metric__label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.schedule-metric__value {
+    font-size: 32px;
+    font-weight: 700;
+    color: #f8fafc;
+    margin-bottom: 8px;
+}
+.schedule-metric__breakdown {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #94a3b8;
+    flex-wrap: wrap;
+}
+.schedule-metric__item { color: #cbd5e1; }
+</style>
+
+<nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="/dashboard">Dashboard</a>
+    <span class="breadcrumb__sep">›</span>
+    <span class="breadcrumb__current">Combined Payouts</span>
+</nav>
 <section class="page-header">
     <div>
         <h1 class="page-title">Combined Payouts</h1>
         <p>All individual payouts across every cycle for {{ year }}.</p>
     </div>
     <div class="header-actions">
-        <a class="button secondary" href="/schedules">Back to Hub</a>
-        <a class="button secondary" href="/schedules/all-table?year={{ year }}">Cycles Table</a>
+        <a class="button secondary" href="/schedules/all-table?year={{ year }}" title="Switch to cycles table view">Cycles Table</a>
     </div>
 </section>
 
-<!-- Year Selector + Filters -->
+<!-- Summary Stats -->
+<section class="schedule-metrics-dashboard">
+    <div class="schedule-metric schedule-metric--primary">
+        <div class="schedule-metric__header">
+            <span class="schedule-metric__icon">📋</span>
+            <span class="schedule-metric__label">Payouts</span>
+        </div>
+        <div class="schedule-metric__value">{{ summary.count }}</div>
+        <div class="schedule-metric__breakdown">
+            <span class="schedule-metric__item">Individual payments</span>
+        </div>
+    </div>
+
+    <div class="schedule-metric schedule-metric--neutral">
+        <div class="schedule-metric__header">
+            <span class="schedule-metric__icon">💵</span>
+            <span class="schedule-metric__label">Total Amount</span>
+        </div>
+        <div class="schedule-metric__value">{{ summary.currency }} {{ summary.total_amount|money }}</div>
+        <div class="schedule-metric__breakdown">
+            <span class="schedule-metric__item">Across all cycles</span>
+        </div>
+    </div>
+
+    <div class="schedule-metric schedule-metric--success">
+        <div class="schedule-metric__header">
+            <span class="schedule-metric__icon">✅</span>
+            <span class="schedule-metric__label">Paid</span>
+        </div>
+        <div class="schedule-metric__value">{{ summary.currency }} {{ summary.paid_amount|money }}</div>
+        <div class="schedule-metric__breakdown">
+            <span class="schedule-metric__item">Completed payments</span>
+        </div>
+    </div>
+
+    <div class="schedule-metric {% if summary.unpaid_amount > 0 %}schedule-metric--danger schedule-metric--alert{% else %}schedule-metric--neutral{% endif %}">
+        <div class="schedule-metric__header">
+            <span class="schedule-metric__icon">{% if summary.unpaid_amount > 0 %}🚨{% else %}💰{% endif %}</span>
+            <span class="schedule-metric__label">Outstanding</span>
+        </div>
+        <div class="schedule-metric__value">{{ summary.currency }} {{ summary.unpaid_amount|money }}</div>
+        <div class="schedule-metric__breakdown">
+            <span class="schedule-metric__item">Pending balances</span>
+        </div>
+    </div>
+</section>
+
+<!-- Filters -->
 <section class="card">
     <div class="section-heading">
         <div>
@@ -25,7 +152,7 @@
         <div class="filter-row">
             <div class="filter-group">
                 <label for="year-select">Year</label>
-                <select id="year-select" name="year">
+                <select id="year-select" name="year" onchange="this.form.submit()">
                     {% for option in available_years %}
                     <option value="{{ option }}" {% if option == year %}selected{% endif %}>{{ option }}</option>
                     {% endfor %}
@@ -33,7 +160,7 @@
             </div>
             <div class="filter-group">
                 <label for="status-select">Status</label>
-                <select id="status-select" name="status">
+                <select id="status-select" name="status" onchange="this.form.submit()">
                     <option value="">All</option>
                     <option value="actionable" {% if current_status == 'actionable' %}selected{% endif %}>⚡ Actionable (On Hold + Approved)</option>
                     {% for s in all_statuses %}
@@ -43,11 +170,11 @@
             </div>
             <div class="filter-group">
                 <label for="code-input">Code</label>
-                <input id="code-input" type="text" name="code" value="{{ current_code }}" placeholder="Search code...">
+                <input id="code-input" type="text" name="code" value="{{ current_code }}" placeholder="Search code..." oninput="clearTimeout(this._t); this._t=setTimeout(()=>this.form.submit(), 600)">
             </div>
             <div class="filter-group">
                 <label for="frequency-select">Frequency</label>
-                <select id="frequency-select" name="frequency">
+                <select id="frequency-select" name="frequency" onchange="this.form.submit()">
                     <option value="">All</option>
                     {% for f in all_frequencies %}
                     <option value="{{ f }}" {% if f == current_frequency %}selected{% endif %}>{{ f|replace('_', ' ')|title }}</option>
@@ -56,7 +183,7 @@
             </div>
             <div class="filter-group">
                 <label for="method-select">Method</label>
-                <select id="method-select" name="payment_method">
+                <select id="method-select" name="payment_method" onchange="this.form.submit()">
                     <option value="">All</option>
                     {% for m in all_methods %}
                     <option value="{{ m }}" {% if m == current_method %}selected{% endif %}>{{ m }}</option>
@@ -64,37 +191,13 @@
                 </select>
             </div>
             <div class="filter-actions">
-                <button class="button button--compact" type="submit">Apply</button>
+                <noscript><button class="button button--compact" type="submit" title="Apply selected filters">Apply</button></noscript>
                 {% if filter_active %}
-                <a class="button button--compact secondary" href="{{ clear_url }}">Clear</a>
+                <a class="button button--compact secondary" href="{{ clear_url }}" title="Clear all filters">Clear</a>
                 {% endif %}
             </div>
         </div>
     </form>
-</section>
-
-<!-- Summary Stats -->
-<section class="stat-grid">
-    <article class="card stat-card">
-        <p class="stat-card__label">Payouts</p>
-        <p class="stat-card__value">{{ summary.count }}</p>
-        <p class="stat-card__hint">Individual payments</p>
-    </article>
-    <article class="card stat-card">
-        <p class="stat-card__label">Total Amount</p>
-        <p class="stat-card__value">{{ summary.currency }} {{ summary.total_amount|money }}</p>
-        <p class="stat-card__hint">Across all cycles</p>
-    </article>
-    <article class="card stat-card">
-        <p class="stat-card__label">Paid</p>
-        <p class="stat-card__value">{{ summary.currency }} {{ summary.paid_amount|money }}</p>
-        <p class="stat-card__hint">Completed payments</p>
-    </article>
-    <article class="card stat-card">
-        <p class="stat-card__label">Outstanding</p>
-        <p class="stat-card__value{% if summary.unpaid_amount > 0 %} is-warning{% endif %}">{{ summary.currency }} {{ summary.unpaid_amount|money }}</p>
-        <p class="stat-card__hint">Pending balances</p>
-    </article>
 </section>
 
 <!-- Combined Payouts Table -->
@@ -109,8 +212,8 @@
     <!-- Bulk Actions Bar (hidden until selection) -->
     <div id="bulk-bar" class="bulk-bar" style="display: none;">
         <span id="bulk-count">0</span> selected
-        <button class="button button--compact button--primary" onclick="bulkMarkPaid()">✓ Mark as Paid</button>
-        <button class="button button--compact secondary" onclick="clearSelection()">Cancel</button>
+        <button class="button button--compact button--primary" onclick="bulkMarkPaid()" title="Mark all selected payouts as paid">✓ Mark as Paid</button>
+        <button class="button button--compact secondary" onclick="clearSelection()" title="Deselect all payouts">Cancel</button>
     </div>
 
     {% if payouts %}

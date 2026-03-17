@@ -16,11 +16,11 @@
            placeholder="e.g. purge_model">
   </div>
   <div class="filter-group" style="flex:0; align-self:end;">
-    <button type="submit" class="button button--compact button--primary">Filter</button>
+    <button type="submit" class="button button--compact button--primary" title="Apply filter to audit log">Filter</button>
   </div>
   {% if action_filter %}
   <div class="filter-group" style="flex:0; align-self:end;">
-    <a href="/admin/audit-log" class="button button--compact button--secondary">Clear</a>
+    <a href="/admin/audit-log" class="button button--compact button--secondary" title="Clear filter and show all entries">Clear</a>
   </div>
   {% endif %}
 </form>
@@ -68,11 +68,11 @@
 {% if total_pages > 1 %}
 <nav class="pagination" aria-label="Audit log pages">
   {% if page > 1 %}
-    <a href="/admin/audit-log?page={{ page - 1 }}{% if action_filter %}&action={{ action_filter }}{% endif %}" class="button button--compact button--secondary">← Previous</a>
+    <a href="/admin/audit-log?page={{ page - 1 }}{% if action_filter %}&action={{ action_filter }}{% endif %}" class="button button--compact button--secondary" title="Go to previous page">← Previous</a>
   {% endif %}
   <span class="pagination__info">Page {{ page }} of {{ total_pages }}</span>
   {% if page < total_pages %}
-    <a href="/admin/audit-log?page={{ page + 1 }}{% if action_filter %}&action={{ action_filter }}{% endif %}" class="button button--compact button--secondary">Next →</a>
+    <a href="/admin/audit-log?page={{ page + 1 }}{% if action_filter %}&action={{ action_filter }}{% endif %}" class="button button--compact button--secondary" title="Go to next page">Next →</a>
   {% endif %}
 </nav>
 {% endif %}

@@ -1,13 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Model Snapshot · Payroll Desk{% endblock %}
 {% block content %}
+<nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="/dashboard">Dashboard</a>
+    <span class="breadcrumb__sep">›</span>
+    <a href="/models">Models</a>
+    <span class="breadcrumb__sep">›</span>
+    <span class="breadcrumb__current">Snapshot</span>
+</nav>
 <section class="page-header">
     <div>
         <h1 class="page-title">Model Snapshot</h1>
         <p>Preview roster details and upcoming adjustments without leaving the desk.</p>
-    </div>
-    <div class="header-actions">
-        <a class="button secondary" href="/models">Back to Roster</a>
     </div>
 </section>
 

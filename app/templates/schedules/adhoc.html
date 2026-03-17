@@ -7,17 +7,20 @@
 {% set paid_count = status_counts.get('paid', 0) %}
 {% set filter_status_values = (filters.status | default([])) %}
 
+<nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="/dashboard">Dashboard</a>
+    <span class="breadcrumb__sep">›</span>
+    <a href="/schedules">Payroll Hub</a>
+    <span class="breadcrumb__sep">›</span>
+    <span class="breadcrumb__current">Ad Hoc Payments</span>
+</nav>
 <section class="page-header">
     <div>
         <h1 class="page-title">📝 Ad Hoc Payments Workspace</h1>
         <p>Accounting command center for one-off payment management and reconciliation.</p>
     </div>
     <div class="header-actions">
-        <a class="button secondary" href="/schedules">
-            <span class="button__icon">←</span>
-            <span>Back to Hub</span>
-        </a>
-        <button class="button export" onclick="window.print()">
+        <button class="button export" onclick="window.print()" title="Print or export ad hoc payments">
             <span class="button__icon">�</span>
             <span>Export to Excel</span>
         </button>
@@ -35,7 +38,7 @@
                 <span>{{ monthly_adhoc_summary.currency or 'USD' }} {{ (monthly_adhoc_summary.pending_total or 0)|money }} awaiting processing</span>
             </div>
         </div>
-        <a class="button button--primary button--compact" href="/schedules/adhoc?status=pending">
+        <a class="button button--primary button--compact" href="/schedules/adhoc?status=pending" title="View and process pending payments">
             <span>Review Pending →</span>
         </a>
     </div>
@@ -129,10 +132,10 @@
                     </div>
 
                     <div class="filter-actions-inline">
-                        <button class="button button--primary button--compact" type="submit">
+                        <button class="button button--primary button--compact" type="submit" title="Apply selected filters">
                             <span>Apply</span>
                         </button>
-                        <a class="button secondary button--compact" href="/schedules/adhoc">
+                        <a class="button secondary button--compact" href="/schedules/adhoc" title="Clear all filters">
                             <span>Clear</span>
                         </a>
                     </div>
@@ -255,7 +258,7 @@
                                 <option value="cancel" {% if payment.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
                             </select>
                             <noscript>
-                                <button class="button secondary" type="submit">Apply</button>
+                                <button class="button secondary" type="submit" title="Update payment status">Apply</button>
                             </noscript>
                         </form>
                     </td>
@@ -277,10 +280,6 @@
         <span class="empty-state-icon">📭</span>
         <h2>No Ad Hoc Payments</h2>
         <p>No ad hoc activity recorded for {{ monthly_adhoc_summary.month_label }}.</p>
-        <a class="button secondary" href="/schedules" style="margin-top: 16px;">
-            <span class="button__icon">←</span>
-            <span>Back to Payroll Hub</span>
-        </a>
     </div>
 </section>
 {% endif %}

@@ -33,6 +33,19 @@
     transform: translateY(0);
 }
 </style>
+<nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="/dashboard">Dashboard</a>
+    <span class="breadcrumb__sep">›</span>
+    <a href="/models">Models</a>
+    <span class="breadcrumb__sep">›</span>
+    {% if action == 'edit' and model %}
+    <a href="/models/{{ model.id }}">{{ model.working_name or model.code }}</a>
+    <span class="breadcrumb__sep">›</span>
+    <span class="breadcrumb__current">Edit</span>
+    {% else %}
+    <span class="breadcrumb__current">Add Model</span>
+    {% endif %}
+</nav>
 <section class="page-header">
     <div>
         <h1 class="page-title">{{ 'Edit Model' if action == 'edit' else 'Add Model' }}</h1>
@@ -40,7 +53,7 @@
     </div>
     {% if action == 'edit' and model %}
     <div class="header-actions">
-        <a class="button secondary" href="/models/{{ model.id }}" target="_blank" rel="noopener">View Model Profile</a>
+        <a class="button secondary" href="/models/{{ model.id }}" target="_blank" rel="noopener" title="Open model profile in new tab">View Model Profile</a>
     </div>
     {% endif %}
 </section>
@@ -159,7 +172,7 @@
                     {% endif %}
                 </div>
                 <div class="adjustments-toolbar">
-                    <button type="button" class="button secondary" id="add-adjustment">Add Adjustment</button>
+                    <button type="button" class="button secondary" id="add-adjustment" title="Add a new compensation adjustment">Add Adjustment</button>
                     <p class="form-hint">Effective date must be on or after the model start date. Rows without both a date and amount are ignored.</p>
                 </div>
             </div>
@@ -304,12 +317,12 @@
         </div>
 
         <div class="form-actions form-actions--end">
-            <a class="button secondary" href="/models" data-back-button>Back to Models</a>
-            <button class="button" type="submit" data-submit-btn>
+            <a class="button secondary" href="/models" data-back-button title="Return to models list">Back to Models</a>
+            <button class="button" type="submit" data-submit-btn title="Save model details">
                 <span data-submit-text>Save</span>
                 <span data-submit-loading class="sr-only" aria-hidden="true">Saving...</span>
             </button>
-            <a class="button secondary" href="/models">Cancel</a>
+            <a class="button secondary" href="/models" title="Discard changes and return to models">Cancel</a>
         </div>
     </form>
 </section>

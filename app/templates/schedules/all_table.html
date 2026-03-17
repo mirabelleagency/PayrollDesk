@@ -2,17 +2,23 @@
 {% block title %}All Cycles Table · Payroll Desk{% endblock %}
 
 {% block content %}
+<nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="/dashboard">Dashboard</a>
+    <span class="breadcrumb__sep">›</span>
+    <a href="/schedules">Payroll Hub</a>
+    <span class="breadcrumb__sep">›</span>
+    <span class="breadcrumb__current">All Cycles · Table</span>
+</nav>
 <section class="page-header">
     <div>
     <h1 class="page-title">All Payroll Cycles · Table</h1>
     <p>Detailed table view of every payroll cycle recorded for {{ scope_label }}.</p>
     </div>
     <div class="header-actions">
-        <a class="button secondary" href="/schedules">Back to Dashboard</a>
-        <a class="button secondary" href="{{ card_view_url }}">Card View</a>
-        <a class="button secondary" href="/schedules/combined-payouts?year={{ year }}">Combined Payouts</a>
+        <a class="button secondary" href="{{ card_view_url }}" title="Switch to card view">Card View</a>
+        <a class="button secondary" href="/schedules/combined-payouts?year={{ year }}" title="View flat list of all individual payouts">Combined Payouts</a>
     {% if user.role == 'admin' %}
-    <a class="button" href="/schedules/new">Start Payroll Cycle</a>
+    <a class="button" href="/schedules/new" title="Create a new payroll cycle">Start Payroll Cycle</a>
         {% endif %}
     </div>
 </section>
@@ -32,7 +38,7 @@
                 <option value="{{ option }}" {% if option == year %}selected{% endif %}>{{ option }}</option>
                 {% endfor %}
             </select>
-            <button class="button button--compact" type="submit">Update</button>
+            <button class="button button--compact" type="submit" title="Filter cycles by selected year">Update</button>
             <div class="inline-quick-ranges">
                 {% for option in quick_ranges %}
                 <a class="button button--compact {% if option.is_active %}active{% else %}secondary{% endif %}" href="{{ option.url }}">{{ option.label }}</a>
@@ -80,7 +86,7 @@
             <p>{{ year_summary.run_count }} cycle{% if year_summary.run_count != 1 %}s{% endif %} captured.</p>
         </div>
         <div class="heading-actions">
-            <a class="button export" href="{{ export_url }}">📊 Export Excel</a>
+            <a class="button export" href="{{ export_url }}" title="Download cycles data as Excel spreadsheet">📊 Export Excel</a>
         </div>
     </div>
     {% if runs %}
@@ -124,7 +130,7 @@
                         <a class="link-button" href="/schedules/{{ run.id }}">Open</a>
                         {% if user.role == 'admin' %}
                         <form method="post" action="/schedules/{{ run.id }}/delete" onsubmit="return confirm('Delete this payroll cycle?');">
-                            <button class="link-button danger" type="submit">Delete</button>
+                            <button class="link-button danger" type="submit" title="Permanently delete this cycle">Delete</button>
                         </form>
                         {% endif %}
                     </div>

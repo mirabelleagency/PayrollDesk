@@ -1942,7 +1942,7 @@ def export_runs_all_table(
 def combined_payouts_view(
     request: Request,
     year: int = Query(default=None, description="Target year to display"),
-    status: str | None = Query(default=None, description="Filter by payout status"),
+    status: str | None = Query(default="actionable", description="Filter by payout status"),
     code: str | None = Query(default=None, description="Filter by model code"),
     frequency: str | None = Query(default=None, description="Filter by payment frequency"),
     payment_method: str | None = Query(default=None, description="Filter by payment method"),
@@ -2015,8 +2015,8 @@ def combined_payouts_view(
     if payment_method:
         filter_params["payment_method"] = payment_method
 
-    filter_active = bool(status or code or frequency or payment_method)
-    clear_url = f"/schedules/combined-payouts?{urlencode(base_params)}"
+    filter_active = bool((status and status != "actionable") or code or frequency or payment_method)
+    clear_url = f"/schedules/combined-payouts?{urlencode({'year': target_year, 'status': ''})}"
 
     return templates.TemplateResponse(
         request,

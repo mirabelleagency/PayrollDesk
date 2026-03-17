@@ -119,8 +119,8 @@
         
         <!-- Action Buttons -->
         <div style="display: flex; gap: 12px; margin-top: 24px;">
-            <button class="button" type="submit">Process Import</button>
-            <a class="button secondary" href="/models">Cancel</a>
+            <button class="button" type="submit" title="Process the import with chosen resolution">Process Import</button>
+            <a class="button secondary" href="/models" title="Cancel import and return to models">Cancel</a>
         </div>
     </form>
 </section>
@@ -159,7 +159,7 @@ document.querySelectorAll('input[name="action"]').forEach(radio => {
 <section class="card" style="max-width: 900px;">
     <p style="color: #cbd5e1; text-align: center; padding: 20px;">No duplicate payments found in your import.</p>
     <div style="display: flex; gap: 12px; justify-content: center;">
-        <a class="button" href="/models">Back to Models</a>
+        <a class="button" href="/models" title="Return to models list">Back to Models</a>
     </div>
 </section>
 {% endif %}

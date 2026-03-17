@@ -9,7 +9,7 @@
     <p style="color:#94a3b8; margin:8px 0 0 0;">Logged in as: <strong>{{ user.username }}</strong> ({{ user.role }})</p>
   </div>
   <div class="header-actions">
-    <a href="/admin/users/new" class="button button--success">+ New User</a>
+    <a href="/admin/users/new" class="button button--success" title="Create a new user account">+ New User</a>
   </div>
 </section>
 
@@ -47,17 +47,17 @@
           <td>{{ user_item.created_at|display_datetime or '—' }}</td>
           <td>
             <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-              <a href="/admin/users/{{ user_item.id }}/edit" class="button button--compact">Edit</a>
+              <a href="/admin/users/{{ user_item.id }}/edit" class="button button--compact" title="Edit user details">Edit</a>
               <button type="button" class="button button--compact button--warning"
-                      onclick="document.getElementById('reset-modal-{{ user_item.id }}').showModal()">Reset Password</button>
+                      onclick="document.getElementById('reset-modal-{{ user_item.id }}').showModal()" title="Reset this user's password">Reset Password</button>
               {% if user_item.is_locked %}
               <form method="post" action="/admin/users/{{ user_item.id }}/unlock" style="display:inline;" onsubmit="return confirm('Unlock this account?');">
-                <button type="submit" class="button button--compact button--info">Unlock</button>
+                <button type="submit" class="button button--compact button--info" title="Unlock this user account">Unlock</button>
               </form>
               {% endif %}
               {% if user_item.id != user.id %}
               <form method="post" action="/admin/users/{{ user_item.id }}/delete" style="display:inline;" onsubmit="return confirm('Delete user {{ user_item.username }}? This cannot be undone.');">
-                <button type="submit" class="button button--compact button--danger">Delete</button>
+                <button type="submit" class="button button--compact button--danger" title="Permanently delete this user">Delete</button>
               </form>
               {% endif %}
             </div>
@@ -76,8 +76,8 @@
                 </div>
                 <p class="pw-mismatch" style="color:#fca5a5; font-size:0.85rem; display:none; margin:0;">Passwords do not match.</p>
                 <div class="form-actions" style="margin-top:16px;">
-                  <button type="submit" class="button button--warning">Reset Password</button>
-                  <button type="button" class="button button--secondary" onclick="this.closest('dialog').close()">Cancel</button>
+                  <button type="submit" class="button button--warning" title="Set new password for this user">Reset Password</button>
+                  <button type="button" class="button button--secondary" onclick="this.closest('dialog').close()" title="Close without resetting">Cancel</button>
                 </div>
               </form>
             </dialog>

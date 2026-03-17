@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.47.0 - 2026-03-17
+
+### Added
+- feat(ui): Collapsible sidebar sections with accordion behavior
+  - Workspace, Admin, and Account sections toggle on click with chevron indicators
+  - Only one section expanded at a time (accordion pattern)
+  - Workspace section expanded by default on first visit
+  - State persisted to localStorage across page loads
+  - Smooth 0.25s ease-in-out collapse/expand animation
+- feat(ui): Button tooltips across all templates (15 files)
+  - Added descriptive `title` attributes to ~80+ buttons and action links
+  - Covers admin, dashboard, models, schedules, profile, and auth pages
+- feat(ui): Auto-apply filters on Combined Payouts (onchange submit, debounced text input)
+- feat(ui): Breadcrumb navigation on 9 pages (cycle detail, model profile, model form, combined payouts, ad hoc, snapshot, all payments, all cycles card, all cycles table)
+- feat(ui): Breadcrumb CSS component in global stylesheet
+- feat(ui): Combined Payouts as standalone sidebar nav item with document icon
+
+### Changed
+- Combined Payouts defaults to "Actionable" status filter (on_hold + approved)
+- Combined Payouts hero cards redesigned using schedule-metric pattern (matching cycle detail page)
+- Combined Payouts hero cards moved above filters section
+- Dashboard "View All Payouts" renamed to "View All Cycles" linking to `/schedules`
+- Payroll Hub "Combined Payouts" button removed (now in sidebar)
+- Payroll Hub: removed duplicate "Auto-Generate Drafts" button from Upcoming Pay Dates section
+- CSS cache-busting query string added to stylesheet link
+- All navigation "Back to..." buttons replaced with breadcrumbs across 7 pages
+
+### Removed
+- Redundant "Back to Hub" button from Combined Payouts page
+- Redundant navigation buttons from cycle detail, model profile, snapshot, payments, all cycles, ad hoc pages
+- Empty unused template `all_content.html`
+
+### Fixed
+- "Back to Dashboard" mislabeled as "Back to Dashboard" on All Cycles table (was pointing wrong)
+- Payroll Hub active state in sidebar now correctly excludes Combined Payouts path
+
 ## v2.46.0 - 2026-03-17
 
 ### Added

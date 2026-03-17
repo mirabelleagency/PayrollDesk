@@ -8,20 +8,16 @@
         <p>Centralized command center for payroll cycles, payments, and financial tracking.</p>
     </div>
     <div class="header-actions">
-        <a class="button button--ghost" href="/schedules/combined-payouts">
-            <span class="button__icon">📄</span>
-            <span>Combined Payouts</span>
-        </a>
         {% if user.role == 'admin' %}
         <form method="post" action="/schedules/auto-generate" style="display:inline;">
             <input type="hidden" name="months_ahead" value="2">
             <input type="hidden" name="currency" value="{{ current_year_summary.currency or 'USD' }}">
-            <button class="button button--primary" type="submit">
+            <button class="button button--primary" type="submit" title="Auto-generate draft schedules for upcoming months">
                 <span class="button__icon">⚡</span>
                 <span>Auto-Generate Drafts</span>
             </button>
         </form>
-        <a class="button button--ghost" href="/schedules/new">
+        <a class="button button--ghost" href="/schedules/new" title="Create a new payroll cycle manually">
             <span class="button__icon">➕</span>
             <span>Manual Cycle</span>
         </a>
@@ -153,18 +149,6 @@
             <h2><span class="section-icon">📅</span> Upcoming Pay Dates</h2>
             <p>Next {{ upcoming|length }} pay date{{ 's' if upcoming|length != 1 else '' }} across the next 3 months</p>
         </div>
-        <div class="heading-actions">
-            {% if user.role == 'admin' %}
-            <form method="post" action="/schedules/auto-generate" style="display:inline;">
-                <input type="hidden" name="months_ahead" value="2">
-                <input type="hidden" name="currency" value="{{ current_year_summary.currency or 'USD' }}">
-                <button class="button button--primary button--compact" type="submit">
-                    <span class="button__icon">⚡</span>
-                    <span>Auto-Generate Drafts</span>
-                </button>
-            </form>
-            {% endif %}
-        </div>
     </div>
     <div class="upcoming-dates-strip">
         {% for entry in upcoming %}
@@ -201,7 +185,7 @@
             <p>{{ current_year_summary.run_count }} cycle{% if current_year_summary.run_count != 1 %}s{% endif %} recorded · {{ current_year_summary.currency }} {{ current_year_summary.total_payout|money }} total payout</p>
         </div>
         <div class="heading-actions">
-            <a class="button export button--compact" href="{{ export_url }}">
+            <a class="button export button--compact" href="{{ export_url }}" title="Download cycles data as Excel spreadsheet">
                 <span class="button__icon">📊</span>
                 <span>Export to Excel</span>
             </a>
@@ -226,10 +210,10 @@
                 <input id="end-date-input" class="inline-filter-control inline-filter-control--small" type="date" name="end" value="{{ filter_end_value }}">
 
                 <div class="inline-filter-actions--compact">
-                    <button class="button button--compact" type="submit">Apply</button>
-                    <a class="button button--compact button--success" href="{{ current_month_url }}">Current Month</a>
+                    <button class="button button--compact" type="submit" title="Apply selected filters">Apply</button>
+                    <a class="button button--compact button--success" href="{{ current_month_url }}" title="Jump to the current month's cycles">Current Month</a>
                     {% if filter_active %}
-                    <a class="button button--ghost button--compact" href="{{ clear_filter_url }}">Clear</a>
+                    <a class="button button--ghost button--compact" href="{{ clear_filter_url }}" title="Clear all filters">Clear</a>
                     {% endif %}
                 </div>
 
@@ -282,10 +266,10 @@
                     <td>{{ current_year_summary.currency }} {{ run.unpaid_total|money }}</td>
                     <td>
                         <div class="table-actions">
-                            <a class="button button--compact button--info" href="/schedules/{{ run.id }}">Open</a>
+                            <a class="button button--compact button--info" href="/schedules/{{ run.id }}" title="Open this payroll cycle">Open</a>
                             {% if user.role == 'admin' %}
                             <form method="post" action="/schedules/{{ run.id }}/delete" onsubmit="return confirm('Delete this payroll cycle?');">
-                                <button class="button button--compact button--danger" type="submit">Delete</button>
+                                <button class="button button--compact button--danger" type="submit" title="Permanently delete this cycle">Delete</button>
                             </form>
                             {% endif %}
                         </div>
@@ -362,7 +346,7 @@
                     <td>{{ payment.notes or '—' }}</td>
                     <td>
                         <div class="actions">
-                            <a class="button secondary button--compact" href="/schedules/{{ payment.run_id }}?status=on_hold">Open Cycle</a>
+                            <a class="button secondary button--compact" href="/schedules/{{ payment.run_id }}?status=on_hold" title="Open the cycle containing this payment">Open Cycle</a>
                         </div>
                     </td>
                 </tr>
@@ -412,7 +396,7 @@
                     <td>{{ payment.notes or '—' }}</td>
                     <td>
                         <div class="actions">
-                            <a class="button secondary button--compact" href="/schedules/{{ payment.run_id }}?show=overdue">Open Cycle</a>
+                            <a class="button secondary button--compact" href="/schedules/{{ payment.run_id }}?show=overdue" title="Open the cycle containing this overdue payment">Open Cycle</a>
                         </div>
                     </td>
                 </tr>
@@ -462,7 +446,7 @@
                     <td>{{ payment.notes or '—' }}</td>
                     <td>
                         <div class="actions">
-                            <a class="button secondary button--compact" href="/schedules/{{ payment.run_id }}">Open Cycle</a>
+                            <a class="button secondary button--compact" href="/schedules/{{ payment.run_id }}" title="Open the cycle containing this payment">Open Cycle</a>
                         </div>
                     </td>
                 </tr>

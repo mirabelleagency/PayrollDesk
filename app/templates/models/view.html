@@ -331,6 +331,14 @@ details[open] > .collapsible-summary::after {
 </style>
 
 <div class="model-view-container">
+    <!-- Breadcrumb -->
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="/dashboard">Dashboard</a>
+        <span class="breadcrumb__sep">›</span>
+        <a href="/models">Models</a>
+        <span class="breadcrumb__sep">›</span>
+        <span class="breadcrumb__current">{{ model.working_name or model.code }}</span>
+    </nav>
     <!-- Header Card -->
     <div class="model-view-header">
         <div class="model-view-header__top">
@@ -363,10 +371,6 @@ details[open] > .collapsible-summary::after {
                     <span>Edit</span>
                 </a>
                 {% endif %}
-                <a class="button secondary" href="/models">
-                    <span>←</span>
-                    <span>Back</span>
-                </a>
             </div>
         </div>
         

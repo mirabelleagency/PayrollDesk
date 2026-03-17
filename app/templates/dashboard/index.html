@@ -9,7 +9,7 @@
     </div>
     <div class="header-actions">
         {% if user and user.is_admin() %}
-        <button id="exportAllBtn" class="button export">📊 Export to Excel</button>
+        <button id="exportAllBtn" class="button export" title="Export dashboard data to Excel spreadsheet">📊 Export to Excel</button>
         {% endif %}
     </div>
 </section>
@@ -374,9 +374,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="alert-item-description">Payments past due date requiring immediate attention</div>
             </div>
             {% if current_month_run_id %}
-            <a class="button secondary button--compact" href="/schedules/{{ current_month_run_id }}?show=overdue#payments-overdue">Review</a>
+            <a class="button secondary button--compact" href="/schedules/{{ current_month_run_id }}?show=overdue#payments-overdue" title="Review overdue payments">Review</a>
             {% else %}
-            <a class="button secondary button--compact" href="/schedules?range=current_month&show=overdue#payments-overdue">Review</a>
+            <a class="button secondary button--compact" href="/schedules?range=current_month&show=overdue#payments-overdue" title="Review overdue payments">Review</a>
             {% endif %}
         </div>
         {% endif %}
@@ -389,9 +389,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="alert-item-description">Pending review or additional information</div>
             </div>
             {% if summary.on_hold_payments and summary.on_hold_payments[0].run_id %}
-                <a class="button secondary button--compact" href="/schedules/{{ summary.on_hold_payments[0].run_id }}#payment-{{ summary.on_hold_payments[0].id }}">Manage</a>
+                <a class="button secondary button--compact" href="/schedules/{{ summary.on_hold_payments[0].run_id }}#payment-{{ summary.on_hold_payments[0].id }}" title="Manage payments on hold">Manage</a>
             {% else %}
-                <a class="button secondary button--compact" href="/schedules?show=on_hold#payments-on-hold">Manage</a>
+                <a class="button secondary button--compact" href="/schedules?show=on_hold#payments-on-hold" title="Manage payments on hold">Manage</a>
             {% endif %}
         </div>
         {% endif %}
@@ -403,7 +403,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="alert-item-title">{{ pending_adhoc_payments|length }} Pending Ad Hoc Payment{{ 's' if pending_adhoc_payments|length != 1 else '' }}</div>
                 <div class="alert-item-description">Special payments awaiting processing</div>
             </div>
-            <a class="button secondary button--compact" href="/schedules/adhoc?status=pending">Process</a>
+            <a class="button secondary button--compact" href="/schedules/adhoc?status=pending" title="Process pending ad hoc payments">Process</a>
         </div>
         {% endif %}
     </div>
@@ -419,7 +419,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 </svg>
                 Recent Activity
             </h2>
-            <a class="button secondary button--compact" href="/schedules/combined-payouts">View All Payouts</a>
+            <a class="button secondary button--compact" href="/schedules" title="View all payroll cycles">View All Cycles</a>
         </div>
         <div class="summary-stats">
             <div class="summary-stat">
@@ -459,7 +459,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 </svg>
                 Top Earners
             </h2>
-            <a class="button secondary button--compact" href="/models">View All Models</a>
+            <a class="button secondary button--compact" href="/models" title="View all models">View All Models</a>
         </div>
         <div class="summary-stats">
             <div class="summary-stat">
@@ -515,7 +515,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 </svg>
                 Ad Hoc Payments
             </h2>
-            <a class="button secondary button--compact" href="/schedules">Manage</a>
+            <a class="button secondary button--compact" href="/schedules" title="Manage payroll cycles">Manage</a>
         </div>
         <div class="summary-stats">
             <div class="summary-stat">

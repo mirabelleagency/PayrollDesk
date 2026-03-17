@@ -50,7 +50,7 @@
         </a>
         {% if allow_delete %}
         <form method="post" action="/schedules/{{ run.id }}/delete" onsubmit="return confirm('Delete this payroll cycle?');" style="margin-left:8px;">
-            <button class="run-card-compact__action-button run-card-compact__action-button--danger" type="submit" aria-label="Delete cycle">Delete</button>
+            <button class="run-card-compact__action-button run-card-compact__action-button--danger" type="submit" aria-label="Delete cycle" title="Permanently delete this payroll cycle">Delete</button>
         </form>
         {% endif %}
     </div>
@@ -58,16 +58,22 @@
 {% endmacro %}
 
 {% block content %}
+<nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="/dashboard">Dashboard</a>
+    <span class="breadcrumb__sep">›</span>
+    <a href="/schedules">Payroll Hub</a>
+    <span class="breadcrumb__sep">›</span>
+    <span class="breadcrumb__current">All Cycles</span>
+</nav>
 <section class="page-header">
     <div>
     <h1 class="page-title">All Payroll Cycles</h1>
         <p>Browse every payroll cycle for {{ year }}.</p>
     </div>
     <div class="header-actions">
-        <a class="button secondary" href="/schedules">Back to Dashboard</a>
-        <a class="button secondary" href="{{ table_view_url }}">Table View</a>
+        <a class="button secondary" href="{{ table_view_url }}" title="Switch to table view">Table View</a>
         {% if user.role == 'admin' %}
-    <a class="button" href="/schedules/new">Start Payroll Cycle</a>
+    <a class="button" href="/schedules/new" title="Create a new payroll cycle">Start Payroll Cycle</a>
         {% endif %}
     </div>
 </section>
@@ -89,7 +95,7 @@
             </select>
         </div>
         <div class="year-filter__actions">
-            <button class="button" type="submit">Update</button>
+            <button class="button" type="submit" title="Filter cycles by selected year">Update</button>
         </div>
     </form>
     {# Month chips removed - simplified year selector per design request #}

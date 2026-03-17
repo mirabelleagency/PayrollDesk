@@ -39,7 +39,7 @@
       <input id="currency" name="currency" type="text" value="{{ pay_config.currency if pay_config else 'USD' }}" required style="max-width:120px;" />
     </div>
     <div class="form-actions">
-      <button class="button button--primary" type="submit">Save Pay Config</button>
+      <button class="button button--primary" type="submit" title="Save pay day and currency configuration">Save Pay Config</button>
     </div>
   </form>
 </section>
@@ -81,7 +81,7 @@
               <input type="checkbox" name="is_active" value="1" {% if plan.is_active %}checked{% endif %} />
             </td>
             <td>
-              <button class="button button--compact button--primary" type="submit">Save</button>
+              <button class="button button--compact button--primary" type="submit" title="Save changes to this frequency plan">Save</button>
             </td>
           </form>
         </tr>
@@ -108,13 +108,13 @@
   <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:start;">
     <div class="maintenance-action">
       <form method="post" action="/admin/maintenance/cleanup-empty-runs" onsubmit="return confirm('Delete all schedule runs that have zero payouts?');">
-        <button class="button button--primary" type="submit">🗑️ Delete Empty Runs</button>
+        <button class="button button--primary" type="submit" title="Delete schedule runs with no payouts">🗑️ Delete Empty Runs</button>
       </form>
       <small class="text-muted">Remove schedule runs with no payouts</small>
     </div>
     <div class="maintenance-action">
       <form method="post" action="/admin/maintenance/cleanup-orphans" onsubmit="return confirm('Remove legacy orphan records (model_id NULL) from payouts and validations? This cannot be undone.');">
-        <button class="button button--secondary" type="submit">🧹 Remove Orphan Records</button>
+        <button class="button button--secondary" type="submit" title="Remove payouts and validations missing their model">🧹 Remove Orphan Records</button>
       </form>
       <small class="text-muted">Delete payouts/validations missing their model</small>
     </div>
@@ -133,7 +133,7 @@
         onsubmit="return confirm('This will delete ALL models, payouts, runs, validations, adjustments, adhoc payments, and advances. Users will be kept. THIS CANNOT BE UNDONE. Continue?');"
         style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
     <input type="text" name="confirm_text" id="confirm-text" placeholder='Type "RESET" to enable' required class="table-input" style="width:200px;" />
-    <button id="reset-submit" class="button button--danger" type="submit" disabled>🧨 Reset All Data</button>
+    <button id="reset-submit" class="button button--danger" type="submit" disabled title="Delete all application data (users preserved)">🧨 Reset All Data</button>
     <small class="text-muted" style="flex-basis:100%;">Deletes all models, payouts, schedule runs, validations, adjustments, and advances. User accounts are preserved.</small>
   </form>
 </section>
