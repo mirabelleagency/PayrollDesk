@@ -169,7 +169,19 @@
                 <td>{{ payout.payment_method or '—' }}</td>
                 <td><span class="frequency-badge">{{ payout.payment_frequency|replace('_', ' ')|title if payout.payment_frequency else '—' }}</span></td>
                 <td><strong>{{ summary.currency }} {{ payout.amount|money }}</strong></td>
-                <td><span class="status-chip status-chip--{{ payout.status }}">{{ payout.status|replace('_', ' ')|title }}</span></td>
+                <td>
+                    {% if payout.status == 'paid' %}
+                    <span class="status-chip status-chip--success">Paid</span>
+                    {% elif payout.status == 'approved' %}
+                    <span class="status-chip status-chip--info">Approved</span>
+                    {% elif payout.status == 'on_hold' %}
+                    <span class="status-chip status-chip--warning">On Hold</span>
+                    {% elif payout.status == 'not_paid' %}
+                    <span class="status-chip status-chip--warning">Not Paid</span>
+                    {% else %}
+                    <span class="status-chip status-chip--neutral">{{ payout.status|replace('_', ' ')|title }}</span>
+                    {% endif %}
+                </td>
                 <td class="payout-note-cell">
                     {% if payout.notes %}
                     <span title="{{ payout.notes }}">{{ payout.notes|replace('\n', ' ')|truncate(40) }}</span>
@@ -313,8 +325,15 @@ function applyRowUpdate(payoutId, newStatus, isOverdue) {
 
     var chip = row.querySelector('.status-chip');
     if (chip) {
-        chip.className = 'status-chip status-chip--' + newStatus;
-        chip.textContent = newStatus.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+        var chipMap = {
+            'paid': { cls: 'status-chip status-chip--success', label: 'Paid' },
+            'approved': { cls: 'status-chip status-chip--info', label: 'Approved' },
+            'on_hold': { cls: 'status-chip status-chip--warning', label: 'On Hold' },
+            'not_paid': { cls: 'status-chip status-chip--warning', label: 'Not Paid' }
+        };
+        var chipInfo = chipMap[newStatus] || { cls: 'status-chip status-chip--neutral', label: newStatus.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); }) };
+        chip.className = chipInfo.cls;
+        chip.textContent = chipInfo.label;
     }
 
     // Update action buttons
