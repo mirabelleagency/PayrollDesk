@@ -9,9 +9,13 @@ All notable changes to this project will be documented in this file.
   - Flat table showing all individual payouts across every cycle for a selected year
   - Columns: Cycle (linked), Pay Date, Code (linked), Working Name, Method, Frequency, Amount, Status, Notes, Actions
   - Filter by year, status, code, frequency, and payment method
+  - "Actionable" quick filter (on_hold + approved combined) for accountant workflow
+  - Per-row "Mark as Paid" button with optimistic UI
+  - Checkbox selection + bulk "Mark as Paid" for batch processing
   - Summary cards: payout count, total amount, paid, outstanding
   - Overdue and locked payout indicators
 - feat(crud): `list_all_payouts()` function for querying payouts across multiple runs with filters
+- feat(schedules): cross-run bulk status update endpoint (`POST /schedules/combined-payouts/bulk-status`)
 
 ### Changed
 - Dashboard "View All Cycles" button now links to Combined Payouts view

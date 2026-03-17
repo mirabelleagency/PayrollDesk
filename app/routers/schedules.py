@@ -1956,17 +1956,25 @@ def combined_payouts_view(
     runs_for_year, available_years, _ = _prepare_runs_by_year(db, target_year)
     run_ids = [run.id for run in runs_for_year]
 
+    # Handle "actionable" pseudo-status (on_hold + approved combined)
+    is_actionable = status == "actionable"
+    crud_status = None if is_actionable else status
+
     payouts = crud.list_all_payouts(
         db,
         run_ids=run_ids if run_ids else None,
         code=code,
         frequency=frequency,
         payment_method=payment_method,
-        status=status,
+        status=crud_status,
     )
     # If no runs for this year, return empty payouts
     if not run_ids:
         payouts = []
+
+    # Apply actionable filter after query
+    if is_actionable:
+        payouts = [p for p in payouts if p.status in ("on_hold", "approved")]
 
     zero = Decimal("0")
     total_amount = sum((p.amount or zero) for p in payouts)
@@ -1979,10 +1987,13 @@ def combined_payouts_view(
     if runs_for_year:
         currency = getattr(runs_for_year[0], "currency", None) or "USD"
 
-    # Gather unique filter options from the payouts
-    all_frequencies = sorted({p.payment_frequency for p in payouts if p.payment_frequency})
-    all_methods = sorted({p.payment_method for p in payouts if p.payment_method})
-    all_statuses = sorted({p.status for p in payouts if p.status})
+    # Gather unique filter options from ALL payouts for this year (not just filtered)
+    all_year_payouts = crud.list_all_payouts(db, run_ids=run_ids if run_ids else None)
+    if not run_ids:
+        all_year_payouts = []
+    all_frequencies = sorted({p.payment_frequency for p in all_year_payouts if p.payment_frequency})
+    all_methods = sorted({p.payment_method for p in all_year_payouts if p.payment_method})
+    all_statuses = sorted({p.status for p in all_year_payouts if p.status})
 
     summary = {
         "count": len(payouts),
@@ -2029,6 +2040,55 @@ def combined_payouts_view(
             "all_statuses": all_statuses,
         },
     )
+
+
+@router.post("/combined-payouts/bulk-status")
+def combined_payouts_bulk_status(
+    payout_ids: str = Form(""),
+    status: str = Form(...),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """AJAX endpoint to update payout statuses across multiple runs."""
+    status_value = (status or "").strip().lower()
+    if status_value not in PAYOUT_STATUS_ENUM:
+        raise HTTPException(status_code=400, detail="Invalid payout status")
+
+    if not payout_ids.strip():
+        return JSONResponse({"ok": True, "updated_ids": [], "new_status": status_value})
+
+    try:
+        ids = [int(pid.strip()) for pid in payout_ids.split(",") if pid.strip()]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid payout IDs")
+
+    today = date.today()
+    updated: list[int] = []
+    overdue_flags: dict[int, bool] = {}
+    total_advance_deducted = Decimal("0")
+
+    for pid in ids:
+        payout = crud.get_payout(db, pid)
+        if payout:
+            deducted = crud.update_payout(db, payout, payout.notes, status_value)
+            total_advance_deducted += deducted
+            updated.append(pid)
+            overdue_flags[pid] = bool(
+                payout.pay_date and payout.pay_date < today and status_value in ("not_paid", "on_hold")
+            )
+
+    if updated:
+        _invalidate_dashboard_cache()
+
+    resp: dict[str, object] = {
+        "ok": True,
+        "updated_ids": updated,
+        "new_status": status_value,
+        "overdue_flags": overdue_flags,
+    }
+    if total_advance_deducted > 0:
+        resp["advance_deducted"] = str(total_advance_deducted)
+    return JSONResponse(resp)
 
 
 @router.get("/upcoming-dates")
