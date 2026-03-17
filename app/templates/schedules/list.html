@@ -8,6 +8,10 @@
         <p>Centralized command center for payroll cycles, payments, and financial tracking.</p>
     </div>
     <div class="header-actions">
+        <a class="button button--ghost" href="/schedules/combined-payouts">
+            <span class="button__icon">📄</span>
+            <span>Combined Payouts</span>
+        </a>
         {% if user.role == 'admin' %}
         <form method="post" action="/schedules/auto-generate" style="display:inline;">
             <input type="hidden" name="months_ahead" value="2">

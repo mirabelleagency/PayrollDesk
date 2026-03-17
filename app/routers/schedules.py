@@ -1938,6 +1938,99 @@ def export_runs_all_table(
     )
 
 
+@router.get("/combined-payouts")
+def combined_payouts_view(
+    request: Request,
+    year: int = Query(default=None, description="Target year to display"),
+    status: str | None = Query(default=None, description="Filter by payout status"),
+    code: str | None = Query(default=None, description="Filter by model code"),
+    frequency: str | None = Query(default=None, description="Filter by payment frequency"),
+    payment_method: str | None = Query(default=None, description="Filter by payment method"),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """All individual payouts across all cycles in one flat table."""
+    today = date.today()
+    target_year = year or today.year
+
+    runs_for_year, available_years, _ = _prepare_runs_by_year(db, target_year)
+    run_ids = [run.id for run in runs_for_year]
+
+    payouts = crud.list_all_payouts(
+        db,
+        run_ids=run_ids if run_ids else None,
+        code=code,
+        frequency=frequency,
+        payment_method=payment_method,
+        status=status,
+    )
+    # If no runs for this year, return empty payouts
+    if not run_ids:
+        payouts = []
+
+    zero = Decimal("0")
+    total_amount = sum((p.amount or zero) for p in payouts)
+    paid_amount = sum((p.amount or zero) for p in payouts if p.status == "paid")
+    unpaid_amount = sum(
+        (p.amount or zero) for p in payouts if p.status in ("not_paid", "on_hold", "approved")
+    )
+
+    currency = "USD"
+    if runs_for_year:
+        currency = getattr(runs_for_year[0], "currency", None) or "USD"
+
+    # Gather unique filter options from the payouts
+    all_frequencies = sorted({p.payment_frequency for p in payouts if p.payment_frequency})
+    all_methods = sorted({p.payment_method for p in payouts if p.payment_method})
+    all_statuses = sorted({p.status for p in payouts if p.status})
+
+    summary = {
+        "count": len(payouts),
+        "total_amount": total_amount,
+        "paid_amount": paid_amount,
+        "unpaid_amount": unpaid_amount,
+        "currency": currency,
+    }
+
+    # Build filter params for keeping filters in URLs
+    base_params: dict[str, object] = {"year": target_year}
+    filter_params: dict[str, object] = {"year": target_year}
+    if status:
+        filter_params["status"] = status
+    if code:
+        filter_params["code"] = code
+    if frequency:
+        filter_params["frequency"] = frequency
+    if payment_method:
+        filter_params["payment_method"] = payment_method
+
+    filter_active = bool(status or code or frequency or payment_method)
+    clear_url = f"/schedules/combined-payouts?{urlencode(base_params)}"
+
+    return templates.TemplateResponse(
+        request,
+        "schedules/combined_payouts.html",
+        {
+            "request": request,
+            "user": user,
+            "year": target_year,
+            "payouts": payouts,
+            "available_years": available_years,
+            "summary": summary,
+            "today": today,
+            "filter_active": filter_active,
+            "clear_url": clear_url,
+            "current_status": status or "",
+            "current_code": code or "",
+            "current_frequency": frequency or "",
+            "current_method": payment_method or "",
+            "all_frequencies": all_frequencies,
+            "all_methods": all_methods,
+            "all_statuses": all_statuses,
+        },
+    )
+
+
 @router.get("/upcoming-dates")
 def upcoming_pay_dates(
     request: Request,

@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block title %}Combined Payouts · Payroll Desk{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div>
+        <h1 class="page-title">Combined Payouts</h1>
+        <p>All individual payouts across every cycle for {{ year }}.</p>
+    </div>
+    <div class="header-actions">
+        <a class="button secondary" href="/schedules">Back to Hub</a>
+        <a class="button secondary" href="/schedules/all-table?year={{ year }}">Cycles Table</a>
+    </div>
+</section>
+
+<!-- Year Selector + Filters -->
+<section class="card">
+    <div class="section-heading">
+        <div>
+            <h2>Filters</h2>
+            <p>Narrow down payouts by year, status, model code, frequency, or payment method.</p>
+        </div>
+    </div>
+    <form method="get" action="/schedules/combined-payouts" class="combined-filter-form">
+        <div class="filter-row">
+            <div class="filter-group">
+                <label for="year-select">Year</label>
+                <select id="year-select" name="year">
+                    {% for option in available_years %}
+                    <option value="{{ option }}" {% if option == year %}selected{% endif %}>{{ option }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="status-select">Status</label>
+                <select id="status-select" name="status">
+                    <option value="">All</option>
+                    {% for s in all_statuses %}
+                    <option value="{{ s }}" {% if s == current_status %}selected{% endif %}>{{ s|replace('_', ' ')|title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="code-input">Code</label>
+                <input id="code-input" type="text" name="code" value="{{ current_code }}" placeholder="Search code...">
+            </div>
+            <div class="filter-group">
+                <label for="frequency-select">Frequency</label>
+                <select id="frequency-select" name="frequency">
+                    <option value="">All</option>
+                    {% for f in all_frequencies %}
+                    <option value="{{ f }}" {% if f == current_frequency %}selected{% endif %}>{{ f|replace('_', ' ')|title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="method-select">Method</label>
+                <select id="method-select" name="payment_method">
+                    <option value="">All</option>
+                    {% for m in all_methods %}
+                    <option value="{{ m }}" {% if m == current_method %}selected{% endif %}>{{ m }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-actions">
+                <button class="button button--compact" type="submit">Apply</button>
+                {% if filter_active %}
+                <a class="button button--compact secondary" href="{{ clear_url }}">Clear</a>
+                {% endif %}
+            </div>
+        </div>
+    </form>
+</section>
+
+<!-- Summary Stats -->
+<section class="stat-grid">
+    <article class="card stat-card">
+        <p class="stat-card__label">Payouts</p>
+        <p class="stat-card__value">{{ summary.count }}</p>
+        <p class="stat-card__hint">Individual payments</p>
+    </article>
+    <article class="card stat-card">
+        <p class="stat-card__label">Total Amount</p>
+        <p class="stat-card__value">{{ summary.currency }} {{ summary.total_amount|money }}</p>
+        <p class="stat-card__hint">Across all cycles</p>
+    </article>
+    <article class="card stat-card">
+        <p class="stat-card__label">Paid</p>
+        <p class="stat-card__value">{{ summary.currency }} {{ summary.paid_amount|money }}</p>
+        <p class="stat-card__hint">Completed payments</p>
+    </article>
+    <article class="card stat-card">
+        <p class="stat-card__label">Outstanding</p>
+        <p class="stat-card__value{% if summary.unpaid_amount > 0 %} is-warning{% endif %}">{{ summary.currency }} {{ summary.unpaid_amount|money }}</p>
+        <p class="stat-card__hint">Pending balances</p>
+    </article>
+</section>
+
+<!-- Combined Payouts Table -->
+<section class="card table-card">
+    <div class="section-heading">
+        <div>
+            <h2>All Payouts ({{ year }})</h2>
+            <p>{{ summary.count }} payout{{ 's' if summary.count != 1 else '' }} found.</p>
+        </div>
+    </div>
+    {% if payouts %}
+    <div style="overflow-x: auto;">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Cycle</th>
+                <th>Pay Date</th>
+                <th>Code</th>
+                <th>Working Name</th>
+                <th>Method</th>
+                <th>Frequency</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Notes</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for payout in payouts %}
+            {% set run = payout.schedule_run %}
+            {% set is_overdue = payout.pay_date and payout.pay_date < today and payout.status in ['not_paid', 'on_hold'] %}
+            <tr class="payout-row payout-row--{{ payout.status }} {% if is_overdue %}payout-row--overdue{% endif %}">
+                <td>
+                    <a class="link-button" href="/schedules/{{ run.id }}" title="Open cycle #{{ run.id }}">
+                        {{ '{:04d}'.format(run.target_year) }}-{{ '{:02d}'.format(run.target_month) }}
+                    </a>
+                </td>
+                <td>
+                    <strong>{{ payout.pay_date|display_date }}</strong>
+                    {% if is_overdue %}<span class="overdue-badge" title="Overdue">🚨</span>{% endif %}
+                </td>
+                <td>
+                    {% if payout.model_id %}
+                    <a href="/models/{{ payout.model_id }}/edit" class="model-link">{{ payout.code }}</a>
+                    {% else %}
+                    {{ payout.code }}
+                    {% endif %}
+                    {% if payout.is_locked %}<span title="Locked">🔒</span>{% endif %}
+                </td>
+                <td>{{ payout.working_name or '—' }}</td>
+                <td>{{ payout.payment_method or '—' }}</td>
+                <td><span class="frequency-badge">{{ payout.payment_frequency|replace('_', ' ')|title if payout.payment_frequency else '—' }}</span></td>
+                <td><strong>{{ summary.currency }} {{ payout.amount|money }}</strong></td>
+                <td><span class="status-chip status-chip--{{ payout.status }}">{{ payout.status|replace('_', ' ')|title }}</span></td>
+                <td class="payout-note-cell">
+                    {% if payout.notes %}
+                    <span title="{{ payout.notes }}">{{ payout.notes|replace('\n', ' ')|truncate(40) }}</span>
+                    {% else %}
+                    <span style="color: #475569;">—</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a class="link-button" href="/schedules/{{ run.id }}">Open Cycle</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="empty-state">No payouts found for {{ year }}{% if filter_active %} with the applied filters{% endif %}.</p>
+    {% endif %}
+</section>
+
+<style>
+.combined-filter-form .filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+}
+.combined-filter-form .filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.combined-filter-form .filter-group label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.combined-filter-form .filter-group select,
+.combined-filter-form .filter-group input {
+    padding: 6px 10px;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    background: #1e293b;
+    color: #f1f5f9;
+    font-size: 13px;
+    min-width: 130px;
+}
+.combined-filter-form .filter-actions {
+    display: flex;
+    gap: 6px;
+    align-items: flex-end;
+}
+</style>
+{% endblock %}

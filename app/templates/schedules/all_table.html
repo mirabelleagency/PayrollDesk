@@ -10,6 +10,7 @@
     <div class="header-actions">
         <a class="button secondary" href="/schedules">Back to Dashboard</a>
         <a class="button secondary" href="{{ card_view_url }}">Card View</a>
+        <a class="button secondary" href="/schedules/combined-payouts?year={{ year }}">Combined Payouts</a>
     {% if user.role == 'admin' %}
     <a class="button" href="/schedules/new">Start Payroll Cycle</a>
         {% endif %}

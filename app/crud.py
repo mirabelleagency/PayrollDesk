@@ -9,7 +9,7 @@ from typing import Iterable, Sequence, Dict
 import json
 
 from sqlalchemy import case, delete, distinct, func, select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.core.payroll import ModelRecord, ValidationMessage
 from app.models import (
@@ -708,6 +708,31 @@ def list_payouts_for_model(
 
     stmt = stmt.order_by(Payout.pay_date.desc(), Payout.id.desc())
     return db.execute(stmt).scalars().all()
+
+
+def list_all_payouts(
+    db: Session,
+    run_ids: list[int] | None = None,
+    code: str | None = None,
+    frequency: str | None = None,
+    payment_method: str | None = None,
+    status: str | None = None,
+) -> Sequence[Payout]:
+    """Query payouts across multiple runs with optional filters."""
+    stmt = select(Payout).where(Payout.model_id.isnot(None))
+    if run_ids is not None:
+        stmt = stmt.where(Payout.schedule_run_id.in_(run_ids))
+    if code:
+        stmt = stmt.where(Payout.code.ilike(f"%{code.strip()}%"))
+    if frequency:
+        stmt = stmt.where(Payout.payment_frequency == frequency)
+    if payment_method:
+        stmt = stmt.where(Payout.payment_method == payment_method)
+    if status:
+        stmt = stmt.where(Payout.status == status)
+    stmt = stmt.options(joinedload(Payout.schedule_run))
+    stmt = stmt.order_by(Payout.pay_date.desc(), Payout.code)
+    return db.execute(stmt).unique().scalars().all()
 
 
 def list_validation_for_run(db: Session, run_id: int) -> Sequence[ValidationIssue]:

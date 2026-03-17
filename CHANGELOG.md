@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.46.0 - 2026-03-17
+
+### Added
+- feat(schedules): Combined Payouts view (`/schedules/combined-payouts`)
+  - Flat table showing all individual payouts across every cycle for a selected year
+  - Columns: Cycle (linked), Pay Date, Code (linked), Working Name, Method, Frequency, Amount, Status, Notes, Actions
+  - Filter by year, status, code, frequency, and payment method
+  - Summary cards: payout count, total amount, paid, outstanding
+  - Overdue and locked payout indicators
+- feat(crud): `list_all_payouts()` function for querying payouts across multiple runs with filters
+
+### Changed
+- Dashboard "View All Cycles" button now links to Combined Payouts view
+- Payroll Hub header: replaced "All Cycles Table" button with "Combined Payouts"
+- All Cycles Table page: added "Combined Payouts" link in header actions
+
 ## v2.45.0 - 2026-01-11
 
 ### Added
