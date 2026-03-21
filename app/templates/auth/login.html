@@ -9,7 +9,7 @@
 </head>
 <body class="login-page">
     <div class="login-container">
-        <h1>🔒 Payroll Desk</h1>
+        <h1>{{ icon('lock') }} Payroll Desk</h1>
         
         {% if error %}
         <div class="login-error-message">{{ error }}</div>
@@ -17,7 +17,7 @@
         
         {% if attempts_remaining is defined and attempts_remaining > 0 and attempts_remaining < 5 %}
         <div class="login-warning-message">
-            ⚠️ {{ attempts_remaining }} attempt{{ 's' if attempts_remaining != 1 else '' }} remaining before account lockout
+            {{ icon('triangle-alert', size=16) }} {{ attempts_remaining }} attempt{{ 's' if attempts_remaining != 1 else '' }} remaining before account lockout
         </div>
         {% endif %}
         

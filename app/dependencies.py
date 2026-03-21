@@ -11,6 +11,7 @@ from markupsafe import Markup
 from app.core.formatting import format_display_date, format_display_datetime
 from app import __version__
 from app.database import get_session
+from app.icons import icon
 from app.security import generate_csrf_token, validate_csrf_token
 
 TEMPLATES_PATH = Path(__file__).parent / "templates"
@@ -51,6 +52,7 @@ templates.env.filters["display_datetime"] = _format_display_datetime
 # Global template variables
 templates.env.globals["APP_VERSION"] = __version__
 templates.env.globals["APP_NAME"] = "Payroll Desk"
+templates.env.globals["icon"] = icon
 
 
 def _csrf_token(request: Request) -> str:

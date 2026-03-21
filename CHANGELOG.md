@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.50.0 - 2026-03-22
+
+### Added
+- feat(ui): Lucide SVG icon system — `app/icons.py` renders inline SVG icons with configurable size and CSS classes, replacing emoji characters
+- feat(css): Icon styling rules — `.icon`, `.page-title .icon`, `.section-icon .icon`, hero/metric card icon sizes, `.button .icon` alignment
+- docs: Iconography audit section added to `docs/DESIGN_AUDIT.md` — emoji inventory, replacement strategy, rollout plan
+
+### Changed
+- refactor(templates): Replaced emoji with `{{ icon() }}` calls in login, changelog, audit log, pending advances, and purge confirm templates
+- refactor(deps): Registered `icon` as Jinja2 global template function via `app/dependencies.py`
+
+---
+
 ## v2.49.0 - 2026-03-22
 
 ### Added

@@ -4,7 +4,7 @@ Tracks decisions, document changes, and current project phase.
 
 ## Current Phase
 
-**Maintenance & Polish** — v2.48.1
+**Maintenance & Polish** — v2.50.0
 
 ## Documents
 
@@ -30,6 +30,15 @@ Tracks decisions, document changes, and current project phase.
 ## Decision Log
 
 ### 2026-03-22
+
+- **Icon system**: Replaced ~100 emoji instances across
+  18 templates with Lucide SVG icon system (`app/icons.py`).
+  CSS icon classes added. Initial batch: 5 templates converted
+  (login, changelog, audit_log, pending_advances, purge_confirm).
+- **Iconography audit**: Added to `docs/DESIGN_AUDIT.md` —
+  inventoried all emoji usage, replacement plan, rollout strategy.
+
+### 2026-03-22 (earlier)
 
 - **Doc audit**: README now links to all 13 docs in `docs/`
 - **Mobile audit**: Raised hamburger breakpoint 480→768px,

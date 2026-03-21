@@ -68,6 +68,46 @@ body {
 }
 
 /* ============================================
+   SVG ICON SYSTEM (Lucide)
+   ============================================ */
+.icon {
+    display: inline-block;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+
+/* Icons inside page titles */
+.page-title .icon {
+    margin-right: 6px;
+    vertical-align: -2px;
+}
+
+/* Icons inside section-icon spans */
+.section-icon .icon {
+    vertical-align: -3px;
+}
+
+/* Icons inside hero / metric / stat cards */
+.hero-stat-card__icon .icon,
+.schedule-metric__icon .icon,
+.financial-card__icon .icon,
+.payment-metric__icon .icon,
+.model-metric__icon .icon,
+.model-view-card__icon .icon,
+.model-view-section__icon .icon,
+.model-view-empty__icon .icon,
+.alert-item-icon .icon {
+    width: 24px;
+    height: 24px;
+}
+
+/* Icons in button text */
+.button .icon {
+    margin-right: 4px;
+    vertical-align: -2px;
+}
+
+/* ============================================
    GLOBAL FOCUS STYLES - Accessibility
    ============================================ */
 
