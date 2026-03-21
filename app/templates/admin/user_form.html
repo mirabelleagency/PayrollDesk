@@ -5,7 +5,7 @@
 {% block content %}
 <section class="page-header" style="margin-bottom: 16px;">
   <div>
-    <h1 class="page-title">{% if action == 'edit' %}✏️ Edit User{% else %}➕ Create User{% endif %}</h1>
+    <h1 class="page-title">{% if action == 'edit' %}{{ icon('pencil') }} Edit User{% else %}{{ icon('plus') }} Create User{% endif %}</h1>
   </div>
 </section>
 

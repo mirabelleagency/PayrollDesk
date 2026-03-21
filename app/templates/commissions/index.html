@@ -3,7 +3,7 @@
 {% block content %}
 <section class="page-header">
     <div>
-        <h1 class="page-title">💼 Referral Commissions</h1>
+        <h1 class="page-title">{{ icon('briefcase') }} Referral Commissions</h1>
         <p>Monitor scheduled payouts and referral performance over the next {{ horizon_months }} month{% if horizon_months != 1 %}s{% endif %}.</p>
     </div>
 </section>
@@ -182,7 +182,7 @@
 <section class="hero-stats-grid">
     <div class="hero-stat-card hero-stat-card--primary">
         <div class="hero-stat-card__header">
-            <span class="hero-stat-card__icon">🤝</span>
+            <span class="hero-stat-card__icon">{{ icon('handshake') }}</span>
             <span class="hero-stat-card__label">Active Referrers</span>
         </div>
         <div class="hero-stat-card__value">{{ stats.unique_referrers }}</div>
@@ -194,7 +194,7 @@
 
     <div class="hero-stat-card hero-stat-card--info">
         <div class="hero-stat-card__header">
-            <span class="hero-stat-card__icon">🗓️</span>
+            <span class="hero-stat-card__icon">{{ icon('calendar-days') }}</span>
             <span class="hero-stat-card__label">Upcoming Payouts</span>
         </div>
         <div class="hero-stat-card__value">{{ stats.upcoming_events }}</div>
@@ -205,7 +205,7 @@
 
     <div class="hero-stat-card hero-stat-card--success">
         <div class="hero-stat-card__header">
-            <span class="hero-stat-card__icon">💰</span>
+            <span class="hero-stat-card__icon">{{ icon('banknote') }}</span>
             <span class="hero-stat-card__label">Projected Value</span>
         </div>
         <div class="hero-stat-card__value">USD {{ stats.projected_total|money }}</div>
@@ -216,7 +216,7 @@
 
     <div class="hero-stat-card hero-stat-card--accent">
         <div class="hero-stat-card__header">
-            <span class="hero-stat-card__icon">⏭️</span>
+            <span class="hero-stat-card__icon">{{ icon('skip-forward') }}</span>
             <span class="hero-stat-card__label">Next Pay Date</span>
         </div>
         <div class="hero-stat-card__value">
@@ -235,7 +235,7 @@
 <section style="margin-top: 24px;">
     <div class="section-heading">
         <div>
-            <h2><span class="section-icon">📅</span> Payout Timeline</h2>
+            <h2><span class="section-icon">{{ icon('calendar') }}</span> Payout Timeline</h2>
             <p>Aggregated referral payouts grouped by settlement date.</p>
         </div>
     </div>
@@ -244,7 +244,7 @@
         {% for bucket in grouped_schedule %}
         <div class="hero-stat-card hero-stat-card--neutral">
             <div class="hero-stat-card__header">
-                <span class="hero-stat-card__icon">📅</span>
+                <span class="hero-stat-card__icon">{{ icon('calendar') }}</span>
                 <span class="hero-stat-card__label">{{ bucket.date|display_date }}</span>
             </div>
             <div class="hero-stat-card__value">USD {{ bucket.total|money }}</div>
@@ -265,7 +265,7 @@
 <section class="card" style="margin-top: 24px;">
     <div class="section-heading">
         <div>
-            <h2><span class="section-icon">📋</span> Referral-Level Schedule</h2>
+            <h2><span class="section-icon">{{ icon('clipboard-list') }}</span> Referral-Level Schedule</h2>
             <p>Detailed view of each planned payout with acceptance context.</p>
         </div>
     </div>
@@ -276,7 +276,7 @@
                 <label for="filter-search">Search</label>
                 <input type="search" 
                        id="filter-search"
-                       placeholder="🔍 Search referrers or referrals..." 
+                       placeholder="Search referrers or referrals..." 
                        data-filter-search 
                        aria-label="Search referrals"
                        class="filter-search-input">
@@ -372,7 +372,7 @@
                                     data-action="paid"
                                     title="Mark as Paid"
                                     aria-label="Mark commission as paid">
-                                    ✓
+                                    {{ icon('check', size=14) }}
                                 </button>
                                 {% else %}
                                 <button class="commission-action-button commission-action-button--warning js-commission-status" 
@@ -389,7 +389,7 @@
                                         onclick="return confirm('Delete this commission payout?')"
                                         title="Delete"
                                         aria-label="Delete commission payout">
-                                        🗑️
+                                        {{ icon('trash-2', size=16) }}
                                     </button>
                                 </form>
                             </div>
@@ -410,6 +410,8 @@
 </section>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    const COMMISSION_ICON_CHECK = `{{ icon('check', size=14) }}`;
+
     const rows = Array.from(document.querySelectorAll('[data-commission-row]'));
     if (!rows.length) {
         return;
@@ -436,7 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
         paid: {
             className: 'commission-action-button commission-action-button--success js-commission-status',
             title: 'Mark as Paid',
-            icon: '✓',
+            icon: COMMISSION_ICON_CHECK,
         },
         unpaid: {
             className: 'commission-action-button commission-action-button--warning js-commission-status',
@@ -453,7 +455,7 @@ document.addEventListener('DOMContentLoaded', () => {
         button.dataset.action = action;
         button.className = config.className;
         button.title = config.title;
-        button.textContent = config.icon;
+        button.innerHTML = config.icon;
     };
 
     document.querySelectorAll('.js-commission-status').forEach((button) => {

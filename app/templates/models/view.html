@@ -367,7 +367,7 @@ details[open] > .collapsible-summary::after {
             <div class="model-view-header__actions">
                 {% if user.role == 'admin' %}
                 <a class="button secondary" href="/models/{{ model.id }}/edit">
-                    <span>✏️</span>
+                    <span>{{ icon('pencil', size=16) }}</span>
                     <span>Edit</span>
                 </a>
                 {% endif %}
@@ -409,7 +409,7 @@ details[open] > .collapsible-summary::after {
         <!-- Contract Details -->
         <div class="model-view-card">
             <div class="model-view-card__header">
-                <span class="model-view-card__icon" aria-hidden="true">📋</span>
+                <span class="model-view-card__icon" aria-hidden="true">{{ icon('clipboard-list') }}</span>
                 <h2 class="model-view-card__title">Contract Details</h2>
             </div>
             <div class="model-view-info-grid">
@@ -455,7 +455,7 @@ details[open] > .collapsible-summary::after {
         <!-- Payment Information -->
         <div class="model-view-card">
             <div class="model-view-card__header">
-                <span class="model-view-card__icon" aria-hidden="true">💳</span>
+                <span class="model-view-card__icon" aria-hidden="true">{{ icon('credit-card') }}</span>
                 <h2 class="model-view-card__title">Payment Information</h2>
             </div>
             <div class="model-view-info-grid">
@@ -495,7 +495,7 @@ details[open] > .collapsible-summary::after {
         {% set paid_count = commission_payouts|selectattr('status', 'equalto', 'paid')|list|length %}
         <div class="model-view-card model-view-card--full">
             <div class="model-view-card__header">
-                <span class="model-view-card__icon" aria-hidden="true">💼</span>
+                <span class="model-view-card__icon" aria-hidden="true">{{ icon('briefcase') }}</span>
                 <h2 class="model-view-card__title">Referrals & Commission</h2>
             </div>
             <div class="model-view-section-grid">
@@ -583,7 +583,7 @@ details[open] > .collapsible-summary::after {
                     {% endif %}
                     {% else %}
                     <div class="model-view-empty model-view-empty--compact">
-                        <div class="model-view-empty__icon">💸</div>
+                        <div class="model-view-empty__icon">{{ icon('trending-down', size=24) }}</div>
                         <p class="model-view-empty__text">No referral payouts tracked yet.</p>
                         <p class="model-view-empty__subtext">Add referral terms on the edit page to generate payouts.</p>
                     </div>
@@ -598,7 +598,7 @@ details[open] > .collapsible-summary::after {
     <div class="model-view-table-card">
         <div class="model-view-table-header">
             <div class="model-view-table-title">
-                <span class="model-view-section__icon" aria-hidden="true">💰</span>
+                <span class="model-view-section__icon" aria-hidden="true">{{ icon('banknote') }}</span>
                 <h2>Commission Payouts</h2>
                 <span class="model-view-table-count">{{ commission_payouts_count }} payout{{ 's' if commission_payouts_count != 1 else '' }}</span>
                 {% if unpaid_count > 0 %}
@@ -675,7 +675,7 @@ details[open] > .collapsible-summary::after {
     <div class="model-view-table-card">
         <div class="model-view-table-header">
             <div class="model-view-table-title">
-                <span class="model-view-section__icon" aria-hidden="true">💵</span>
+                <span class="model-view-section__icon" aria-hidden="true">{{ icon('banknote') }}</span>
                 <h2>Compensation Timeline</h2>
                 <span class="model-view-table-count">{{ adjustments_count }} adjustment{{ 's' if adjustments_count != 1 else '' }}</span>
             </div>
@@ -714,7 +714,7 @@ details[open] > .collapsible-summary::after {
     <details id="adhoc-card" class="model-view-table-card collapsible-card" aria-labelledby="adhoc-title">
         <summary class="model-view-table-header collapsible-summary" aria-expanded="false" aria-controls="adhoc-content">
             <div class="model-view-table-title">
-                <span class="model-view-section__icon" aria-hidden="true">💸</span>
+                <span class="model-view-section__icon" aria-hidden="true">{{ icon('trending-down') }}</span>
                 <h2 id="adhoc-title">Ad Hoc Payments</h2>
                 <span class="model-view-table-count">{{ adhoc_count }} recorded</span>
                 {% if pending_count %}
@@ -736,7 +736,7 @@ details[open] > .collapsible-summary::after {
         <div class="model-view-form-section">
             <form action="/models/{{ model.id }}/adhoc-payments" method="post">
                 <div class="model-view-form-section__header">
-                    <h3 class="model-view-form-section__title">➕ Record New Payment</h3>
+                    <h3 class="model-view-form-section__title">{{ icon('plus', size=16) }} Record New Payment</h3>
                     <p class="model-view-form-section__subtitle">Capture payment details that should appear on the ledger.</p>
                 </div>
                 <div class="form-grid two-column">
@@ -834,7 +834,7 @@ details[open] > .collapsible-summary::after {
             </table>
         {% else %}
             <div class="model-view-empty">
-                <div class="model-view-empty__icon">💸</div>
+                <div class="model-view-empty__icon">{{ icon('trending-down', size=24) }}</div>
                 <p class="model-view-empty__text">No ad hoc payments recorded yet.</p>
                 <p class="model-view-empty__subtext">Use the form above to log one-off payments.</p>
             </div>
@@ -847,7 +847,7 @@ details[open] > .collapsible-summary::after {
     <details id="advances-card" class="model-view-table-card collapsible-card" aria-labelledby="advances-title">
         <summary class="model-view-table-header collapsible-summary" aria-expanded="false" aria-controls="advances-content">
             <div class="model-view-table-title">
-                <span class="model-view-section__icon" aria-hidden="true">🏦</span>
+                <span class="model-view-section__icon" aria-hidden="true">{{ icon('landmark') }}</span>
                 <h2 id="advances-title">Cash Advances</h2>
                 <span class="model-view-table-count--warning">Outstanding: ${{ (advances_outstanding or 0)|money }}</span>
             </div>
@@ -863,7 +863,7 @@ details[open] > .collapsible-summary::after {
         <div class="model-view-form-section">
             <form action="/models/{{ model.id }}/advances" method="post">
                 <div class="model-view-form-section__header">
-                    <h3 class="model-view-form-section__title">➕ Request Advance</h3>
+                    <h3 class="model-view-form-section__title">{{ icon('plus', size=16) }} Request Advance</h3>
                     <p class="model-view-form-section__subtitle">Create a cash advance and optionally choose a deduction strategy.</p>
                 </div>
                 <div class="form-grid two-column">
@@ -1033,7 +1033,7 @@ details[open] > .collapsible-summary::after {
                     {% else %}
                     <tr>
                         <td class="model-view-empty" colspan="7">
-                            <div class="model-view-empty__icon">🏦</div>
+                            <div class="model-view-empty__icon">{{ icon('landmark', size=24) }}</div>
                             <p class="model-view-empty__text">No advances recorded.</p>
                             <p class="model-view-empty__subtext">Create an advance to allow automatic deductions from future payouts.</p>
                         </td>
@@ -1184,7 +1184,7 @@ details[open] > .collapsible-summary::after {
     <div class="model-view-table-card">
         <div class="model-view-table-header">
             <div class="model-view-table-title">
-                <span class="model-view-section__icon" aria-hidden="true">📜</span>
+                <span class="model-view-section__icon" aria-hidden="true">{{ icon('scroll-text') }}</span>
                 <h2>Payment History</h2>
                 <span class="model-view-table-count">{{ paid_payouts|length }} payment{{ 's' if paid_payouts|length != 1 else '' }}</span>
             </div>
@@ -1230,7 +1230,7 @@ details[open] > .collapsible-summary::after {
         </table>
         {% else %}
         <div class="model-view-empty">
-            <div class="model-view-empty__icon">📭</div>
+            <div class="model-view-empty__icon">{{ icon('mail-open', size=24) }}</div>
             <p class="model-view-empty__text">No payments recorded yet for this model.</p>
             <p class="model-view-empty__subtext">Payments will appear here once they're scheduled in <a href="/schedules" class="model-view-link">Schedule Cycles</a>.</p>
         </div>

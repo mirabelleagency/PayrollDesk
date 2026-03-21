@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.51.0 - 2026-03-22
+
+### Changed
+- feat(ui): Completed the Lucide SVG icon rollout across all HTML templates in `app/templates/` — page titles, cards, alerts, section headers, action buttons, empty states, and quick actions no longer use emoji glyphs
+- refactor(ui): Schedule detail and combined payouts views now keep icon consistency after client-side status updates and bulk actions
+- refactor(ui): Models, schedules, admin, profile, dashboard, and commissions views now use the shared `icon()` helper end-to-end
+
+### Fixed
+- fix(ui): Removed broken fallback glyphs in export buttons on payments and ad hoc pages
+- fix(ui): Normalized remaining close/clear glyphs and legacy symbol-only controls in templates
+
+---
+
 ## v2.50.0 - 2026-03-22
 
 ### Added

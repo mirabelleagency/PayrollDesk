@@ -4,7 +4,7 @@
 {% block content %}
 <section class="page-header">
     <div>
-        <h1 class="page-title">💼 Payroll Hub</h1>
+        <h1 class="page-title">{{ icon('briefcase') }} Payroll Hub</h1>
         <p>Centralized command center for payroll cycles, payments, and financial tracking.</p>
     </div>
     <div class="header-actions">
@@ -13,12 +13,12 @@
             <input type="hidden" name="months_ahead" value="2">
             <input type="hidden" name="currency" value="{{ current_year_summary.currency or 'USD' }}">
             <button class="button button--primary" type="submit" title="Auto-generate draft schedules for upcoming months">
-                <span class="button__icon">⚡</span>
+                <span class="button__icon">{{ icon('zap', size=16) }}</span>
                 <span>Auto-Generate Drafts</span>
             </button>
         </form>
         <a class="button button--ghost" href="/schedules/new" title="Create a new payroll cycle manually">
-            <span class="button__icon">➕</span>
+            <span class="button__icon">{{ icon('plus', size=16) }}</span>
             <span>Manual Cycle</span>
         </a>
         {% endif %}
@@ -34,7 +34,7 @@
 <section class="hero-stats-grid">
     <div class="hero-stat-card hero-stat-card--primary">
         <div class="hero-stat-card__header">
-            <span class="hero-stat-card__icon">💰</span>
+            <span class="hero-stat-card__icon">{{ icon('banknote') }}</span>
             <span class="hero-stat-card__label">Total Payout</span>
         </div>
         <div class="hero-stat-card__value">{{ current_year_summary.currency or 'USD' }} {{ current_year_summary.total_payout|money }}</div>
@@ -46,7 +46,7 @@
     
     <div class="hero-stat-card {% if current_year_summary.unpaid_total > 0 %}hero-stat-card--warning{% else %}hero-stat-card--neutral{% endif %}">
         <div class="hero-stat-card__header">
-            <span class="hero-stat-card__icon">⏳</span>
+            <span class="hero-stat-card__icon">{{ icon('clock-3') }}</span>
             <span class="hero-stat-card__label">Outstanding</span>
         </div>
         <div class="hero-stat-card__value">{{ current_year_summary.currency or 'USD' }} {{ current_year_summary.unpaid_total|money }}</div>
@@ -57,7 +57,7 @@
     
     <div class="hero-stat-card hero-stat-card--success">
         <div class="hero-stat-card__header">
-            <span class="hero-stat-card__icon">✅</span>
+            <span class="hero-stat-card__icon">{{ icon('circle-check') }}</span>
             <span class="hero-stat-card__label">Paid</span>
         </div>
         <div class="hero-stat-card__value">{{ current_year_summary.currency or 'USD' }} {{ current_year_summary.paid_total|money }}</div>
@@ -68,7 +68,7 @@
     
     <div class="hero-stat-card hero-stat-card--accent">
         <div class="hero-stat-card__header">
-            <span class="hero-stat-card__icon">📝</span>
+            <span class="hero-stat-card__icon">{{ icon('file-text') }}</span>
             <span class="hero-stat-card__label">Ad Hoc</span>
         </div>
         <div class="hero-stat-card__value">{{ filtered_adhoc_summary.currency or 'USD' }} {{ (filtered_adhoc_summary.total_amount or 0)|money }}</div>
@@ -84,7 +84,7 @@
 <!-- Quick Access Navigation Grid -->
 <section class="dashboard-nav-grid">
     <a class="dashboard-nav-card dashboard-nav-card--compliance" href="{{ compliance_target_url }}">
-        <div class="dashboard-nav-card__icon">🛡️</div>
+        <div class="dashboard-nav-card__icon">{{ icon('shield', size=24) }}</div>
         <div class="dashboard-nav-card__content">
                 <h3 class="dashboard-nav-card__title">Compliance Holds</h3>
             <p class="dashboard-nav-card__description">Payments paused pending compliance review</p>
@@ -98,7 +98,7 @@
     </a>
 
     <a class="dashboard-nav-card dashboard-nav-card--history" href="{{ overdue_target_url }}">
-        <div class="dashboard-nav-card__icon">📊</div>
+        <div class="dashboard-nav-card__icon">{{ icon('chart-bar', size=24) }}</div>
         <div class="dashboard-nav-card__content">
                 <h3 class="dashboard-nav-card__title">Overdue Payments</h3>
             <p class="dashboard-nav-card__description">Payments that require immediate attention and processing</p>
@@ -114,7 +114,7 @@
     </a>
 
     <a class="dashboard-nav-card dashboard-nav-card--adhoc" href="{{ adhoc_filter_url }}">
-        <div class="dashboard-nav-card__icon">📝</div>
+        <div class="dashboard-nav-card__icon">{{ icon('file-text', size=24) }}</div>
         <div class="dashboard-nav-card__content">
             <h3 class="dashboard-nav-card__title">Ad Hoc Payments</h3>
             <p class="dashboard-nav-card__description">One-off payments and special transactions workspace</p>
@@ -130,7 +130,7 @@
     </a>
 
     <a class="dashboard-nav-card dashboard-nav-card--payments" href="/models/payments">
-        <div class="dashboard-nav-card__icon">💳</div>
+        <div class="dashboard-nav-card__icon">{{ icon('credit-card', size=24) }}</div>
         <div class="dashboard-nav-card__content">
             <h3 class="dashboard-nav-card__title">Salary Payments</h3>
             <p class="dashboard-nav-card__description">Comprehensive view of salary payments across all cycles</p>
@@ -146,7 +146,7 @@
 <section class="card" id="upcoming-calendar">
     <div class="section-heading">
         <div>
-            <h2><span class="section-icon">📅</span> Upcoming Pay Dates</h2>
+            <h2><span class="section-icon">{{ icon('calendar') }}</span> Upcoming Pay Dates</h2>
             <p>Next {{ upcoming|length }} pay date{{ 's' if upcoming|length != 1 else '' }} across the next 3 months</p>
         </div>
     </div>
@@ -181,12 +181,12 @@
 <section class="card" id="all-cycles-table">
     <div class="section-heading">
         <div>
-            <h2><span class="section-icon">📋</span> All Payroll Cycles</h2>
+            <h2><span class="section-icon">{{ icon('clipboard-list') }}</span> All Payroll Cycles</h2>
             <p>{{ current_year_summary.run_count }} cycle{% if current_year_summary.run_count != 1 %}s{% endif %} recorded · {{ current_year_summary.currency }} {{ current_year_summary.total_payout|money }} total payout</p>
         </div>
         <div class="heading-actions">
             <a class="button export button--compact" href="{{ export_url }}" title="Download cycles data as Excel spreadsheet">
-                <span class="button__icon">📊</span>
+                <span class="button__icon">{{ icon('chart-bar', size=16) }}</span>
                 <span>Export to Excel</span>
             </a>
         </div>
@@ -288,18 +288,18 @@
 <!-- Empty State -->
 <section class="empty-state-container">
     <div class="empty-state-card">
-        <span class="empty-state-card__icon">🚀</span>
+        <span class="empty-state-card__icon">{{ icon('rocket', size=28) }}</span>
         <h2 class="empty-state-card__title">Welcome to Payroll Hub</h2>
     <p class="empty-state-card__description">Get started by creating your first payroll cycle or adding ad hoc payments</p>
         <div class="empty-state-card__actions">
             {% if user.role == 'admin' %}
             <a class="button button--primary" href="/schedules/new">
-                <span>➕</span>
+                <span>{{ icon('plus', size=16) }}</span>
                 <span>Create First Payroll Cycle</span>
             </a>
             {% endif %}
             <a class="button secondary" href="/schedules/adhoc">
-                <span>📝</span>
+                <span>{{ icon('file-text', size=16) }}</span>
                 <span>Manage Ad Hoc Payments</span>
             </a>
         </div>
@@ -312,7 +312,7 @@
 <section id="payments-on-hold" class="card card--urgent" style="margin-top: 32px;">
     <div class="section-heading">
         <div>
-            <h2><span class="section-icon">🛡️</span> Compliance Holds (Overdue)</h2>
+            <h2><span class="section-icon">{{ icon('shield') }}</span> Compliance Holds (Overdue)</h2>
             <p>{{ compliance_payments|length }} payment{% if compliance_payments|length != 1 %}s{% endif %} on hold past their pay date</p>
         </div>
         <div class="heading-actions">
@@ -362,7 +362,7 @@
 <section id="payments-overdue" class="card card--urgent" style="margin-top: 32px;">
     <div class="section-heading">
         <div>
-            <h2><span class="section-icon">🚨</span> Overdue Payments</h2>
+            <h2><span class="section-icon">{{ icon('siren') }}</span> Overdue Payments</h2>
             <p>{{ overdue_payments|length }} payment{% if overdue_payments|length != 1 %}s{% endif %} requiring immediate attention</p>
         </div>
         <div class="heading-actions">

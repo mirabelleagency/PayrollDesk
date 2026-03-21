@@ -264,12 +264,15 @@
 }
 
 .payout-row--has-alert::before {
-    content: '⚠️';
+    content: '';
     position: absolute;
-    left: -24px;
+    left: -18px;
     top: 50%;
     transform: translateY(-50%);
-    font-size: 14px;
+    width: 8px;
+    height: 8px;
+    background: #fbbf24;
+    border-radius: 50%;
 }
 
 .payout-alert-indicator {
@@ -955,7 +958,7 @@ th[data-drop-target="true"]::after {
 </nav>
 <section class="page-header" style="margin-bottom: 24px;">
     <div>
-    <h1 class="page-title">💳 {{ run.cycle_display }} Payroll Cycle</h1>
+    <h1 class="page-title">{{ icon('credit-card') }} {{ run.cycle_display }} Payroll Cycle</h1>
         <p style="color: #94a3b8; margin: 8px 0 0 0;">
             <span>Cycle #{{ run.id }}</span>
             <span style="margin: 0 8px; color: #475569;">•</span>
@@ -979,20 +982,20 @@ th[data-drop-target="true"]::after {
         {# Add New Models button - safely adds models not yet in schedule #}
         <form action="/schedules/{{ run.id }}/add-new-models" method="POST" style="margin: 0;">
             <button type="submit" class="button secondary" title="Add payouts for models not yet in this schedule (safe - won't modify existing payouts)">
-                <span>➕</span>
+                <span>{{ icon('plus', size=16) }}</span>
                 <span>Add New Models</span>
             </button>
         </form>
         {# Refresh Schedule - recalculate unlocked payouts and pick up new models #}
         <form action="/schedules/{{ run.id }}/refresh" method="POST" style="margin: 0;" onsubmit="return confirm('Refresh this schedule? Paid/locked payouts will be preserved. Unlocked payouts will be recalculated with the latest data.');">
             <button type="submit" class="button button--warning" title="Recalculate unlocked payouts using latest model data and pay config. Paid payouts are preserved.">
-                <span>🔄</span>
+                <span>{{ icon('refresh-cw', size=16) }}</span>
                 <span>Refresh Schedule</span>
             </button>
         </form>
         {# CSV export removed — Excel will export the current status filter #}
         <a id="export-excel" data-base-href="/schedules/{{ run.id }}/download/schedule_excel" class="button button--primary" href="/schedules/{{ run.id }}/download/schedule_excel{% if filters.status %}?status={{ filters.status }}{% endif %}" title="Download this schedule as an Excel spreadsheet">
-            <span>📥</span>
+            <span>{{ icon('download', size=16) }}</span>
             <span>Export Excel</span>
         </a>
     </div>
@@ -1002,7 +1005,7 @@ th[data-drop-target="true"]::after {
 {% set rs = run.run_status | default('ready') %}
 {% if rs == 'processing' or request.query_params.get('processing') == '1' %}
 <section id="processing-overlay" class="card" style="text-align: center; padding: 48px 24px; margin-bottom: 24px;">
-    <div style="font-size: 48px; margin-bottom: 16px;">⏳</div>
+    <div style="margin-bottom: 16px; color: #f8fafc;">{{ icon('clock-3', size=48) }}</div>
     <h2 style="color: #f8fafc; margin-bottom: 8px;">Processing Payroll</h2>
     <p style="color: #94a3b8; margin-bottom: 24px;">Calculating payouts for all models. This page will update automatically.</p>
     <div style="max-width: 400px; margin: 0 auto 16px auto; background: rgba(30,41,59,0.8); border-radius: 8px; height: 12px; overflow: hidden;">
@@ -1011,7 +1014,7 @@ th[data-drop-target="true"]::after {
     <p id="progress-text" style="color: #94a3b8; font-size: 14px;">{{ run.processing_progress or 0 }}%</p>
     {% if run.error_message %}
     <div class="alert-banner alert-banner--danger" style="margin-top: 16px; text-align: left;">
-        <div class="alert-banner__icon">⚠️</div>
+        <div class="alert-banner__icon">{{ icon('triangle-alert') }}</div>
         <div class="alert-banner__message">{{ run.error_message }}</div>
     </div>
     {% endif %}
@@ -1045,7 +1048,7 @@ th[data-drop-target="true"]::after {
 {% set added_codes_param = request.query_params.get('added_codes', '') %}
 {% set added_codes_list = added_codes_param.split(',') if added_codes_param else [] %}
 <section class="alert-banner alert-banner--success" style="margin-bottom: 24px;">
-    <div class="alert-banner__icon">✅</div>
+    <div class="alert-banner__icon">{{ icon('circle-check') }}</div>
     <div class="alert-banner__content">
         <div class="alert-banner__title">Models Added</div>
         <div class="alert-banner__message">
@@ -1070,7 +1073,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
 <!-- Validation Alerts (if any) -->
 {% if validations|length > 0 %}
 <section class="alert-banner alert-banner--warning" style="margin-bottom: 24px;">
-    <div class="alert-banner__icon">⚠️</div>
+    <div class="alert-banner__icon">{{ icon('triangle-alert') }}</div>
     <div class="alert-banner__content">
         <div class="alert-banner__title">{{ validations|length }} Validation Issue{{ 's' if validations|length != 1 else '' }}</div>
         <div class="alert-banner__message">Review issues before processing payments</div>
@@ -1085,7 +1088,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
 <section class="schedule-metrics-dashboard">
     <div class="schedule-metric schedule-metric--primary" id="card-paid">
         <div class="schedule-metric__header">
-            <span class="schedule-metric__icon">✅</span>
+            <span class="schedule-metric__icon">{{ icon('circle-check') }}</span>
             <span class="schedule-metric__label">Paid This Cycle</span>
         </div>
         <div class="schedule-metric__value">{{ run.currency }} <span id="card-paid-total">{{ summary.paid_total|money }}</span></div>
@@ -1098,7 +1101,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
 
     <div class="schedule-metric schedule-metric--warning" id="card-unpaid">
         <div class="schedule-metric__header">
-            <span class="schedule-metric__icon">⏳</span>
+            <span class="schedule-metric__icon">{{ icon('clock-3') }}</span>
             <span class="schedule-metric__label">Unpaid This Cycle</span>
         </div>
         <div class="schedule-metric__value">{{ run.currency }} <span id="card-unpaid-total">{{ summary.unpaid_total|money }}</span></div>
@@ -1111,7 +1114,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
 
     <div class="schedule-metric schedule-metric--danger {% if overdue_count > 0 %}schedule-metric--alert{% endif %}" id="card-overdue">
         <div class="schedule-metric__header">
-            <span class="schedule-metric__icon">🚨</span>
+            <span class="schedule-metric__icon">{{ icon('siren') }}</span>
             <span class="schedule-metric__label">Overdue</span>
         </div>
         <div class="schedule-metric__value"><span id="card-overdue-count">{{ overdue_count }}</span></div>
@@ -1129,7 +1132,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
 
     <div class="schedule-metric schedule-metric--success">
         <div class="schedule-metric__header">
-            <span class="schedule-metric__icon">💰</span>
+            <span class="schedule-metric__icon">{{ icon('banknote') }}</span>
             <span class="schedule-metric__label">Lifetime Paid</span>
         </div>
         <div class="schedule-metric__value">{{ run.currency }} {{ summary.overall_paid|money }}</div>
@@ -1140,7 +1143,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
 
     <div class="schedule-metric schedule-metric--neutral">
         <div class="schedule-metric__header">
-            <span class="schedule-metric__icon">📊</span>
+            <span class="schedule-metric__icon">{{ icon('chart-bar') }}</span>
             <span class="schedule-metric__label">Frequency Mix</span>
         </div>
         <div class="schedule-metric__value schedule-metric__value--compact">{{ payouts|length }}</div>
@@ -1159,7 +1162,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
 <!-- Compensation Alerts Banner -->
 <section class="compensation-alert-banner" id="compensation-alerts-section">
     <div class="compensation-alert-banner__header" onclick="toggleCompensationDetails()" style="cursor: pointer;">
-        <div class="compensation-alert-banner__icon">⚠️</div>
+        <div class="compensation-alert-banner__icon">{{ icon('triangle-alert') }}</div>
         <div class="compensation-alert-banner__content">
             <h3>{{ pending_alerts_count }} Compensation Change{{ 's' if pending_alerts_count != 1 else '' }} Need Review</h3>
             <p>Some models have had their compensation updated since this schedule was generated.</p>
@@ -1243,7 +1246,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
 <section class="card" style="margin-top: 32px;">
     <div class="section-heading">
         <div>
-            <h2><span class="section-icon">📋</span> Payment Schedule</h2>
+            <h2><span class="section-icon">{{ icon('clipboard-list') }}</span> Payment Schedule</h2>
             <p style="color: #94a3b8; margin: 4px 0 0 0;">{{ payouts|length }} payment{{ 's' if payouts|length != 1 else '' }} in this cycle</p>
         </div>
     </div>
@@ -1251,7 +1254,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
     <!-- Compact Filter Toolbar -->
     <div class="schedule-filter-toolbar">
         <div class="schedule-filter-toolbar__search">
-            <input type="text" id="quick-search" placeholder="🔍 Search by code, name..." 
+            <input type="text" id="quick-search" placeholder="Search by code, name..." 
                    onkeyup="filterPayoutTable()" 
                    class="filter-search-input">
         </div>
@@ -1302,7 +1305,6 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
             
             {% if filters.code or filters.status or filters.frequency or filters.payment_method or filters.pay_date %}
             <a class="filter-clear-button" href="/schedules/{{ run.id }}">
-                <span>✕</span>
                 <span>Clear</span>
             </a>
             {% endif %}
@@ -1317,7 +1319,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
         </button>
         <button id="chip-overdue" class="status-chip-filter status-chip-filter--overdue {% if filters.status == 'overdue' %}status-chip-filter--active{% endif %}"
             onclick="filterByOverdue()" type="button" data-status-value="overdue" {% if overdue_count == 0 and filters.status != 'overdue' %}style="display: none;"{% endif %}>
-            🚨 Overdue (<span id="chip-count-overdue">{{ overdue_count }}</span>)
+            {{ icon('siren', size=14) }} Overdue (<span id="chip-count-overdue">{{ overdue_count }}</span>)
         </button>
         {% for option in status_options %}
         <button class="status-chip-filter status-chip-filter--{{ option }} {% if filters.status == option %}status-chip-filter--active{% endif %}" 
@@ -1389,7 +1391,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
                     <td data-column-key="pay_date" class="column-pay_date" style="white-space: nowrap;">
                         <strong>{{ payout.pay_date|display_date }}</strong>
                         {% if is_overdue %}
-                        <span class="overdue-badge" title="Payment is overdue">🚨</span>
+                        <span class="overdue-badge" title="Payment is overdue">{{ icon('siren', size=14) }}</span>
                         {% endif %}
                     </td>
                     <td data-column-key="code" class="column-code">
@@ -1399,7 +1401,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
                         <span style="font-weight: 600; color: #60a5fa;">{{ payout.code }}</span>
                         {% endif %}
                         {% if payout.is_locked %}
-                        <span title="Locked — paid payout preserved on refresh" style="margin-left: 4px; font-size: 0.8em; opacity: 0.7;">🔒</span>
+                        <span title="Locked — paid payout preserved on refresh" style="margin-left: 4px; font-size: 0.8em; opacity: 0.7;">{{ icon('lock', size=14) }}</span>
                         {% endif %}
                     </td>
                     <td data-column-key="working_name" class="column-working_name">{{ payout.working_name or '—' }}</td>
@@ -1448,7 +1450,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
                 <button class="action-button action-button--success js-quick-update" 
                     data-payout-id="{{ payout.id }}" data-action="paid"
                     title="Mark as Paid" aria-label="Mark payment as paid">
-                                ✓
+                                {{ icon('check', size=14) }}
                             </button>
                             {% else %}
                 <button class="action-button action-button--neutral js-quick-update" 
@@ -1461,7 +1463,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
                 <button class="action-button action-button--primary js-quick-update" 
                     data-payout-id="{{ payout.id }}" data-action="approved"
                     title="Mark Approved" aria-label="Mark payment as approved">
-                                ✔
+                                {{ icon('circle-check', size=14) }}
                             </button>
                             {% else %}
                 <button class="action-button action-button--neutral js-quick-update" 
@@ -1486,7 +1488,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
                 <button class="action-button action-button--secondary js-toggle-notes" 
                     data-payout-id="{{ payout.id }}"
                     title="Edit Notes" aria-label="Edit payment notes">
-                                📝
+                                {{ icon('file-text', size=14) }}
                             </button>
                         </div>
                     </td>
@@ -1518,7 +1520,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
                                 </div>
                                 <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 28px;">
                                     <button class="button button--primary button--compact" type="submit">
-                                        <span>💾</span>
+                                        <span>{{ icon('save', size=14) }}</span>
                                         <span>Save</span>
                                     </button>
                                     <button class="button secondary button--compact js-toggle-notes" type="button" 
@@ -1548,7 +1550,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
     <div class="bulk-actions-bar" id="bulk-actions-bar" style="display: none;">
         <div class="bulk-actions-bar__content">
             <div class="bulk-actions-bar__info">
-                <span class="bulk-actions-bar__icon">☑️</span>
+                <span class="bulk-actions-bar__icon">{{ icon('square-check') }}</span>
                 <span class="bulk-actions-bar__text">
                     <strong id="selected-count">0</strong> payment<span id="selected-plural">s</span> selected
                 </span>
@@ -1567,11 +1569,10 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
                     </select>
                 </div>
                 <button class="button button--primary button--compact" type="submit">
-                    <span>✓</span>
+                    <span>{{ icon('check', size=14) }}</span>
                     <span>Apply</span>
                 </button>
                 <button class="button secondary button--compact" type="button" onclick="cancelBulkUpdate()">
-                    <span>✕</span>
                     <span>Cancel</span>
                 </button>
             </form>
@@ -1584,7 +1585,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
 <section class="card validation-section" id="validation-section" style="margin-top: 32px; display: none;">
     <div class="section-heading">
         <div>
-            <h2><span class="section-icon">⚠️</span> Validation Issues</h2>
+            <h2><span class="section-icon">{{ icon('triangle-alert') }}</span> Validation Issues</h2>
             <p style="color: #94a3b8; margin: 4px 0 0 0;">{{ validations|length }} issue{{ 's' if validations|length != 1 else '' }} detected</p>
         </div>
     </div>
@@ -1921,7 +1922,7 @@ function updateOverdueIndicators(row, isOverdue) {
             badge = document.createElement('span');
             badge.className = 'overdue-badge';
             badge.title = 'Payment is overdue';
-            badge.textContent = '🚨';
+            badge.textContent = '!';
             payDateCell.appendChild(badge);
         } else if (!isOverdue && badge) {
             badge.remove();
@@ -2723,6 +2724,9 @@ function updateNoteDisplay(payoutId, noteText) {
 
 // Helper to apply DOM updates after a status change
 function applyRowStatusUpdate(payoutId, newStatus, isOverdue) {
+    const DETAIL_ICON_CHECK = `{{ icon('check', size=14) }}`;
+    const DETAIL_ICON_CIRCLE_CHECK = `{{ icon('circle-check', size=14) }}`;
+
     const row = document.querySelector(`tr.payout-row[data-payout-id="${payoutId}"]`);
     if (!row) return;
     row.setAttribute('data-status', newStatus);
@@ -2757,7 +2761,7 @@ function applyRowStatusUpdate(payoutId, newStatus, isOverdue) {
             paidBtn.classList.add('action-button--success');
             paidBtn.setAttribute('data-action', 'paid');
             paidBtn.setAttribute('title', 'Mark as Paid');
-            paidBtn.textContent = '✓';
+            paidBtn.innerHTML = DETAIL_ICON_CHECK;
         }
 
         // Approved / Unapprove toggle
@@ -2772,7 +2776,7 @@ function applyRowStatusUpdate(payoutId, newStatus, isOverdue) {
             approveBtn.classList.add('action-button--primary');
             approveBtn.setAttribute('data-action', 'approved');
             approveBtn.setAttribute('title', 'Mark Approved');
-            approveBtn.textContent = '✔';
+            approveBtn.innerHTML = DETAIL_ICON_CIRCLE_CHECK;
         }
 
         // On Hold / Remove Hold toggle

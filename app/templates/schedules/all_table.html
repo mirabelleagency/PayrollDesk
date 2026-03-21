@@ -86,7 +86,7 @@
             <p>{{ year_summary.run_count }} cycle{% if year_summary.run_count != 1 %}s{% endif %} captured.</p>
         </div>
         <div class="heading-actions">
-            <a class="button export" href="{{ export_url }}" title="Download cycles data as Excel spreadsheet">📊 Export Excel</a>
+            <a class="button export" href="{{ export_url }}" title="Download cycles data as Excel spreadsheet">{{ icon('chart-bar', size=16) }} Export Excel</a>
         </div>
     </div>
     {% if runs %}

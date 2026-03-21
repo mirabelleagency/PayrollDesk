@@ -4,7 +4,7 @@ Tracks decisions, document changes, and current project phase.
 
 ## Current Phase
 
-**Maintenance & Polish** — v2.50.0
+**Maintenance & Polish** — v2.51.0
 
 ## Documents
 
@@ -30,6 +30,14 @@ Tracks decisions, document changes, and current project phase.
 ## Decision Log
 
 ### 2026-03-22
+
+- **Icon rollout completed**: Replaced remaining emoji-based UI
+  markers across all templates in `app/templates/`.
+  Schedules, models, admin, profile, dashboard, and
+  commissions now use the shared Lucide SVG helper.
+- **Interactive icon consistency**: Updated JS-driven
+  quick-action states in schedule detail and combined
+  payouts so buttons keep SVG icons after status changes.
 
 - **Icon system**: Replaced ~100 emoji instances across
   18 templates with Lucide SVG icon system (`app/icons.py`).

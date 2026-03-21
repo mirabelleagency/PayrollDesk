@@ -10,12 +10,12 @@
 </nav>
 <section class="page-header">
     <div>
-        <h1 class="page-title">💳 All Model Payments</h1>
+        <h1 class="page-title">{{ icon('credit-card') }} All Model Payments</h1>
         <p>Comprehensive payment tracking across all registered models</p>
     </div>
     <div class="header-actions">
         <button class="button export" onclick="exportPaymentsCSV()" title="Export payment data to Excel">
-            <span>�</span>
+            <span>{{ icon('chart-bar', size=16) }}</span>
             <span>Export to Excel</span>
         </button>
     </div>
@@ -25,7 +25,7 @@
 <section class="payment-metrics-dashboard">
     <div class="payment-metric payment-metric--primary">
         <div class="payment-metric__header">
-            <span class="payment-metric__icon">💰</span>
+            <span class="payment-metric__icon">{{ icon('banknote') }}</span>
             <span class="payment-metric__label">Total Payments</span>
         </div>
         <div class="payment-metric__value">USD {{ total_amount|money }}</div>
@@ -36,7 +36,7 @@
 
     <div class="payment-metric payment-metric--success">
         <div class="payment-metric__header">
-            <span class="payment-metric__icon">✅</span>
+            <span class="payment-metric__icon">{{ icon('circle-check') }}</span>
             <span class="payment-metric__label">Paid</span>
         </div>
         <div class="payment-metric__value">USD {{ paid_amount|money }}</div>
@@ -49,7 +49,7 @@
 
     <div class="payment-metric payment-metric--warning">
         <div class="payment-metric__header">
-            <span class="payment-metric__icon">⏳</span>
+            <span class="payment-metric__icon">{{ icon('clock-3') }}</span>
             <span class="payment-metric__label">Outstanding</span>
         </div>
         <div class="payment-metric__value">USD {{ unpaid_amount|money }}</div>
@@ -62,7 +62,7 @@
 
     <div class="payment-metric payment-metric--neutral">
         <div class="payment-metric__header">
-            <span class="payment-metric__icon">👥</span>
+            <span class="payment-metric__icon">{{ icon('users') }}</span>
             <span class="payment-metric__label">Models</span>
         </div>
         <div class="payment-metric__value payment-metric__value--compact">{{ models|length }}</div>
@@ -76,14 +76,14 @@
 <section class="card" style="margin-top: 24px;">
     <div class="payment-filter-toolbar">
         <div class="payment-filter-toolbar__search">
-            <input type="text" id="quick-search" class="filter-search-input" placeholder="🔍 Search by model code, name, notes..." 
+            <input type="text" id="quick-search" class="filter-search-input" placeholder="Search by model code, name, notes..." 
                    onkeyup="filterPaymentsTable()">
         </div>
         
         <form class="payment-filter-toolbar__filters" method="get" id="main-filter-form">
             <!-- Date Range Inline -->
             <div class="filter-group-inline filter-group-inline--date">
-                <label for="start-date">📅 From</label>
+                <label for="start-date">{{ icon('calendar', size=16) }} From</label>
                 <input id="start-date" name="start_date" type="date" class="filter-date-input" value="{{ filters.start_date or '' }}">
             </div>
             
@@ -149,7 +149,7 @@
             
             {% if filters.payment_status or filters.status or filters.frequency or filters.payment_method or filters.start_date or filters.end_date %}
             <a class="filter-clear-button" href="/models/payments">
-                <span>✕ Clear All</span>
+                <span>Clear All</span>
             </a>
             {% endif %}
         </form>
@@ -164,7 +164,7 @@
 <section class="card" style="margin-top: 24px;">
     <div class="section-heading">
         <div>
-            <h2><span class="section-icon">📊</span> Payment Records</h2>
+            <h2><span class="section-icon">{{ icon('chart-bar') }}</span> Payment Records</h2>
             <p>Complete payment history across all models</p>
         </div>
     </div>
@@ -243,12 +243,12 @@
                     <td>
                         <div style="display: flex; gap: 6px;">
                             <a href="/models/{{ model.id }}" class="action-button action-button--blue">
-                                <span>👤</span>
+                                <span>{{ icon('user', size=16) }}</span>
                                 <span>View Model</span>
                             </a>
                             {% if run %}
                             <a href="/schedules/{{ run.id }}#payment-{{ payout.id }}" class="action-button action-button--purple">
-                                <span>📋</span>
+                                <span>{{ icon('clipboard-list', size=16) }}</span>
                                 <span>View in Cycle</span>
                             </a>
                             {% endif %}

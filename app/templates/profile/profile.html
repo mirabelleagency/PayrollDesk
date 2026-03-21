@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="card" style="max-width:600px; margin:40px auto;">
-    <h1 class="page-title" style="text-align:center;">👤 My Profile</h1>
+    <h1 class="page-title" style="text-align:center;">{{ icon('user') }} My Profile</h1>
 
     <div style="background:rgba(15,23,42,0.5); padding:20px; border-radius:8px; margin-bottom:24px; text-align:center; border:1px solid rgba(100,116,139,0.3);">
         <p style="margin:8px 0; color:#cbd5e1;">Username: <strong style="color:#60a5fa;">{{ user.username }}</strong></p>
@@ -22,7 +22,7 @@
 
     <hr style="border-color:rgba(148,163,184,0.2); margin:24px 0;">
 
-    <h2 style="color:#f8fafc; margin-top:0;">🔐 Change Password</h2>
+    <h2 style="color:#f8fafc; margin-top:0;">{{ icon('key-round', size=18) }} Change Password</h2>
 
     <form method="post" action="/profile/change-password" class="form">
         <div class="form-row">

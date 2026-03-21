@@ -97,7 +97,7 @@
 <section class="schedule-metrics-dashboard">
     <div class="schedule-metric schedule-metric--primary">
         <div class="schedule-metric__header">
-            <span class="schedule-metric__icon">📋</span>
+            <span class="schedule-metric__icon">{{ icon('clipboard-list') }}</span>
             <span class="schedule-metric__label">Payouts</span>
         </div>
         <div class="schedule-metric__value">{{ summary.count }}</div>
@@ -108,7 +108,7 @@
 
     <div class="schedule-metric schedule-metric--neutral">
         <div class="schedule-metric__header">
-            <span class="schedule-metric__icon">💵</span>
+            <span class="schedule-metric__icon">{{ icon('banknote') }}</span>
             <span class="schedule-metric__label">Total Amount</span>
         </div>
         <div class="schedule-metric__value">{{ summary.currency }} {{ summary.total_amount|money }}</div>
@@ -119,7 +119,7 @@
 
     <div class="schedule-metric schedule-metric--success">
         <div class="schedule-metric__header">
-            <span class="schedule-metric__icon">✅</span>
+            <span class="schedule-metric__icon">{{ icon('circle-check') }}</span>
             <span class="schedule-metric__label">Paid</span>
         </div>
         <div class="schedule-metric__value">{{ summary.currency }} {{ summary.paid_amount|money }}</div>
@@ -130,7 +130,7 @@
 
     <div class="schedule-metric {% if summary.unpaid_amount > 0 %}schedule-metric--danger schedule-metric--alert{% else %}schedule-metric--neutral{% endif %}">
         <div class="schedule-metric__header">
-            <span class="schedule-metric__icon">{% if summary.unpaid_amount > 0 %}🚨{% else %}💰{% endif %}</span>
+            <span class="schedule-metric__icon">{% if summary.unpaid_amount > 0 %}{{ icon('siren') }}{% else %}{{ icon('banknote') }}{% endif %}</span>
             <span class="schedule-metric__label">Outstanding</span>
         </div>
         <div class="schedule-metric__value">{{ summary.currency }} {{ summary.unpaid_amount|money }}</div>
@@ -162,7 +162,7 @@
                 <label for="status-select">Status</label>
                 <select id="status-select" name="status" onchange="this.form.submit()">
                     <option value="">All</option>
-                    <option value="actionable" {% if current_status == 'actionable' %}selected{% endif %}>⚡ Actionable (On Hold + Approved)</option>
+                    <option value="actionable" {% if current_status == 'actionable' %}selected{% endif %}>Actionable (On Hold + Approved)</option>
                     {% for s in all_statuses %}
                     <option value="{{ s }}" {% if s == current_status %}selected{% endif %}>{{ s|replace('_', ' ')|title }}</option>
                     {% endfor %}
@@ -212,7 +212,7 @@
     <!-- Bulk Actions Bar (hidden until selection) -->
     <div id="bulk-bar" class="bulk-bar" style="display: none;">
         <span id="bulk-count">0</span> selected
-        <button class="button button--compact button--primary" onclick="bulkMarkPaid()" title="Mark all selected payouts as paid">✓ Mark as Paid</button>
+        <button class="button button--compact button--primary" onclick="bulkMarkPaid()" title="Mark all selected payouts as paid">{{ icon('check', size=14) }} Mark as Paid</button>
         <button class="button button--compact secondary" onclick="clearSelection()" title="Deselect all payouts">Cancel</button>
     </div>
 
@@ -258,7 +258,7 @@
                 </td>
                 <td>
                     <strong>{{ payout.pay_date|display_date }}</strong>
-                    {% if is_overdue %}<span class="overdue-badge" title="Overdue">🚨</span>{% endif %}
+                    {% if is_overdue %}<span class="overdue-badge" title="Overdue">{{ icon('siren', size=14) }}</span>{% endif %}
                 </td>
                 <td>
                     {% if payout.model_id %}
@@ -266,7 +266,7 @@
                     {% else %}
                     {{ payout.code }}
                     {% endif %}
-                    {% if payout.is_locked %}<span title="Locked">🔒</span>{% endif %}
+                    {% if payout.is_locked %}<span title="Locked">{{ icon('lock', size=14) }}</span>{% endif %}
                 </td>
                 <td>{{ payout.working_name or '—' }}</td>
                 <td>{{ payout.payment_method or '—' }}</td>
@@ -296,7 +296,7 @@
                     <div style="display: flex; gap: 4px; align-items: center;">
                         {% if payout.status != 'paid' %}
                         <button class="action-button action-button--success" title="Mark as Paid"
-                                onclick="quickMarkPaid({{ payout.id }}, {{ run.id }})">✓</button>
+                        onclick="quickMarkPaid({{ payout.id }}, {{ run.id }})">{{ icon('check', size=14) }}</button>
                         {% else %}
                         <button class="action-button action-button--neutral" title="Mark as Not Paid"
                                 onclick="quickUpdateStatus({{ payout.id }}, {{ run.id }}, 'not_paid')">↩</button>
@@ -385,6 +385,8 @@
 </style>
 
 <script>
+const COMBINED_ICON_CHECK = `{{ icon('check', size=14) }}`;
+
 function toggleSelectAll(el) {
     document.querySelectorAll('.payout-checkbox').forEach(function(cb) {
         cb.checked = el.checked;
@@ -450,7 +452,7 @@ function applyRowUpdate(payoutId, newStatus, isOverdue) {
             actionsCell.innerHTML = '<button class="action-button action-button--neutral" title="Mark as Not Paid" onclick="quickUpdateStatus(' + payoutId + ', ' + runId + ', \'not_paid\')">↩</button>' +
                 '<a class="link-button" href="/schedules/' + runId + '" title="Open cycle">→</a>';
         } else {
-            actionsCell.innerHTML = '<button class="action-button action-button--success" title="Mark as Paid" onclick="quickMarkPaid(' + payoutId + ', ' + runId + ')">✓</button>' +
+            actionsCell.innerHTML = '<button class="action-button action-button--success" title="Mark as Paid" onclick="quickMarkPaid(' + payoutId + ', ' + runId + ')">' + COMBINED_ICON_CHECK + '</button>' +
                 '<a class="link-button" href="/schedules/' + runId + '" title="Open cycle">→</a>';
             // Add checkbox if missing
             var firstTd = row.querySelector('td:first-child');
@@ -537,7 +539,7 @@ function bulkMarkPaid() {
         clearSelection();
         bar.style.display = 'none';
         bar.innerHTML = '<span id="bulk-count">0</span> selected ' +
-            '<button class="button button--compact button--primary" onclick="bulkMarkPaid()">✓ Mark as Paid</button> ' +
+            '<button class="button button--compact button--primary" onclick="bulkMarkPaid()">' + COMBINED_ICON_CHECK + ' Mark as Paid</button> ' +
             '<button class="button button--compact secondary" onclick="clearSelection()">Cancel</button>';
     })
     .catch(function() {

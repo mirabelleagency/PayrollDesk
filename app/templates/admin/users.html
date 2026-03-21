@@ -5,11 +5,11 @@
 {% block content %}
 <section class="page-header" style="margin-bottom: 16px;">
   <div>
-    <h1 class="page-title">👥 User Management</h1>
+    <h1 class="page-title">{{ icon('users') }} User Management</h1>
     <p style="color:#94a3b8; margin:8px 0 0 0;">Logged in as: <strong>{{ user.username }}</strong> ({{ user.role }})</p>
   </div>
   <div class="header-actions">
-    <a href="/admin/users/new" class="button button--success" title="Create a new user account">+ New User</a>
+    <a href="/admin/users/new" class="button button--success" title="Create a new user account">{{ icon('plus', size=16) }} New User</a>
   </div>
 </section>
 
@@ -39,7 +39,7 @@
           </td>
           <td>
             {% if user_item.is_locked %}
-            <span class="status-badge" style="background: rgba(239,68,68,0.15); color:#fca5a5;">🔒 LOCKED</span>
+            <span class="status-badge" style="background: rgba(239,68,68,0.15); color:#fca5a5;">{{ icon('lock', size=14) }} LOCKED</span>
             {% else %}
             <span style="color: #10b981;">Active</span>
             {% endif %}

@@ -16,12 +16,12 @@
 </nav>
 <section class="page-header">
     <div>
-        <h1 class="page-title">📝 Ad Hoc Payments Workspace</h1>
+        <h1 class="page-title">{{ icon('file-text') }} Ad Hoc Payments Workspace</h1>
         <p>Accounting command center for one-off payment management and reconciliation.</p>
     </div>
     <div class="header-actions">
         <button class="button export" onclick="window.print()" title="Print or export ad hoc payments">
-            <span class="button__icon">�</span>
+            <span class="button__icon">{{ icon('chart-bar', size=16) }}</span>
             <span>Export to Excel</span>
         </button>
     </div>
@@ -32,7 +32,7 @@
 <section class="quick-action-bar">
     <div class="quick-action-bar__content">
         <div class="quick-action-bar__info">
-            <span class="quick-action-bar__icon">⚠️</span>
+            <span class="quick-action-bar__icon">{{ icon('triangle-alert') }}</span>
             <div>
                 <strong>{{ pending_count }} Pending Payment{{ 's' if pending_count != 1 else '' }}</strong>
                 <span>{{ monthly_adhoc_summary.currency or 'USD' }} {{ (monthly_adhoc_summary.pending_total or 0)|money }} awaiting processing</span>
@@ -48,7 +48,7 @@
 <!-- Financial Overview Row -->
 <section class="financial-overview-row">
     <div class="financial-card financial-card--total">
-        <div class="financial-card__icon">💰</div>
+        <div class="financial-card__icon">{{ icon('banknote', size=24) }}</div>
         <div class="financial-card__content">
             <span class="financial-card__label">Total Period</span>
             <span class="financial-card__value">{{ monthly_adhoc_summary.currency or 'USD' }} {{ (monthly_adhoc_summary.total_amount or 0)|money }}</span>
@@ -57,7 +57,7 @@
     </div>
     
     <div class="financial-card financial-card--pending">
-        <div class="financial-card__icon">⏳</div>
+        <div class="financial-card__icon">{{ icon('clock-3', size=24) }}</div>
         <div class="financial-card__content">
             <span class="financial-card__label">Pending</span>
             <span class="financial-card__value">{{ monthly_adhoc_summary.currency or 'USD' }} {{ (monthly_adhoc_summary.pending_total or 0)|money }}</span>
@@ -66,7 +66,7 @@
     </div>
     
     <div class="financial-card financial-card--cleared">
-        <div class="financial-card__icon">✅</div>
+        <div class="financial-card__icon">{{ icon('circle-check', size=24) }}</div>
         <div class="financial-card__content">
             <span class="financial-card__label">Cleared</span>
             <span class="financial-card__value">{{ monthly_adhoc_summary.currency or 'USD' }} {{ (monthly_adhoc_summary.paid_total or 0)|money }}</span>
@@ -75,7 +75,7 @@
     </div>
     
     <div class="financial-card financial-card--models">
-        <div class="financial-card__icon">👥</div>
+        <div class="financial-card__icon">{{ icon('users', size=24) }}</div>
         <div class="financial-card__content">
             <span class="financial-card__label">Models</span>
             <span class="financial-card__value">{{ monthly_adhoc_summary.models_impacted or 0 }}</span>
@@ -92,7 +92,7 @@
         <details class="filter-accordion" open>
             <summary class="filter-accordion__toggle">
                 <div class="filter-accordion__header">
-                    <h3><span class="section-icon">🔍</span> Filters</h3>
+                    <h3><span class="section-icon">{{ icon('search') }}</span> Filters</h3>
                     {% if active_filter_chips %}
                     <span class="filter-count-badge">{{ active_filter_chips|length }} active</span>
                     {% endif %}
@@ -195,7 +195,7 @@
 <section id="pending-section" class="card card--transactions">
     <div class="section-heading">
         <div>
-            <h2><span class="section-icon">💵</span> Transaction Register — {{ monthly_adhoc_summary.month_label }}</h2>
+            <h2><span class="section-icon">{{ icon('banknote') }}</span> Transaction Register — {{ monthly_adhoc_summary.month_label }}</h2>
             <p>
                 {{ filtered_adhoc_summary.count or 0 }} payment{{ 's' if (filtered_adhoc_summary.count or 0) != 1 else '' }} 
                 · {{ monthly_adhoc_summary.currency or 'USD' }} {{ (filtered_adhoc_summary.total_amount or 0)|money }}
@@ -277,7 +277,7 @@
 <!-- Empty State -->
 <section class="card card--empty-state">
     <div class="empty-state-content">
-        <span class="empty-state-icon">📭</span>
+        <span class="empty-state-icon">{{ icon('mail-open', size=28) }}</span>
         <h2>No Ad Hoc Payments</h2>
         <p>No ad hoc activity recorded for {{ monthly_adhoc_summary.month_label }}.</p>
     </div>

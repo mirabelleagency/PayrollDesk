@@ -58,7 +58,7 @@
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 16px;">
                 <!-- CSV Version -->
                 <div style="background: rgba(59, 130, 246, 0.1); padding: 12px; border-radius: 6px; border: 1px solid rgba(59, 130, 246, 0.3);">
-                    <p style="margin: 0 0 8px 0; font-weight: 600; color: #60a5fa;">📋 CSV Version (Row {{ first_dup.row_num }})</p>
+                    <p style="margin: 0 0 8px 0; font-weight: 600; color: #60a5fa;">{{ icon('clipboard-list', size=16) }} CSV Version (Row {{ first_dup.row_num }})</p>
                     <table style="width: 100%; font-size: 0.9rem; margin-bottom: 12px;">
                         <tr>
                             <td style="color: #94a3b8; padding: 4px 0;">Date:</td>
@@ -86,7 +86,7 @@
                 <!-- Existing Database Version(s) -->
                 {% for existing_dup in duplicates %}
                 <div style="background: rgba(34, 197, 94, 0.1); padding: 12px; border-radius: 6px; border: 1px solid rgba(34, 197, 94, 0.3);">
-                    <p style="margin: 0 0 8px 0; font-weight: 600; color: #4ade80;">💾 Database Record #{{ existing_dup.existing_payout_id }}</p>
+                    <p style="margin: 0 0 8px 0; font-weight: 600; color: #4ade80;">{{ icon('save', size=16) }} Database Record #{{ existing_dup.existing_payout_id }}</p>
                     <table style="width: 100%; font-size: 0.9rem; margin-bottom: 12px;">
                         <tr>
                             <td style="color: #94a3b8; padding: 4px 0;">Date:</td>
