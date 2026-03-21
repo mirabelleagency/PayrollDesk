@@ -12,6 +12,7 @@ from fastapi import FastAPI, Response, Request, Depends
 from fastapi.responses import RedirectResponse
 from fastapi import status, HTTPException
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from urllib.parse import quote
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -194,25 +195,57 @@ def health_db(db: Session = Depends(get_session)) -> dict[str, Any]:
 
 
 # Custom handler: redirect unauthenticated HTML requests to /login instead of JSON 401
+_ERROR_TITLES = {
+    400: "Bad Request",
+    403: "Forbidden",
+    404: "Page Not Found",
+    405: "Method Not Allowed",
+    500: "Server Error",
+}
+
+_ERROR_MESSAGES = {
+    400: "The request could not be understood. Please check and try again.",
+    403: "You don't have permission to access this page.",
+    404: "The page you're looking for doesn't exist or has been moved.",
+    405: "This action is not supported.",
+    500: "Something went wrong on our end. Please try again later.",
+}
+
+
+@app.exception_handler(StarletteHTTPException)
 @app.exception_handler(HTTPException)
 async def http_exception_redirect_login(request: Request, exc: HTTPException):
     """Redirect 401 HTML page requests to /login; preserve JSON for API calls.
 
     Logic:
-    - If status != 401, fall back to normal JSON style.
-    - If 401 and client likely expects HTML (Accept header includes text/html or navigating via browser), issue 303 redirect.
-    - Otherwise return JSON (e.g. for fetch/XHR expecting application/json).
+    - If status == 401 and client expects HTML → redirect to /login.
+    - For other errors, render a styled error page for HTML clients.
+    - JSON clients always get JSON responses.
     """
-    if exc.status_code != status.HTTP_401_UNAUTHORIZED:
-        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
-
     accept = request.headers.get("accept", "")
-    wants_html = "text/html" in accept or "*/*" in accept  # browsers often send */*
-    if wants_html:
-        # Preserve original target so we can return after login
+    wants_html = "text/html" in accept or "*/*" in accept
+
+    if exc.status_code == status.HTTP_401_UNAUTHORIZED and wants_html:
         original = request.url.path
         if request.url.query:
             original = f"{original}?{request.url.query}"
         login_url = f"/login?next={quote(original, safe='')}"
         return RedirectResponse(url=login_url, status_code=status.HTTP_303_SEE_OTHER)
-    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+    if not wants_html:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+    # Render styled HTML error page for browser requests
+    from app.dependencies import templates
+    code = exc.status_code
+    title = _ERROR_TITLES.get(code, "Error")
+    default_detail = HTTPException(status_code=code).detail
+    if exc.detail and exc.detail != default_detail:
+        message = exc.detail
+    else:
+        message = _ERROR_MESSAGES.get(code, str(exc.detail))
+    return templates.TemplateResponse(
+        "errors/error.html",
+        {"request": request, "status_code": code, "title": title, "message": message},
+        status_code=code,
+    )

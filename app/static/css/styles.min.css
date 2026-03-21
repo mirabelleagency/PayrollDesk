@@ -4202,17 +4202,6 @@ section {
         grid-template-columns: 1fr;
     }
 
-    .sidebar {
-        position: fixed;
-        width: 220px;
-        left: 0;
-        top: 0;
-    }
-
-    .content {
-        margin-left: 220px;
-    }
-
     .nav-links {
         flex-direction: column;
     }
@@ -4220,28 +4209,31 @@ section {
 
 @media (max-width: 768px) {
     .sidebar {
-        width: 200px;
+        position: fixed;
+        left: -240px;
+        width: 240px;
+        top: 0;
+        z-index: 100;
+        transition: left 0.3s ease;
     }
 
-    .content {
-        margin-left: 200px;
-        padding: 20px;
-    }
-}
-
-@media (max-width: 480px) {
-    .sidebar {
-        left: -200px;
-        width: 200px;
+    .sidebar.active {
+        left: 0;
     }
 
     .content {
         margin-left: 0;
-        padding: 16px;
+        padding: 70px 16px 16px 16px;
     }
-    
+
     .brand {
         font-size: 1.2rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .content {
+        padding: 70px 12px 12px 12px;
     }
 }
 
@@ -4331,29 +4323,13 @@ section {
     pointer-events: auto;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 768px) {
     .mobile-menu-toggle {
         display: flex;
     }
     
     .mobile-menu-overlay {
         display: block;
-    }
-    
-    .sidebar {
-        left: -200px;
-        width: 200px;
-        z-index: 100;
-        transition: left 0.3s ease;
-    }
-    
-    .sidebar.active {
-        left: 0;
-    }
-    
-    .content {
-        margin-left: 0;
-        padding: 70px 16px 16px 16px;
     }
 }
 
@@ -8414,6 +8390,35 @@ section {
 .commission-action-button.is-loading {
     opacity: 0.5;
     pointer-events: none;
+}
+
+/* =====================================================
+   DATA TABLE SCROLL WRAPPER
+   Enables horizontal scrolling for wide tables on mobile
+   ===================================================== */
+.data-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+}
+
+/* =====================================================
+   TOUCH TARGET SIZING
+   Ensure minimum 44x44px tap targets on mobile
+   ===================================================== */
+@media (max-width: 768px) {
+    .button.button--compact {
+        min-height: 44px;
+        min-width: 44px;
+        padding: 10px 14px;
+    }
+
+    .data-table td .button,
+    .data-table td a.button {
+        min-height: 44px;
+        padding: 10px 12px;
+    }
 }
 
 

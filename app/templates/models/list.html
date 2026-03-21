@@ -720,6 +720,7 @@ async function loadModelPayments(modelId, page = 1) {
         }
 
         let tableHTML = `
+            <div class="data-table-wrapper">
             <table class="data-table payment-history-table">
                 <thead>
                     <tr>
@@ -761,7 +762,7 @@ async function loadModelPayments(modelId, page = 1) {
             `;
         });
 
-        tableHTML += '</tbody></table>';
+        tableHTML += '</tbody></table></div>';
         
         // Add pagination controls if more than one page
         if (pagination.total_pages > 1) {

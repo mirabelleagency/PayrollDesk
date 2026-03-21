@@ -35,18 +35,21 @@ Visit `http://127.0.0.1:8000` and use the navigation links to:
 - Inspect payout schedules and validation findings
 - Download Excel/CSV exports generated for each cycle
 
-The application stores data in `data/payroll.db` (SQLite). Override the location by setting the `PAYROLL_DATABASE_URL` environment variable.
+The application uses PostgreSQL for all environments. Set the `PAYROLL_DATABASE_URL` environment variable to your connection string.
 
-### Switching between SQLite (dev) and Postgres (prod)
+For local development, use the included Docker Compose file:
 
-- Local development: set `ENVIRONMENT=development` (or `dev`) and run the server. If a Postgres URL is unreachable, the app now falls back to the bundled SQLite database automatically. To **force Postgres failures locally**, set `LOCAL_DEV_SQLITE_FALLBACK=0`.
-- Production/staging: set `ENVIRONMENT=production` (or leave unset) and point `PAYROLL_DATABASE_URL` to your managed Postgres instance. In these environments the SQLite fallback stays disabled unless you explicitly set `LOCAL_DEV_SQLITE_FALLBACK=1`.
+```powershell
+docker compose -f docker-compose.dev.yml up -d
+```
+
+This starts PostgreSQL on `localhost:5432` with credentials `payroll/payroll`.
 
 ### Database Configuration Options
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PAYROLL_DATABASE_URL` | `sqlite:///data/payroll.db` | Database connection URL |
+| `PAYROLL_DATABASE_URL` | `postgresql://payroll:payroll@localhost:5432/payroll_dev` | Database connection URL |
 | `ENVIRONMENT` | `production` | Environment mode (development/production) |
 | `DB_CONNECT_RETRIES` | `3` | Connection retry attempts |
 | `DB_RETRY_DELAY` | `1.0` | Initial retry delay in seconds |
@@ -68,7 +71,6 @@ Use PostgreSQL in production to avoid data loss across deploys and dyno restarts
 - In your Render web service ("payroll-desk"), add/update:
 	- `PAYROLL_DATABASE_URL` = the Postgres connection string above
 	- `ENVIRONMENT` = `production`
-	- `LOCAL_DEV_SQLITE_FALLBACK` = `false` (optional — defaults to disabled in production)
 
 3) Redeploy/restart
 - Save the variables and trigger a deploy/restart so the app reconnects using Postgres.
@@ -81,9 +83,8 @@ Notes
 - Do not commit secrets in `render.yaml`; set them in the Render UI.
 - The included `render.yaml` targets branch `main` for deployments.
 
-Data migration from SQLite (optional)
-- If you already have data in `data/payroll.db` and need it in Postgres, create a one-off migration before switching.
-- We can provide a script that reads from `sqlite:///data/payroll.db` and writes to your Postgres URL, copying tables in a safe order. Ask for the "SQLite → Postgres migration script" to add it to the repo with a short runbook.
+Data migration
+- For migrating data between PostgreSQL instances, use Alembic migrations and standard pg_dump/pg_restore tools.
 
 ## Running Tests
 
@@ -140,3 +141,25 @@ Typical cycle:
 	git checkout -b hotfix/<issue>
 	```
 	After validation, merge the hotfix into `main`, tag if needed, and merge back into `develop` to keep histories aligned.
+
+## Documentation
+
+All project documentation lives in the `docs/` folder:
+
+| Document | Description |
+|----------|-------------|
+| [SYSTEM_OVERVIEW.md](docs/SYSTEM_OVERVIEW.md) | Architecture and system design |
+| [TECHNICAL_SPEC.md](docs/TECHNICAL_SPEC.md) | Detailed technical specification |
+| [UI_UX_GUIDE.md](docs/UI_UX_GUIDE.md) | UI/UX design guidelines and component library |
+| [ALEMBIC_GUIDE.md](docs/ALEMBIC_GUIDE.md) | Database migration guide (Alembic) |
+| [MIGRATION_GUIDE.md](docs/MIGRATION_GUIDE.md) | Data migration procedures |
+| [ASSESSMENT_GUIDE.md](docs/ASSESSMENT_GUIDE.md) | Assessment and evaluation procedures |
+| [DOCUMENTATION_GUIDE.md](docs/DOCUMENTATION_GUIDE.md) | Documentation standards and conventions |
+| [DUPLICATE_HANDLING.md](docs/DUPLICATE_HANDLING.md) | Duplicate detection and resolution logic |
+| [SCHEDULE_REVAMP.md](docs/SCHEDULE_REVAMP.md) | Schedule system redesign plan |
+| [ENHANCEMENTS.md](docs/ENHANCEMENTS.md) | Planned feature enhancements |
+| [ISSUES.md](docs/ISSUES.md) | Known issues and technical debt tracker |
+| [TODO.md](docs/TODO.md) | Task tracking and backlog |
+| [DESIGN_AUDIT.md](docs/DESIGN_AUDIT.md) | Design language audit and recommendations |
+
+See also: [CHANGELOG.md](CHANGELOG.md) for release notes.

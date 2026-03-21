@@ -26,7 +26,8 @@
 </form>
 
 {% if logs %}
-<section class="card" style="overflow-x:auto;">
+<section class="card">
+  <div class="data-table-wrapper">
   <table class="data-table">
     <thead>
       <tr>
@@ -62,6 +63,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </section>
 
 <!-- Pagination -->

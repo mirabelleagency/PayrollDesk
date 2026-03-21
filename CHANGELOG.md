@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.49.0 - 2026-03-22
+
+### Added
+- feat(ui): Favicon — blue gradient calendar icon matching sidebar logo, added to all page types (base, login, error)
+- feat(ui): Styled error pages for 400, 403, 404, 405, 500 — browser requests now get a branded error card instead of raw JSON
+- feat(responsive): Hamburger menu breakpoint raised from 480px to 768px — mobile menu now activates on tablets and phones per UI guide
+- feat(responsive): Global `.data-table-wrapper` CSS rule with `overflow-x: auto` — all 20+ data tables now scroll horizontally on mobile
+- feat(responsive): Touch-target enforcement — compact buttons get `min-height: 44px` on screens ≤768px
+- feat(responsive): Resolve duplicates grid uses `auto-fit` for mobile stacking
+- docs: Design language audit (`docs/DESIGN_AUDIT.md`) — color palette, breakpoints, component inventory, 8/10 rating with recommendations
+- docs: README now links to all 13 docs in `docs/` (was zero links before)
+- docs: Created `COLLABORATION_LOG.md` (required by project conventions, was missing)
+- docs: Copilot audit protocol (`.github/copilot-audit-protocol.md`)
+
+### Changed
+- refactor(main): HTTP exception handler now renders styled HTML error pages for browser requests while preserving JSON responses for API clients
+- style(css): Sidebar breakpoints restructured — at ≤768px sidebar hides off-screen, hamburger toggle appears (was overlapping at 481–768px)
+- docs: Updated `copilot-instructions.md` with current tech stack, coding conventions, and command system
+- docs: Updated `ISSUES.md` audit version from v2.44.0 to v2.48.1
+- docs: Updated `TECHNICAL_SPEC.md` version to v2.48.1
+- docs: Updated `README.md` — removed SQLite references, updated DB config table
+
+### Fixed
+- fix(responsive): Table scroll wrappers added to `all_table.html`, `audit_log.html`, `combined_payouts.html`, `detail.html` (alert table), `list.html` (payment history)
+- fix(ui): Error page now loads `styles.min.css?v=4` instead of unminified `styles.css`
+
+### Removed
+- Removed obsolete `docs/tasksync.md`
+- Removed `.github/workflows/auto-versioning.yml` (unused)
+- CSS cache-bust version remains `v=4` (styles changed but not structurally)
+
+---
+
 ## v2.48.1 - 2026-03-22
 
 ### Fixed

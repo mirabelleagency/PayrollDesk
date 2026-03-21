@@ -2,7 +2,7 @@
 
 > Comprehensive technical documentation for the PayrollDesk payroll management system.
 
-**Version:** 2.42.0
+**Version:** 2.48.1
 ## Table of Contents
 
 1. [System Overview](#system-overview)

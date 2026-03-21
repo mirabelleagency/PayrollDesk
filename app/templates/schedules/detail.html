@@ -1171,6 +1171,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
     
     <!-- Alert details (collapsible) -->
     <div class="compensation-alert-banner__details" id="compensation-details" style="display: none;">
+        <div class="data-table-wrapper">
         <table class="compensation-alert-table">
             <thead>
                 <tr>
@@ -1223,6 +1224,7 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
                 {% endfor %}
             </tbody>
         </table>
+        </div>
         
         <div class="compensation-alert-banner__bulk-actions">
             <span>Bulk Actions:</span>

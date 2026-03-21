@@ -55,7 +55,7 @@
                 Payment: {{ first_dup.csv_data.pay_date }} | ${{ first_dup.csv_data.amount }} | {{ first_dup.csv_data.status|title }}
             </h3>
             
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 16px;">
                 <!-- CSV Version -->
                 <div style="background: rgba(59, 130, 246, 0.1); padding: 12px; border-radius: 6px; border: 1px solid rgba(59, 130, 246, 0.3);">
                     <p style="margin: 0 0 8px 0; font-weight: 600; color: #60a5fa;">📋 CSV Version (Row {{ first_dup.row_num }})</p>
