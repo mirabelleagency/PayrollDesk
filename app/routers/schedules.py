@@ -70,16 +70,16 @@ DEFAULT_EXPORT_DIR = Path("exports")
 
 
 def _compute_run_etag(db: Session, run_id: int, status_filter: str | None = None) -> str:
-    """Compute a lightweight ETag from payout data timestamps without building the export."""
+    """Compute a lightweight ETag from payout data without building the export."""
     from app.models import Payout
     q = db.query(
         func.count(Payout.id),
-        func.max(Payout.updated_at),
+        func.max(Payout.id),
     ).filter(Payout.schedule_run_id == run_id)
     if status_filter and status_filter != "overdue":
         q = q.filter(Payout.status == status_filter)
-    cnt, max_updated = q.one()
-    raw = f"{run_id}:{status_filter}:{cnt}:{max_updated}"
+    cnt, max_id = q.one()
+    raw = f"{run_id}:{status_filter}:{cnt}:{max_id}"
     return hashlib.md5(raw.encode()).hexdigest()
 
 

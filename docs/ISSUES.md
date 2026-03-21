@@ -10,10 +10,10 @@
 | Severity | Count | Resolved | Deferred |
 |----------|-------|----------|----------|
 | Critical | 1 | 1 | 0 |
-| High | 2 | 2 | 0 |
+| High | 3 | 3 | 0 |
 | Medium | 8 | 7 | 1 |
 | Low | 10 | 7 | 3 |
-| **Total** | **21** | **17** | **4** |
+| **Total** | **22** | **18** | **4** |
 
 ---
 
@@ -463,3 +463,4 @@ The initial database setup creates `admin` / `admin123` as default credentials. 
 | 19 | Low | Security | DB connection info leaked on admin page | admin.py | ✅ Only dialect/driver shown |
 | 20 | Low | Code Quality | Unused import | admin.py | ✅ Cleaned |
 | 21 | Low | Security | Default admin credentials `admin/admin123` | database.py | ✅ Random password on init |
+| 22 | **High** | Bug | `_compute_run_etag` references non-existent `Payout.updated_at` | schedules.py | ✅ Use `func.max(Payout.id)` |

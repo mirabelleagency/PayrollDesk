@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.48.1 - 2026-03-22
+
+### Fixed
+- fix(export): `_compute_run_etag` referenced non-existent `Payout.updated_at` column, crashing Excel export — replaced with `func.max(Payout.id)`
+
 ## v2.48.0 - 2026-03-17
 
 ### Added
