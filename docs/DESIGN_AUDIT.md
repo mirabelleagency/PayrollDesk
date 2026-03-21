@@ -181,52 +181,49 @@ locally (now redundant since global rule was added):
 
 > Audit Date: 2026-03-22
 
-### Current State: Emoji-Based Icons
+### Current State: SVG Icon System Complete
 
-The system uses **~100 emoji instances** across
-**18 templates**, comprising **~30 unique emoji
-characters**. Emoji serve as visual markers for:
+The emoji-based UI markers have been fully replaced
+across `app/templates/` with a shared Lucide SVG
+icon system in `app/icons.py`. Templates now use
+`{{ icon('name') }}` so icons render consistently
+on all platforms and can be styled with CSS.
 
-- **Page titles** — `💰 Pending Advance Approvals`,
-  `⚙️ Settings`, `📝 Ad Hoc Payments Workspace`
-- **Section headings** — via `<span
-  class="section-icon">📅</span>`
-- **Hero/KPI card icons** — via `<span
-  class="hero-stat-card__icon">🗓️</span>`
-- **Action buttons** — `🗑️` delete, `✏️` edit,
-  `➕` create, `📊` export
-- **Status indicators** — `🚨` overdue, `⏸️`
-  on-hold, `🔒` locked
-- **Alert banners** — `⚠️` warnings
-- **Empty states** — `📭` no records, `💸`
-  no payments
-- **Search placeholders** — `🔍` in input fields
-- **CSS content property** — 1 instance in
-  `detail.html` (`content: '⚠️'`)
+Current implementation covers:
 
-### Emoji Inventory
+- **Page titles** — primary blue accent
+- **Section headings** — muted slate icon color
+- **Hero/KPI cards** — semantic icon colors by card
+  variant (primary, warning, success, accent)
+- **Action buttons** — icons inherit button color
+- **Status indicators** — overdue, locked, warning,
+  and save states now use SVG icons
+- **Alert banners** — warning and danger icons match
+  their banner state colors
+- **Empty states** — neutral or contextual icons
+- **JS-driven quick actions** — schedule detail and
+  combined payouts keep SVG icons after DOM updates
+- **Search placeholders** — emoji removed in favor of
+  plain text placeholders
+- **CSS pseudo-content** — the alert pseudo-element
+  was changed from emoji to a styled indicator dot
 
-| Emoji | Meaning | Count | Templates |
-|-------|---------|-------|-----------|
-| ⚠️ | Warning/alert | ~10 | detail, dashboard, settings, adhoc, purge |
-| 💰 | Money/payment | ~6 | adhoc, commissions, combined_payouts, payments, view |
-| 📊 | Export/data | ~5 | dashboard, list, detail, all_table, payments |
-| 📋 | List/records | ~5 | audit_log, commissions, list, payments, view |
-| 👥 | Users/models | ~4 | list, payments, adhoc, users |
-| 💳 | Payment card | ~3 | list, payments, view |
-| 🔍 | Search | ~3 | commissions, list, payments |
-| 🚨 | Overdue/alert | ~3 | dashboard, detail, combined_payouts |
-| ➕ | Create/add | ~3 | list, detail, view, user_form |
-| 🗑️ | Delete | ~2 | commissions, settings |
-| ✏️ | Edit | ~2 | user_form, view |
-| 📅 | Calendar/date | ~3 | commissions, settings, payments |
-| 🔒 | Locked | ~2 | login, combined_payouts, users |
-| 💵 | Cash/amount | ~2 | combined_payouts, view |
-| 💸 | Spending | ~3 | view |
-| 🏦 | Bank/advance | ~2 | view |
-| 📥 | Import/download | ~2 | list, detail |
-| 🔄 | Refresh/sync | ~2 | settings, detail |
-| Others | Various | ~10 | scattered |
+### Semantic Color Behavior
+
+The SVG system uses `currentColor`, and the main
+stylesheet now assigns icon color by location:
+
+| Context | Color Direction |
+|---------|-----------------|
+| Page titles | Blue accent |
+| Section icons | Muted slate |
+| Primary/info cards | Blue |
+| Success/paid cards | Green |
+| Warning/pending cards | Amber |
+| Danger/compliance/overdue | Red |
+| Accent/adhoc cards | Violet |
+| Neutral/secondary areas | Slate |
+| Buttons | Inherit button text color |
 
 ### Problems with Emoji Icons
 
@@ -248,31 +245,34 @@ characters**. Emoji serve as visual markers for:
 6. **Print rendering** — Emoji may not render in
    print stylesheets or PDF exports.
 
-### Recommended Replacement: SVG Icon System
+These issues are now resolved by the SVG rollout.
 
-**Approach: Lucide Icons via Jinja2 macro**
+### Implemented Replacement: SVG Icon System
+
+**Approach: Lucide Icons via Jinja2 helper**
 
 [Lucide](https://lucide.dev) is a lightweight,
 MIT-licensed icon library (1,500+ icons) used by
 shadcn/ui and modern web apps. Implementation:
 
-1. **Jinja2 icon macro** — `{{ icon('wallet') }}`
+1. **Jinja2 icon helper** — `{{ icon('wallet') }}`
    renders an inline SVG with consistent sizing
 2. **Theme-aware** — Icons inherit `currentColor`,
-   matching our slate/blue palette automatically
+  then receive semantic color by UI context
 3. **Scalable** — Crisp at any size, no pixelation
 4. **Interactive** — Can change color on hover/focus
 5. **Accessible** — Proper `aria-hidden="true"` with
    text labels, or `aria-label` for icon-only buttons
-6. **~15-20KB** total for 30 needed icons (inline)
+6. **Centralized** — New icons can be added in one
+  place and reused across templates
 
-**Migration scope:**
+### Outcome
 
-- ~100 template replacements across 18 files
-- 1 CSS `content` property update
-- Search placeholder emoji (🔍) → plain text
-  (SVG cannot render inside `placeholder` attribute)
-- Effort: Medium (2-3 hours)
+- Template icon usage is now platform-consistent
+- Icon styling is theme-aware and semantic
+- UI no longer mixes emoji and SVG styles
+- Future icon work can remain CSS-driven instead of
+  editing per-template colors
 
 **Alternative: Custom SVG sprite sheet**
 

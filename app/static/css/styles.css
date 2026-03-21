@@ -107,6 +107,95 @@ body {
     vertical-align: -2px;
 }
 
+/* Semantic icon color system by UI context */
+.page-title .icon {
+    color: #60a5fa;
+}
+
+.section-icon .icon {
+    color: #94a3b8;
+}
+
+.alert-banner__icon,
+.alert-item-icon,
+.quick-action-bar__icon {
+    color: #cbd5e1;
+}
+
+.alert-banner--danger .alert-banner__icon,
+.card--urgent .section-icon .icon,
+.status-chip-filter--overdue .icon,
+.overdue-badge .icon,
+.dashboard-nav-card--compliance .dashboard-nav-card__icon,
+.compensation-alert-banner__icon {
+    color: #f87171;
+}
+
+.alert-banner--warning .alert-banner__icon,
+.quick-action-bar__icon,
+.card--warning .section-icon .icon {
+    color: #fbbf24;
+}
+
+.hero-stat-card--primary .hero-stat-card__icon,
+.financial-card--total .financial-card__icon,
+.model-metric--primary .model-metric__icon,
+.schedule-metric--primary .schedule-metric__icon,
+.payment-metric--primary .payment-metric__icon,
+.dashboard-nav-card--history .dashboard-nav-card__icon,
+.model-view-card__icon,
+.model-view-section__icon,
+.export-modal__title .icon {
+    color: #60a5fa;
+}
+
+.hero-stat-card--warning .hero-stat-card__icon,
+.financial-card--pending .financial-card__icon,
+.schedule-metric--warning .schedule-metric__icon,
+.payment-metric--warning .payment-metric__icon,
+.status-badge__value--warning .icon {
+    color: #fbbf24;
+}
+
+.hero-stat-card--success .hero-stat-card__icon,
+.financial-card--cleared .financial-card__icon,
+.schedule-metric--success .schedule-metric__icon,
+.payment-metric--success .payment-metric__icon,
+.model-metric--financial .model-metric__icon {
+    color: #34d399;
+}
+
+.hero-stat-card--accent .hero-stat-card__icon,
+.financial-card--models .financial-card__icon,
+.model-metric--info .model-metric__icon,
+.dashboard-nav-card--adhoc .dashboard-nav-card__icon {
+    color: #a78bfa;
+}
+
+.hero-stat-card--neutral .hero-stat-card__icon,
+.model-metric--neutral .model-metric__icon,
+.schedule-metric--neutral .schedule-metric__icon,
+.payment-metric--neutral .payment-metric__icon,
+.dashboard-nav-card--payments .dashboard-nav-card__icon,
+.empty-state-card__icon .icon,
+.empty-state-icon .icon,
+.model-view-empty__icon .icon {
+    color: #cbd5e1;
+}
+
+.schedule-metric--danger .schedule-metric__icon,
+.payment-metric--danger .payment-metric__icon,
+.hero-stat-card--danger .hero-stat-card__icon {
+    color: #f87171;
+}
+
+.button .icon,
+.action-button .icon,
+.commission-action-button .icon,
+.status-badge .icon {
+    color: inherit;
+}
+
 /* ============================================
    GLOBAL FOCUS STYLES - Accessibility
    ============================================ */

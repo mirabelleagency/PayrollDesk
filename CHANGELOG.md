@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.51.1 - 2026-03-22
+
+### Changed
+- style(ui): Added semantic, location-based SVG icon colors in `app/static/css/styles.css` so icons inherit blue, green, amber, red, violet, or neutral tones from their surrounding UI context
+- docs: Updated `docs/DESIGN_AUDIT.md` iconography audit to reflect the completed SVG rollout and semantic color system
+
+---
+
 ## v2.51.0 - 2026-03-22
 
 ### Changed

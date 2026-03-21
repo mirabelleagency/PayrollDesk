@@ -4,7 +4,7 @@ Tracks decisions, document changes, and current project phase.
 
 ## Current Phase
 
-**Maintenance & Polish** — v2.51.0
+**Maintenance & Polish** — v2.51.1
 
 ## Documents
 
@@ -30,6 +30,14 @@ Tracks decisions, document changes, and current project phase.
 ## Decision Log
 
 ### 2026-03-22
+
+- **Icon color system**: Added semantic icon coloring
+  in `app/static/css/styles.css` so SVG icons inherit
+  contextual colors by location instead of staying
+  monochrome.
+- **Design audit updated**: `docs/DESIGN_AUDIT.md`
+  now documents the completed icon rollout and the
+  semantic color behavior.
 
 - **Icon rollout completed**: Replaced remaining emoji-based UI
   markers across all templates in `app/templates/`.
