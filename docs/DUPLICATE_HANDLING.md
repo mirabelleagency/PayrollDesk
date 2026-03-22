@@ -305,3 +305,9 @@ Row 5: Model with code 'BADCODE' not found in database
 
 ---
 
+## Related
+
+- [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md) — Data import
+- [TECHNICAL_SPEC.md](TECHNICAL_SPEC.md) — Schema constraints
+- [DOCUMENT-INDEX.md](DOCUMENT-INDEX.md) — All docs
+

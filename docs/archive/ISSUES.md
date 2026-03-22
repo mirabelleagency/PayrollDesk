@@ -1,3 +1,6 @@
+> **ARCHIVED** — 18 of 22 issues resolved, 4 deferred.
+> See [CHANGELOG.md](../../CHANGELOG.md) for fixes applied.
+
 # PayrollDeskAI — Known Issues & Technical Debt
 
 > Audit Date: 2026-03-22 | Version: 2.48.1  

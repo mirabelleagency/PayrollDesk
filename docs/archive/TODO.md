@@ -1,8 +1,11 @@
+> **ARCHIVED** — Task tracking frozen at v2.40.0.
+> See [CHANGELOG.md](../../CHANGELOG.md) for completed work.
+
 # Task List
 
 ---
 
-## 📖 How to Use This File
+## How to Use This File
 
 ### Purpose
 Track pending tasks, completed work, and project roadmap for PayrollDesk.

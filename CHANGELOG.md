@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.51.2 - 2026-03-23
+
+### Fixed
+- fix(schedules): Bulk status update returning 422 — route `/{run_id}/payouts/bulk-update/status` was declared after `/{run_id}/payouts/{payout_id}/status`, causing FastAPI to match "bulk-update" as a payout ID; reordered routes so the specific bulk path matches first
+
+### Changed
+- docs: Reorganized `docs/` — archived completed trackers (ENHANCEMENTS, TODO, ISSUES), merged overlapping guides (UI_UX_GUIDE into DESIGN_AUDIT, SYSTEM_OVERVIEW into TECHNICAL_SPEC), added DOCUMENT-INDEX.md and crosslinks
+
+---
+
 ## v2.51.1 - 2026-03-22
 
 ### Changed

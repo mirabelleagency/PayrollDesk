@@ -1,3 +1,8 @@
+> **ARCHIVED** — High-level architecture now in
+> [TECHNICAL_SPEC.md](../TECHNICAL_SPEC.md). Deep-dive
+> implementation details (payroll engine, allocation
+> algorithms, CRUD reference) here remain valid reference.
+
 # PayrollDeskAI — System Overview (Technical Deep Dive)
 
 > Generated: 2026-03-08 | Version: 2.44.0

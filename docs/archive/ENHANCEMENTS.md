@@ -1,3 +1,6 @@
+> **ARCHIVED** — All 29 enhancements completed as of v2.48.1.
+> See [CHANGELOG.md](../../CHANGELOG.md) for release history.
+
 # PayrollDesk Enhancement Plan
 
 > Generated from system flow analysis on payrolldesk-v4 branch.

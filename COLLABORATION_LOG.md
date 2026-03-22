@@ -4,30 +4,40 @@ Tracks decisions, document changes, and current project phase.
 
 ## Current Phase
 
-**Maintenance & Polish** — v2.51.1
+**Maintenance & Polish** — v2.51.2
 
 ## Documents
+
+See [docs/DOCUMENT-INDEX.md](docs/DOCUMENT-INDEX.md) for
+the full index including archived docs.
 
 | File | Purpose |
 |------|---------|
 | `README.md` | Project overview, setup, docs index |
 | `CHANGELOG.md` | Release notes by version |
 | `COLLABORATION_LOG.md` | This file — decisions and progress |
-| `docs/SYSTEM_OVERVIEW.md` | Architecture and system design |
-| `docs/TECHNICAL_SPEC.md` | Technical specification |
-| `docs/UI_UX_GUIDE.md` | UI/UX guidelines |
+| `docs/TECHNICAL_SPEC.md` | Architecture, schema, API, security |
+| `docs/DESIGN_AUDIT.md` | Design system, colors, icons |
+| `docs/SCHEDULE_REVAMP.md` | Schedule 10-phase redesign |
 | `docs/ALEMBIC_GUIDE.md` | Alembic migration guide |
-| `docs/MIGRATION_GUIDE.md` | Data migration procedures |
-| `docs/ASSESSMENT_GUIDE.md` | Assessment procedures |
-| `docs/DOCUMENTATION_GUIDE.md` | Documentation standards |
+| `docs/MIGRATION_GUIDE.md` | Data migration and CSV import |
 | `docs/DUPLICATE_HANDLING.md` | Duplicate detection logic |
-| `docs/SCHEDULE_REVAMP.md` | Schedule redesign plan |
-| `docs/ENHANCEMENTS.md` | Feature enhancement plans |
-| `docs/ISSUES.md` | Known issues & tech debt |
-| `docs/TODO.md` | Task tracking |
-| `docs/DESIGN_AUDIT.md` | Design language audit |
+| `docs/ASSESSMENT_GUIDE.md` | Assessment framework |
+| `docs/DOCUMENTATION_GUIDE.md` | Documentation standards |
+| `docs/DOCUMENT-INDEX.md` | Document index and archive list |
 
 ## Decision Log
+
+### 2026-03-23
+
+- **Docs reorganization**: Archived completed trackers
+  (ENHANCEMENTS, TODO, ISSUES) and stale overlapping
+  guides (UI_UX_GUIDE, SYSTEM_OVERVIEW) to `docs/archive/`.
+  Created DOCUMENT-INDEX.md. Added crosslinks to all
+  active docs.
+- **Bulk status fix**: Route ordering bug — bulk-update
+  path matched by single-payout wildcard route, causing
+  422. Reordered routes in `app/routers/schedules.py`.
 
 ### 2026-03-22
 

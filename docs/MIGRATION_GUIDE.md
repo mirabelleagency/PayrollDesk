@@ -297,3 +297,12 @@ For issues or questions:
 - Check error messages in the UI or CLI output
 - Review validation messages in the database
 - Consult this guide's Troubleshooting section
+
+---
+
+## Related
+
+- [DUPLICATE_HANDLING.md](DUPLICATE_HANDLING.md) — Duplicate
+  prevention across imports
+- [ALEMBIC_GUIDE.md](ALEMBIC_GUIDE.md) — Schema migrations
+- [DOCUMENT-INDEX.md](DOCUMENT-INDEX.md) — All docs

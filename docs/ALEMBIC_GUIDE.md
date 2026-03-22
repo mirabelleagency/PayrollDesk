@@ -152,3 +152,11 @@ Migrations target **PostgreSQL** (the production and development database). The 
 | Version | Description | Date |
 |---------|-------------|------|
 | 0001 | Initial baseline (stamp existing schema) | 2024-12-24 |
+
+---
+
+## Related
+
+- [TECHNICAL_SPEC.md](TECHNICAL_SPEC.md) — Database schema
+- [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md) — Data import/export
+- [DOCUMENT-INDEX.md](DOCUMENT-INDEX.md) — All docs

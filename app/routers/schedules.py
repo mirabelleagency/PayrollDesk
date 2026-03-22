@@ -2725,46 +2725,6 @@ def bulk_update_payouts(
     return RedirectResponse(url=target_url, status_code=303)
 
 
-@router.post("/{run_id}/payouts/{payout_id}/status")
-def api_update_payout_status(
-    run_id: int,
-    payout_id: int,
-    status: str = Form(...),
-    db: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
-):
-    """AJAX-friendly endpoint to update a single payout's status without full-page reload.
-
-    Returns minimal JSON so the client can update the UI in-place.
-    """
-    payout = crud.get_payout(db, payout_id)
-    if not payout or payout.schedule_run_id != run_id:
-        raise HTTPException(status_code=404, detail="Payout not found")
-
-    status_value = (status or "").strip().lower()
-    if status_value not in PAYOUT_STATUS_ENUM:
-        raise HTTPException(status_code=400, detail="Invalid payout status")
-
-    # Preserve existing notes, only update status
-    advance_deducted = crud.update_payout(db, payout, payout.notes, status_value)
-    _invalidate_dashboard_cache()  # Clear cache after status update
-
-    # Compute overdue flag server-side to reduce client logic differences
-    today = date.today()
-    is_overdue = bool(payout.pay_date and payout.pay_date < today and status_value in ("not_paid", "on_hold"))
-
-    resp = {
-        "ok": True,
-        "payout_id": payout.id,
-        "run_id": run_id,
-        "new_status": status_value,
-        "is_overdue": is_overdue,
-    }
-    if advance_deducted > 0:
-        resp["advance_deducted"] = str(advance_deducted)
-    return JSONResponse(resp)
-
-
 @router.post("/{run_id}/payouts/bulk-update/status")
 def api_bulk_update_payouts(
     run_id: int,
@@ -2814,6 +2774,46 @@ def api_bulk_update_payouts(
     }
     if total_advance_deducted > 0:
         resp["advance_deducted"] = str(total_advance_deducted)
+    return JSONResponse(resp)
+
+
+@router.post("/{run_id}/payouts/{payout_id}/status")
+def api_update_payout_status(
+    run_id: int,
+    payout_id: int,
+    status: str = Form(...),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """AJAX-friendly endpoint to update a single payout's status without full-page reload.
+
+    Returns minimal JSON so the client can update the UI in-place.
+    """
+    payout = crud.get_payout(db, payout_id)
+    if not payout or payout.schedule_run_id != run_id:
+        raise HTTPException(status_code=404, detail="Payout not found")
+
+    status_value = (status or "").strip().lower()
+    if status_value not in PAYOUT_STATUS_ENUM:
+        raise HTTPException(status_code=400, detail="Invalid payout status")
+
+    # Preserve existing notes, only update status
+    advance_deducted = crud.update_payout(db, payout, payout.notes, status_value)
+    _invalidate_dashboard_cache()  # Clear cache after status update
+
+    # Compute overdue flag server-side to reduce client logic differences
+    today = date.today()
+    is_overdue = bool(payout.pay_date and payout.pay_date < today and status_value in ("not_paid", "on_hold"))
+
+    resp = {
+        "ok": True,
+        "payout_id": payout.id,
+        "run_id": run_id,
+        "new_status": status_value,
+        "is_overdue": is_overdue,
+    }
+    if advance_deducted > 0:
+        resp["advance_deducted"] = str(advance_deducted)
     return JSONResponse(resp)
 
 

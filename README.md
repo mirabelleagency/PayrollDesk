@@ -144,22 +144,19 @@ Typical cycle:
 
 ## Documentation
 
-All project documentation lives in the `docs/` folder:
+Project documentation lives in `docs/`. See
+[DOCUMENT-INDEX.md](docs/DOCUMENT-INDEX.md) for the
+full index including archived docs.
 
 | Document | Description |
 |----------|-------------|
-| [SYSTEM_OVERVIEW.md](docs/SYSTEM_OVERVIEW.md) | Architecture and system design |
-| [TECHNICAL_SPEC.md](docs/TECHNICAL_SPEC.md) | Detailed technical specification |
-| [UI_UX_GUIDE.md](docs/UI_UX_GUIDE.md) | UI/UX design guidelines and component library |
+| [TECHNICAL_SPEC.md](docs/TECHNICAL_SPEC.md) | Architecture, schema, API, security |
+| [DESIGN_AUDIT.md](docs/DESIGN_AUDIT.md) | Design system, colors, typography, icons |
+| [SCHEDULE_REVAMP.md](docs/SCHEDULE_REVAMP.md) | Schedule system 10-phase redesign |
 | [ALEMBIC_GUIDE.md](docs/ALEMBIC_GUIDE.md) | Database migration guide (Alembic) |
-| [MIGRATION_GUIDE.md](docs/MIGRATION_GUIDE.md) | Data migration procedures |
-| [ASSESSMENT_GUIDE.md](docs/ASSESSMENT_GUIDE.md) | Assessment and evaluation procedures |
-| [DOCUMENTATION_GUIDE.md](docs/DOCUMENTATION_GUIDE.md) | Documentation standards and conventions |
-| [DUPLICATE_HANDLING.md](docs/DUPLICATE_HANDLING.md) | Duplicate detection and resolution logic |
-| [SCHEDULE_REVAMP.md](docs/SCHEDULE_REVAMP.md) | Schedule system redesign plan |
-| [ENHANCEMENTS.md](docs/ENHANCEMENTS.md) | Planned feature enhancements |
-| [ISSUES.md](docs/ISSUES.md) | Known issues and technical debt tracker |
-| [TODO.md](docs/TODO.md) | Task tracking and backlog |
-| [DESIGN_AUDIT.md](docs/DESIGN_AUDIT.md) | Design language audit and recommendations |
+| [MIGRATION_GUIDE.md](docs/MIGRATION_GUIDE.md) | Data migration and CSV import |
+| [DUPLICATE_HANDLING.md](docs/DUPLICATE_HANDLING.md) | Duplicate detection across imports |
+| [ASSESSMENT_GUIDE.md](docs/ASSESSMENT_GUIDE.md) | Assessment and evaluation framework |
+| [DOCUMENTATION_GUIDE.md](docs/DOCUMENTATION_GUIDE.md) | Documentation standards |
 
 See also: [CHANGELOG.md](CHANGELOG.md) for release notes.

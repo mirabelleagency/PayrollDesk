@@ -795,3 +795,14 @@ COMMISSION_STATUS_ENUM = ("unpaid", "paid")
 ---
 
 *Document generated for PayrollDesk v2.32.2*
+
+---
+
+## Related
+
+- [DESIGN_AUDIT.md](DESIGN_AUDIT.md) — Design system
+- [SCHEDULE_REVAMP.md](SCHEDULE_REVAMP.md) — Schedule redesign
+- [ALEMBIC_GUIDE.md](ALEMBIC_GUIDE.md) — Schema migrations
+- [archive/SYSTEM_OVERVIEW.md](archive/SYSTEM_OVERVIEW.md) —
+  Deep-dive algorithms, CRUD reference, import/export
+- [DOCUMENT-INDEX.md](DOCUMENT-INDEX.md) — All docs

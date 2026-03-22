@@ -345,3 +345,12 @@ def update_payout(db, payout, note, status):
 - Amendment history log panel on schedule detail
 - Per-row refresh button for individual model recalculation
 - Warning banner when some payouts in a run are locked
+
+---
+
+## Related
+
+- [TECHNICAL_SPEC.md](TECHNICAL_SPEC.md) — Payroll engine spec
+- [archive/SYSTEM_OVERVIEW.md](archive/SYSTEM_OVERVIEW.md) —
+  Allocation algorithm deep-dive
+- [DOCUMENT-INDEX.md](DOCUMENT-INDEX.md) — All docs

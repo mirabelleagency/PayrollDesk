@@ -1,7 +1,7 @@
 # Copilot Audit & Command Protocol
 
 This file contains the detailed Module Audit Protocol and Command System for structured codebase analysis.
-Read this file when `/audit`, `/plan`, `/implement`, `/verify`, `/debug`, `/refactor`, `/document`, `/test`, or `/release` commands are used.
+Read this file when `/audit`, `/plan`, `/implement`, `/verify`, `/debug`, `/refactor`, or `/document` commands are used.
 
 ---
 
@@ -108,31 +108,9 @@ Each command has a defined behavior. When a command is used, follow it strictly.
 Analyze the current state of a module based on actual code.
 
 1. Inspect codebase for all module-related logic
-2. Generate: Implementation report, Architecture report,
-   Gap analysis, Status document
+2. Generate: Implementation report, Architecture report, Gap analysis, Status document
 3. Include code references for every claim
 4. Mark anything unverified as NOT IMPLEMENTED
-
-#### /audit (no module — full project)
-
-When `/audit` is run without a module name, perform a
-project-wide consistency check:
-
-1. **File inventory** — List every file in the project
-   with its purpose and current state
-2. **Tech stack consistency** — Verify the tech stack
-   matches across all docs (README, planning, copilot
-   instructions, backend architecture, etc.)
-3. **Cross-reference check** — Look for references to
-   files, structures, or concepts that don’t exist
-4. **Document completeness** — Flag any incomplete
-   sections, placeholder content, or contradictions
-5. **Crosslink verification** — Run the crosslink
-   check from `/document` Crosslink Rules
-6. **Status doc accuracy** — Verify status tracking
-   docs match actual project state
-7. **Report** — Present findings as CLEAN or list
-   issues with specific file references
 
 ### /plan [feature or module]
 
@@ -167,24 +145,6 @@ Identify root cause of a problem.
 2. Identify failure point: UI, backend, data, integration
 3. Provide: root cause, exact location (file + function), fix plan
 
-### /test [module or feature]
-
-Write or run tests for a module or feature.
-
-1. Identify testable logic (state mutations, service
-   functions, prompt construction, data validation)
-2. Check for existing tests — avoid duplicates
-3. Write tests using project test framework (Jest)
-4. Run tests and report results:
-   - Passed / Failed / Skipped counts
-   - Failure details with file + line references
-5. If tests fail due to bugs (not test errors), flag
-   for `/debug`
-
-#### /test (no args — full suite)
-
-Run all existing tests and report summary.
-
 ### /refactor [module or code]
 
 Improve structure without changing behavior.
@@ -194,71 +154,68 @@ Improve structure without changing behavior.
 3. Propose improvements
 4. Implement only after validation
 
-### /document [module]
+### /document [module|organize]
 
-Update system documentation to reflect current
-implementation. Do NOT invent features — only document
-what actually exists in code.
+Update system documentation to reflect current implementation,
+or organize the docs directory.
 
-#### Documentation Checklist
+**Always (both modes):**
 
-1. **Identify what changed** — List all files modified
-   since docs were last updated
-2. **Update relevant docs** — For each file in `docs/`,
-   check if the changes overlap with that doc's topic.
-   Update any doc whose subject matter was affected.
-3. **Update status tracking** — Update all files in
-   `docs/status/` that are affected by the changes.
-   Move items between Implemented/Not Implemented,
-   mark resolved gaps, add new gaps if found.
-4. **Update COLLABORATION_LOG.md** — Add decisions
-   made, documents changed, update current phase
-5. **Update README.md** — If new docs were created
-   or project status changed
-6. **Cross-link verification** — Run the crosslink
-   check (see Crosslink Rules below)
+1. Maintain `docs/DOCUMENT-INDEX.md` — every doc must be listed
+2. Maintain crosslinks — every doc must have a `Related:` header
+   linking to related docs
+3. Fix any broken references found during the update
+4. Do NOT invent features — only document what exists in code
 
-#### Crosslink Rules
+**When a module is specified** (`/document image`,
+`/document turn-flow`, etc.):
 
-Every document must link to related docs. After any
-documentation change, verify:
+1. Search all docs for content about the module (grep for
+   keywords, check DOCUMENT-INDEX.md)
+2. Update each doc that covers the module: architecture,
+   status, API reference, schema docs, usage notes
+3. Ensure consistency — same facts in all docs that mention
+   the module
+4. If a status doc exists in `docs/status/`, update it
+5. If no status doc exists and the module is complex enough,
+   create one using the status template
 
-- `README.md` links to every doc in `docs/`
-- `COLLABORATION_LOG.md` lists every doc by filename
-- Each doc in `docs/` links to any other doc it
-  references or depends on (e.g., schema ↔ backend,
-  plan ↔ design docs, technical ↔ architecture)
-- Status docs in `docs/status/` link to their source
-  design docs
-- No doc references a file that doesn't exist
+**When "organize" is specified** (or no module given):
 
-If a new doc is created:
-
-1. Add link in `README.md` under Docs section
-2. Add filename in `COLLABORATION_LOG.md`
-3. Add crosslinks from/to related existing docs
+1. Scan docs/ for content overlap — flag docs with >50%
+   shared content
+2. Merge overlapping docs (keep the more complete version,
+   redirect the other)
+3. Archive obsolete docs to `docs/archive/` with a note at
+   the top pointing to the replacement or explaining why
+4. Verify DOCUMENT-INDEX.md is complete and accurate
+5. Remove dead crosslinks, fix broken references
+6. Ensure consistent frontmatter (`Related:` links at top)
+7. Report: what was merged, archived, or reorganized
 
 ### /release
 
-Prepare code for release commit with full documentation.
+Prepare code for a release commit.
 
-1. Add/update `@fileoverview` headers for new or
-   modified files
-2. Add JSDoc comments to all exported functions,
-   hooks, interfaces, and types in modified files
-   that lack JSDoc
-3. Update `docs/changelog.md` with new features, bug
-   fixes, breaking changes
-4. Bump version in root `package.json`
-5. Update displayed version in UI
-   (`src/app/index.tsx` version tag)
-6. Run `/document` checklist (including crosslinks)
-7. Run pre-commit checklist:
-   - TypeScript compiles without errors
-   - All crosslinks are valid
-   - No stale references in any doc
-   - COLLABORATION_LOG.md is current
-8. Commit with conventional format:
-   `feat: <summary> (v0.X.0)` with body listing
-   key changes
-9. Push to remote
+1. **Determine version bump** — Scan commits since last
+   release: `feat:` → MINOR, `fix:` → PATCH, breaking
+   changes → MAJOR (semver)
+2. **Bump version** — Update version in all package/config
+   files (discover with `file_search **/*package.json` or
+   equivalent manifest files for the project's language)
+3. **Update changelog** — Add entry to changelog with new
+   features, bug fixes, breaking changes (create changelog
+   if none exists)
+4. **Update documentation** — Update any docs affected by
+   the changes. Run `/document organize` checks (crosslinks,
+   index, broken references)
+5. **Add code documentation** — Add/update doc comments on
+   new or modified exported symbols (JSDoc, docstrings, etc.
+   per language)
+6. **Verify build** — Ensure the project compiles/builds
+   without errors
+7. **Commit** — Use conventional commit format:
+   `release: vX.Y.Z`
+8. **Push** — Push the release commit to the configured
+   remote. If tags are part of the release flow, push the
+   release tag as well after the commit succeeds

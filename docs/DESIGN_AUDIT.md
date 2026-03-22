@@ -280,3 +280,12 @@ A `<symbol>`-based sprite loaded once in `base.html`
 and referenced with `<svg><use href="#icon-name">`.
 More control but requires building/maintaining the
 sprite file manually.
+
+---
+
+## Related
+
+- [TECHNICAL_SPEC.md](TECHNICAL_SPEC.md) — Architecture
+- [archive/UI_UX_GUIDE.md](archive/UI_UX_GUIDE.md) — Workflow
+  diagrams, form patterns, component HTML examples
+- [DOCUMENT-INDEX.md](DOCUMENT-INDEX.md) — All docs

@@ -1,6 +1,11 @@
+> **ARCHIVED** — Superseded by [DESIGN_AUDIT.md](../DESIGN_AUDIT.md)
+> for design system. Workflow diagrams and form patterns
+> here remain valid reference material.
+
 # PayrollDesk UI/UX Guide
 
-> User interface documentation, design patterns, and workflow guides for PayrollDesk.
+> User interface documentation, design patterns, and
+> workflow guides for PayrollDesk.
 
 **Version:** 2.32.2  
 **Last Updated:** December 24, 2025
