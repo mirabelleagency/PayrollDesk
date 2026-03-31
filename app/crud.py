@@ -1680,7 +1680,7 @@ def list_audit_logs(
     limit: int = 100,
     offset: int = 0,
     action_filter: str | None = None,
-) -> tuple[list[AuditLog], int]:
+) -> tuple[Sequence[AuditLog], int]:
     """Return paginated audit log entries with total count."""
     from app.auth import User as _User  # local to avoid circular at module level
 
@@ -1690,7 +1690,7 @@ def list_audit_logs(
         stmt = stmt.where(AuditLog.action == action_filter)
         count_stmt = count_stmt.where(AuditLog.action == action_filter)
     total = db.execute(count_stmt).scalar_one()
-    rows = db.execute(stmt.offset(offset).limit(limit)).scalars().all()
+    rows = list(db.execute(stmt.offset(offset).limit(limit)).scalars().all())
     return rows, total
 
 
@@ -2307,7 +2307,7 @@ def bulk_update_commission_payout_status(
     )
     result = db.execute(stmt)
     db.commit()
-    return result.rowcount
+    return result.rowcount  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def delete_commission_payout(db: Session, payout: CommissionPayout) -> None:
@@ -2647,4 +2647,4 @@ def bulk_resolve_alerts(
     )
     result = db.execute(stmt)
     db.commit()
-    return result.rowcount
+    return result.rowcount  # pyright: ignore[reportAttributeAccessIssue]

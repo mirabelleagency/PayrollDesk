@@ -2432,6 +2432,15 @@ def add_new_models_to_schedule(
         # Join codes with comma for URL param (will be used to highlight rows)
         url += f"&added_codes={','.join(added_codes)}"
     
+    # Preserve any active filters from the referring page
+    referer = request.headers.get("referer", "")
+    if "?" in referer:
+        from urllib.parse import urlparse, parse_qs
+        ref_params = parse_qs(urlparse(referer).query)
+        for key in ("status", "code", "frequency", "payment_method", "pay_date", "q"):
+            if key in ref_params and ref_params[key][0]:
+                url += f"&{key}={ref_params[key][0]}"
+    
     return RedirectResponse(
         url=url,
         status_code=303,

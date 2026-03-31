@@ -153,6 +153,7 @@ class PayrollService:
         # Preserve old payout status and notes for matching payouts
         old_payout_data = {}
         locked_codes: set[str] = set()
+        locked_payout_keys: set[tuple] = set()  # (code, pay_date) pairs with locked payouts
         if existing_runs:
             run = existing_runs[0]  # Use the most recent run for this month
             # Save status and notes from old payouts before clearing
@@ -160,6 +161,7 @@ class PayrollService:
                 key = (payout.code, payout.pay_date)
                 if payout.is_locked:
                     locked_codes.add(payout.code)
+                    locked_payout_keys.add(key)
                 else:
                     old_payout_data[key] = {
                         "status": payout.status,
@@ -179,11 +181,11 @@ class PayrollService:
             )
         
         models = crud.list_models(self.db)
-        # Only recalculate for non-locked models
-        models_to_calc = [m for m in models if m.code not in locked_codes]
+        # Recalculate ALL models — locked payouts are preserved in DB,
+        # and we filter out duplicates before storing new payouts.
         records = [
             self._to_record(index, model, target_year, target_month, freq_plans)
-            for index, model in enumerate(models_to_calc, start=1)
+            for index, model in enumerate(models, start=1)
         ]
 
         schedule_df, summary = build_pay_schedule(
@@ -215,6 +217,13 @@ class PayrollService:
             notes_value = payout.get("Notes")
             if notes_value is None or (isinstance(notes_value, float) and pd.isna(notes_value)):
                 payout["Notes"] = None
+
+        # Exclude payouts that would conflict with locked payouts already in DB
+        if locked_payout_keys:
+            payout_records = [
+                p for p in payout_records
+                if (p["Code"], p["Pay Date"]) not in locked_payout_keys
+            ]
 
         crud.store_payouts(
             self.db,

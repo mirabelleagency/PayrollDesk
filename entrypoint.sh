@@ -6,8 +6,8 @@ echo "[entrypoint] working dir: $(pwd)"
 echo "[entrypoint] python: $(python -V 2>&1)"
 echo "[entrypoint] pip packages:"
 pip --disable-pip-version-check list || true
-echo "[entrypoint] environment vars:"
-env | sort
+echo "[entrypoint] environment vars (secrets filtered):"
+env | sort | grep -v -E '(DATABASE_URL|SESSION_SECRET|PASSWORD|SECRET_KEY|API_KEY)'
 
 # Run database migrations
 echo "[entrypoint] running alembic migrations..."
