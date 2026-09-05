@@ -13,6 +13,7 @@ from app.auth import User
 from app.database import get_session, engine, DATABASE_URL
 from app.dependencies import templates
 from app.routers.auth import get_current_user, get_admin_user
+from app.auth_session import bump_session_version
 from app.security import unlock_account
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -193,6 +194,7 @@ def reset_user_password(
         raise HTTPException(status_code=404, detail="User not found")
     
     user.password_hash = User.hash_password(new_password)
+    bump_session_version(db, user)
     db.commit()
     return RedirectResponse(url="/admin/users", status_code=303)
 

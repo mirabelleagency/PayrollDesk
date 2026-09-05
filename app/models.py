@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from decimal import Decimal
 
+from app.time_utils import utc_now
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -17,6 +18,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -26,6 +28,12 @@ STATUS_ENUM = ("Active", "Inactive")
 FREQUENCY_ENUM = ("weekly", "biweekly", "monthly")
 PAYOUT_STATUS_ENUM = ("paid", "approved", "on_hold", "not_paid")
 ADHOC_PAYMENT_STATUS_ENUM = ("pending", "paid", "cancelled")
+BREAKDOWN_SOURCE_ENUM = (
+    "native",
+    "backfilled_repayment",
+    "backfilled_allocation",
+    "legacy_net_only",
+)
 
 
 class Model(Base):
@@ -41,12 +49,14 @@ class Model(Base):
     payment_frequency: Mapped[str] = mapped_column(String(20), nullable=False)
     amount_monthly: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     crypto_wallet: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.now, onupdate=datetime.now, nullable=False
+        DateTime, default=utc_now, onupdate=utc_now, nullable=False
     )
 
-    payouts: Mapped[list["Payout"]] = relationship(back_populates="model", cascade="all, delete-orphan")
+    payouts: Mapped[list["Payout"]] = relationship(
+        back_populates="model", passive_deletes=True
+    )
     validations: Mapped[list["ValidationIssue"]] = relationship(
         back_populates="model", cascade="all, delete-orphan"
     )
@@ -76,12 +86,16 @@ class ScheduleRun(Base):
     summary_models_paid: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     summary_total_payout: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=0)
     summary_frequency_counts: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
     export_path: Mapped[str] = mapped_column(String(255), nullable=False, default="exports")
 
     payouts: Mapped[list["Payout"]] = relationship(back_populates="schedule_run", cascade="all, delete-orphan")
     validations: Mapped[list["ValidationIssue"]] = relationship(
         back_populates="schedule_run", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("target_year", "target_month", name="uq_schedule_runs_year_month"),
     )
 
 
@@ -98,11 +112,24 @@ class Payout(Base):
     payment_method: Mapped[str] = mapped_column(String(100), nullable=False)
     payment_frequency: Mapped[str] = mapped_column(String(20), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    gross_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    advance_deduction_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    net_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    breakdown_source: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    superseded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="not_paid")
 
     schedule_run: Mapped[ScheduleRun] = relationship(back_populates="payouts")
     model: Mapped[Model] = relationship(back_populates="payouts")
+
+    __table_args__ = (
+        Index("ix_payouts_pay_date", "pay_date"),
+        Index("ix_payouts_status", "status"),
+        Index("ix_payouts_model_id", "model_id"),
+        Index("ix_payouts_schedule_run_id", "schedule_run_id"),
+        UniqueConstraint("schedule_run_id", "code", "pay_date", name="uq_payouts_run_code_pay_date"),
+    )
 
 
 class ValidationIssue(Base):
@@ -143,7 +170,7 @@ class ModelCompensationAdjustment(Base):
     effective_date: Mapped[date] = mapped_column(Date, nullable=False)
     amount_monthly: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
     created_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     model: Mapped[Model] = relationship(back_populates="compensation_adjustments")
@@ -158,26 +185,81 @@ class AdhocPayment(Base):
     __tablename__ = "adhoc_payments"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    model_id: Mapped[int] = mapped_column(ForeignKey("models.id", ondelete="CASCADE"), nullable=False, index=True)
+    model_id: Mapped[int] = mapped_column(ForeignKey("models.id", ondelete="CASCADE"), nullable=False)
     pay_date: Mapped[date] = mapped_column(Date, nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     description: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.now, onupdate=datetime.now, nullable=False
+        DateTime, default=utc_now, onupdate=utc_now, nullable=False
     )
 
     model: Mapped[Model] = relationship(back_populates="adhoc_payments")
 
     __table_args__ = (
+        Index("ix_adhoc_payments_pay_date", "pay_date"),
+        Index("ix_adhoc_payments_model_id", "model_id"),
         CheckConstraint("amount > 0", name="ck_adhoc_payments_amount_positive"),
         CheckConstraint(
             "status IN ('pending', 'paid', 'cancelled')",
             name="ck_adhoc_payments_status_valid",
         ),
     )
+
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    key_prefix: Mapped[str] = mapped_column(String(12), nullable=False)
+    key_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    scopes: Mapped[str] = mapped_column(Text, nullable=False, default='["v1:*"]')
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    revoked_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    revoke_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    def scope_list(self) -> list[str]:
+        import json
+
+        try:
+            parsed = json.loads(self.scopes or "[]")
+            return [str(s) for s in parsed] if isinstance(parsed, list) else []
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+
+class SyncState(Base):
+    __tablename__ = "sync_state"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
+class AdminActionNonce(Base):
+    __tablename__ = "admin_action_nonces"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    purpose: Mapped[str] = mapped_column(String(100), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+
+
+class ApiRateWindow(Base):
+    __tablename__ = "api_rate_windows"
+
+    bucket_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    window_start_epoch: Mapped[int] = mapped_column(Integer, primary_key=True)
+    request_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
@@ -186,7 +268,7 @@ class AuditLog(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     action: Mapped[str] = mapped_column(String(100), nullable=False)
     details: Mapped[str] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
 
 
 # --- Cash advance feature models -------------------------------------------
@@ -216,8 +298,8 @@ class ModelAdvance(Base):
 
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
     activated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     model: Mapped[Model] = relationship(back_populates="advances")
@@ -244,12 +326,20 @@ class AdvanceRepayment(Base):
     payout_id: Mapped[int | None] = mapped_column(ForeignKey("payouts.id", ondelete="SET NULL"), nullable=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     source: Mapped[str] = mapped_column(String(20), nullable=False, default="auto")  # auto | manual
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
 
     advance: Mapped[ModelAdvance] = relationship(back_populates="repayments")
 
     __table_args__ = (
         CheckConstraint("amount > 0", name="ck_advance_repayment_amount_positive"),
+        Index(
+            "uq_advance_repayment_payout_advance",
+            "payout_id",
+            "advance_id",
+            unique=True,
+            sqlite_where=text("payout_id IS NOT NULL"),
+            postgresql_where=text("payout_id IS NOT NULL"),
+        ),
     )
 
 
@@ -262,10 +352,11 @@ class PayoutAdvanceAllocation(Base):
     model_id: Mapped[int] = mapped_column(ForeignKey("models.id", ondelete="CASCADE"), nullable=False, index=True)
     advance_id: Mapped[int] = mapped_column(ForeignKey("model_advances.id", ondelete="CASCADE"), nullable=False, index=True)
     planned_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
 
     __table_args__ = (
         CheckConstraint("planned_amount > 0", name="ck_payout_allocation_amount_positive"),
+        UniqueConstraint("payout_id", "advance_id", name="uq_payout_advance_alloc_payout_advance"),
     )
 
 

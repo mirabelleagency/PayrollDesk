@@ -1,18 +1,19 @@
 #!/bin/sh
 set -e
-# Print useful debug info for startup logs
+# Print useful debug info for startup logs (never dump full environment — secrets may be present)
 echo "[entrypoint] starting at $(date -u)"
 echo "[entrypoint] working dir: $(pwd)"
 echo "[entrypoint] python: $(python -V 2>&1)"
-echo "[entrypoint] pip packages:"
-pip --disable-pip-version-check list || true
-echo "[entrypoint] environment vars:"
-env | sort
+echo "[entrypoint] ENVIRONMENT=${ENVIRONMENT:-unset}"
+echo "[entrypoint] PORT=${PORT:-8000}"
 
 # Default port if not set
 if [ -z "$PORT" ]; then
   PORT=8000
 fi
+
+echo "[entrypoint] running database migrations"
+python -m app.migrations upgrade
 
 echo "[entrypoint] launching gunicorn on 0.0.0.0:$PORT"
 

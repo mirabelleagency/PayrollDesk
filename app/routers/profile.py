@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.auth import User
 from app.database import get_session
 from app.dependencies import templates
+from app.auth_session import bump_session_version
 from app.routers.auth import get_current_user
 from app.security import PasswordValidator
 
@@ -78,7 +79,9 @@ def change_password(
     
     # Update password
     user.password_hash = User.hash_password(new_password)
+    bump_session_version(db, user)
     db.commit()
+    request.session.clear()
     
     return templates.TemplateResponse(
         "profile/profile.html",

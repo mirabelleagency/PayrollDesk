@@ -20,6 +20,15 @@ def test_json_request_gets_401_json():
     assert data.get("detail") == "Not authenticated"
 
 
+def test_api_request_gets_json_401_without_redirect():
+    client = TestClient(app)
+    resp = client.get("/api/v1/models", follow_redirects=False)
+    assert resp.status_code == 401
+    assert resp.json()["detail"] == "Invalid API key"
+    assert resp.headers.get("www-authenticate") == "APIKey"
+    assert "location" not in resp.headers
+
+
 def test_next_param_returns_user_to_original_page_after_login():
     client = TestClient(app)
     # Trigger redirect to capture next

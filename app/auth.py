@@ -22,6 +22,7 @@ class User(Base):
     locked_until: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     failed_login_count: Mapped[int] = mapped_column(default=0, nullable=False)
     last_failed_login: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    session_version: Mapped[int] = mapped_column(default=1, nullable=False)
     
     @staticmethod
     def hash_password(password: str) -> str:

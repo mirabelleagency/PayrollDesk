@@ -61,7 +61,7 @@
                 <span class="nav-link__text">Profile</span>
             </a>
             {% if user.is_admin() %}
-            <a class="nav-link {% if path.startswith('/admin') %}active{% endif %}" href="/admin/users" aria-label="User administration">
+            <a class="nav-link {% if path.startswith('/admin/users') %}active{% endif %}" href="/admin/users" aria-label="User administration">
                 <span class="nav-link__icon" aria-hidden="true">
                     <!-- User/group SVG icon (keeps consistent stroke/fill with theme) -->
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" focusable="false">
@@ -72,6 +72,10 @@
                     </svg>
                 </span>
                 <span class="nav-link__text">User Admin</span>
+            </a>
+            <a class="nav-link {% if path.startswith('/admin/api-keys') %}active{% endif %}" href="/admin/api-keys" aria-label="API keys">
+                <span class="nav-link__icon">🔑</span>
+                <span class="nav-link__text">API Keys</span>
             </a>
             <a class="nav-link {% if path == '/admin/settings' %}active{% endif %}" href="/admin/settings" aria-label="Admin settings">
                 <span class="nav-link__icon">⚙️</span>
@@ -89,10 +93,12 @@
                     <span class="sidebar__user-role">{{ user.role|title }}</span>
                 </div>
             </div>
-            <a class="sidebar__logout" href="/logout">
-                <span class="nav-link__icon">🚪</span>
-                <span>Logout</span>
-            </a>
+            <form class="sidebar__logout" method="post" action="/logout" style="margin:0;">
+                <button type="submit" class="sidebar__logout" style="background:none;border:none;width:100%;cursor:pointer;text-align:left;display:flex;align-items:center;gap:8px;color:inherit;font:inherit;padding:0;">
+                    <span class="nav-link__icon">🚪</span>
+                    <span>Logout</span>
+                </button>
+            </form>
         </div>
         {% endif %}
     </aside>

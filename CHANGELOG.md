@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.21.0 - 2026-03-22
+
+### Added
+- feat(api): read-only external pull API `/api/v1` with API key auth, keyset pagination, and admin key management UI
+- feat(api-v2): snapshot revision sync, HMAC cursors, scoped keys, gross/net payout fields, stable payout identity, and `/api/v2` typed endpoints
+- feat(security): signed revocable admin sessions, DB-backed rate limits, CSRF + one-time form nonces for API key admin
+- feat(migrations): versioned pre-worker migration runner with fail-closed schema verification
+
+### Changed
+- refactor(payroll): atomic payroll refresh transaction with payout upsert by `(schedule_run_id, code, pay_date)`
+- chore(deps): require FastAPI >= 0.115 for typed query models
+
+### Notes
+- Existing API keys migrate to `v1:*` only; grant explicit `v2:*` scopes for v2 access.
+- Set `API_CURSOR_SECRET`, `API_RATE_SECRET`, and `SESSION_SECRET` (min 32 chars) in production before enabling v2.
+
 ## v2.19.0 - 2025-11-08
 
 ### Added
