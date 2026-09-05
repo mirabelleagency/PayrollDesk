@@ -4,13 +4,30 @@ from __future__ import annotations
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-from fastapi.templating import Jinja2Templates
+from starlette.requests import Request
+from starlette.templating import Jinja2Templates as StarletteJinja2Templates
 
 from app.core.formatting import format_display_date, format_display_datetime
 from app import __version__
 from app.database import get_session
 
 TEMPLATES_PATH = Path(__file__).parent / "templates"
+
+
+class Jinja2Templates(StarletteJinja2Templates):
+    """Support legacy TemplateResponse(name, context) calls on Starlette 1.x."""
+
+    def TemplateResponse(self, request_or_name, name_or_context=None, context=None, **kwargs):
+        if isinstance(request_or_name, str):
+            name = request_or_name
+            ctx = name_or_context or {}
+            request = ctx.get("request")
+            if request is None:
+                raise ValueError("Template context must include 'request'")
+            return super().TemplateResponse(request, name, ctx, **kwargs)
+        return super().TemplateResponse(request_or_name, name_or_context, context, **kwargs)
+
+
 templates = Jinja2Templates(directory=str(TEMPLATES_PATH))
 
 

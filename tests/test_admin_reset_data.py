@@ -59,12 +59,17 @@ def test_reset_application_data_clears_domain_tables_and_keeps_users(test_db):
 
     issue = ValidationIssue(schedule_run_id=run.id, model_id=model.id, severity="warning", issue="test")
     test_db.add(issue)
+
+    from app.models import ApiKey
+
+    test_db.add(ApiKey(name="persist", key_prefix="pd_testprefix", key_hash="a" * 64))
     test_db.commit()
 
     # Sanity preconditions
     assert test_db.query(Model).count() == 1
     assert test_db.query(Payout).count() == 1
     assert test_db.query(ValidationIssue).count() == 1
+    assert test_db.query(ApiKey).count() == 1
 
     # Execute reset
     result = crud.reset_application_data(test_db)
@@ -78,6 +83,8 @@ def test_reset_application_data_clears_domain_tables_and_keeps_users(test_db):
     assert test_db.query(AdhocPayment).count() == 0
     assert test_db.query(ModelCompensationAdjustment).count() == 0
 
-    # Users are kept (admin seeded by init_db)
+    # Users and API keys are kept
     from app.auth import User
+
     assert test_db.query(User).count() >= 1
+    assert test_db.query(ApiKey).count() == 1

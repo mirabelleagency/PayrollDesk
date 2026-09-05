@@ -58,15 +58,15 @@ class PayrollService:
         # Preserve old payout status and notes for matching payouts
         old_payout_data = {}
         if existing_runs:
-            run = existing_runs[0]  # Use the most recent run for this month
-            # Save status and notes from old payouts before clearing
+            run = existing_runs[0]
             for payout in run.payouts:
+                if payout.superseded_at is not None:
+                    continue
                 key = (payout.code, payout.pay_date)
                 old_payout_data[key] = {
                     "status": payout.status,
                     "notes": payout.notes,
                 }
-            # Clear old payouts and validations so we can refresh with current data
             crud.clear_schedule_data(self.db, run)
         else:
             run = crud.create_schedule_run(
@@ -75,51 +75,56 @@ class PayrollService:
                 target_month=target_month,
                 currency=currency,
                 include_inactive=include_inactive,
-                summary={},  # Will be updated below
+                summary={},
                 export_path=str(output_dir),
             )
-        
-        models = crud.list_models(self.db)
-        records = [
-            self._to_record(index, model, target_year, target_month)
-            for index, model in enumerate(models, start=1)
-        ]
 
-        schedule_df, summary = build_pay_schedule(records, target_year, target_month, currency)
-        models_df = build_models_table(records, currency)
-        validation_df = build_validation_report(records, include_inactive)
+        try:
+            models = crud.list_models(self.db)
+            records = [
+                self._to_record(index, model, target_year, target_month)
+                for index, model in enumerate(models, start=1)
+            ]
 
-        schedule_df, models_df, validation_df = ensure_non_empty_frames(
-            schedule_df, models_df, validation_df, currency
-        )
+            schedule_df, summary = build_pay_schedule(records, target_year, target_month, currency)
+            models_df = build_models_table(records, currency)
+            validation_df = build_validation_report(records, include_inactive)
 
-        # Update the run with new summary data
-        run.summary_models_paid = summary.get("models_paid", 0)
-        run.summary_total_payout = Decimal(str(summary.get("total_payout", 0)))
-        run.summary_frequency_counts = json.dumps(summary.get("frequency_counts", {}))
-        self.db.commit()
+            schedule_df, models_df, validation_df = ensure_non_empty_frames(
+                schedule_df, models_df, validation_df, currency
+            )
 
-        amount_column = f"Amount ({currency})"
-        payout_records = schedule_df.to_dict(orient="records")
-        for payout in payout_records:
-            pay_date_value = payout.get("Pay Date")
-            if hasattr(pay_date_value, "date"):
-                payout["Pay Date"] = pay_date_value.date()
-            amount_value = payout.get(amount_column)
-            if amount_value is not None:
-                payout[amount_column] = Decimal(str(amount_value))
-            notes_value = payout.get("Notes")
-            if notes_value is None or (isinstance(notes_value, float) and pd.isna(notes_value)):
-                payout["Notes"] = None
+            run.summary_models_paid = summary.get("models_paid", 0)
+            run.summary_total_payout = Decimal(str(summary.get("total_payout", 0)))
+            run.summary_frequency_counts = json.dumps(summary.get("frequency_counts", {}))
+            run.export_path = str(output_dir)
+            self.db.add(run)
 
-        crud.store_payouts(
-            self.db,
-            run,
-            payout_records,
-            amount_column=amount_column,
-            old_payout_data=old_payout_data,
-        )
-        crud.store_validation_messages(self.db, run, records, include_inactive)
+            amount_column = f"Amount ({currency})"
+            payout_records = schedule_df.to_dict(orient="records")
+            for payout in payout_records:
+                pay_date_value = payout.get("Pay Date")
+                if hasattr(pay_date_value, "date"):
+                    payout["Pay Date"] = pay_date_value.date()
+                amount_value = payout.get(amount_column)
+                if amount_value is not None:
+                    payout[amount_column] = Decimal(str(amount_value))
+                notes_value = payout.get("Notes")
+                if notes_value is None or (isinstance(notes_value, float) and pd.isna(notes_value)):
+                    payout["Notes"] = None
+
+            crud.store_payouts(
+                self.db,
+                run,
+                payout_records,
+                amount_column=amount_column,
+                old_payout_data=old_payout_data,
+            )
+            crud.store_validation_messages(self.db, run, records, include_inactive)
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
 
         # Build export schedule from DB payouts to reflect cash advance deductions (net vs gross)
         payouts_with_allocs = crud.list_payouts_with_allocations_for_run(self.db, run.id)

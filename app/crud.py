@@ -255,11 +255,14 @@ def create_compensation_adjustment(
 
 
 def clear_schedule_data(db: Session, schedule_run: ScheduleRun) -> None:
-    # Delete allocations linked to this run first to avoid stale planned deductions
-    db.query(PayoutAdvanceAllocation).filter(PayoutAdvanceAllocation.schedule_run_id == schedule_run.id).delete(synchronize_session=False)
-    db.query(Payout).filter(Payout.schedule_run_id == schedule_run.id).delete()
-    db.query(ValidationIssue).filter(ValidationIssue.schedule_run_id == schedule_run.id).delete()
-    db.commit()
+    """Remove planned allocations and validations for a refresh; payouts are upserted."""
+    db.query(PayoutAdvanceAllocation).filter(
+        PayoutAdvanceAllocation.schedule_run_id == schedule_run.id
+    ).delete(synchronize_session=False)
+    db.query(ValidationIssue).filter(ValidationIssue.schedule_run_id == schedule_run.id).delete(
+        synchronize_session=False
+    )
+    db.flush()
 
 
 def create_schedule_run(
@@ -295,26 +298,73 @@ def create_schedule_run(
         export_path=export_path,
     )
     db.add(run)
-    db.commit()
+    db.flush()
     db.refresh(run)
     return run
 
 
-def store_payouts(db: Session, run: ScheduleRun, payouts: Iterable[dict], amount_column: str, old_payout_data: dict | None = None) -> None:
-    """Store payouts, preserving status and notes from previous payouts when available."""
+def _payout_has_repayments(db: Session, payout_id: int) -> bool:
+    count = db.execute(
+        select(func.count()).select_from(AdvanceRepayment).where(AdvanceRepayment.payout_id == payout_id)
+    ).scalar_one()
+    return int(count or 0) > 0
+
+
+def store_payouts(
+    db: Session,
+    run: ScheduleRun,
+    payouts: Iterable[dict],
+    amount_column: str,
+    old_payout_data: dict | None = None,
+) -> None:
+    """Upsert payouts by (schedule_run_id, code, pay_date); preserve paid snapshots."""
     if old_payout_data is None:
         old_payout_data = {}
-    
-    objects: list[Payout] = []
+
+    existing_rows = list(
+        db.execute(select(Payout).where(Payout.schedule_run_id == run.id)).scalars().all()
+    )
+    existing_by_key = {(p.code, p.pay_date): p for p in existing_rows}
+    seen_keys: set[tuple[str, date]] = set()
+    payout_objects: list[Payout] = []
+
     for payout in payouts:
         pay_date = payout["Pay Date"]
         code = payout["Code"]
         key = (code, pay_date)
-        
-        # Check if this payout existed before - if so, preserve its status and notes
+        seen_keys.add(key)
+        gross_value = Decimal(str(payout.get(amount_column) or 0))
+        existing = existing_by_key.get(key)
+
+        if existing and existing.status == "paid":
+            existing.superseded_at = None
+            db.add(existing)
+            payout_objects.append(existing)
+            continue
+
+        if existing:
+            existing.model_id = _lookup_model_id(db, code)
+            existing.real_name = payout["Real Name"]
+            existing.working_name = payout["Working Name"]
+            existing.payment_method = payout["Payment Method"]
+            existing.payment_frequency = payout["Payment Frequency"]
+            existing.amount = gross_value
+            existing.gross_amount = gross_value
+            existing.net_amount = gross_value
+            existing.advance_deduction_amount = Decimal("0")
+            existing.breakdown_source = "native"
+            existing.superseded_at = None
+            notes = old_payout_data.get(key, {}).get("notes", payout.get("Notes"))
+            existing.notes = notes
+            if existing.status != "paid":
+                status = old_payout_data.get(key, {}).get("status", existing.status or "not_paid")
+                existing.status = status
+            db.add(existing)
+            payout_objects.append(existing)
+            continue
+
         status = old_payout_data.get(key, {}).get("status", "not_paid")
         notes = old_payout_data.get(key, {}).get("notes", payout.get("Notes"))
-        
         payout_obj = Payout(
             schedule_run_id=run.id,
             model_id=_lookup_model_id(db, code),
@@ -324,20 +374,33 @@ def store_payouts(db: Session, run: ScheduleRun, payouts: Iterable[dict], amount
             working_name=payout["Working Name"],
             payment_method=payout["Payment Method"],
             payment_frequency=payout["Payment Frequency"],
-            amount=payout.get(amount_column),
+            amount=gross_value,
+            gross_amount=gross_value,
+            net_amount=gross_value,
+            advance_deduction_amount=Decimal("0"),
+            breakdown_source="native",
             notes=notes,
             status=status,
         )
-        objects.append(payout_obj)
-    
-    db.add_all(objects)
-    # Assign IDs so we can link allocations to payouts
+        db.add(payout_obj)
+        payout_objects.append(payout_obj)
+
     db.flush()
 
-    # Apply cash advance allocations and adjust payout amounts (net), without posting repayments yet
-    _apply_advance_allocations_for_run(db, run, objects)
+    for key, existing in existing_by_key.items():
+        if key in seen_keys:
+            continue
+        if existing.status == "paid" or _payout_has_repayments(db, existing.id):
+            existing.superseded_at = datetime.now()
+            db.add(existing)
+        else:
+            db.query(PayoutAdvanceAllocation).filter(
+                PayoutAdvanceAllocation.payout_id == existing.id
+            ).delete(synchronize_session=False)
+            db.delete(existing)
 
-    db.commit()
+    db.flush()
+    _apply_advance_allocations_for_run(db, run, payout_objects)
 
 
 def store_validation_messages(
@@ -362,7 +425,7 @@ def store_validation_messages(
             )
     if issues:
         db.add_all(issues)
-        db.commit()
+    db.flush()
 
 
 def _lookup_model_id(db: Session, code: str) -> int | None:
@@ -1119,13 +1182,18 @@ def purge_model_hard(db: Session, model_id: int) -> dict[str, Decimal | int | st
 
 # --- Maintenance and audit helpers ----------------------------------------
 
-def log_admin_action(db: Session, user_id: int | None, action: str, details: dict | None = None) -> None:
+def add_audit_log(db: Session, user_id: int | None, action: str, details: dict | None = None) -> None:
     payload = AuditLog(
         user_id=user_id,
         action=action,
         details=json.dumps(details or {}),
     )
     db.add(payload)
+    db.flush()
+
+
+def log_admin_action(db: Session, user_id: int | None, action: str, details: dict | None = None) -> None:
+    add_audit_log(db, user_id, action, details)
     db.commit()
 
 
@@ -1333,7 +1401,6 @@ def _apply_advance_allocations_for_run(db: Session, run: ScheduleRun, payouts: l
                 total_deducted += planned
                 temp_remaining[adv.id] = temp_remaining[adv.id] - planned
 
-                # Create allocation row
                 alloc = PayoutAdvanceAllocation(
                     schedule_run_id=run.id,
                     payout_id=payout.id,
@@ -1343,11 +1410,17 @@ def _apply_advance_allocations_for_run(db: Session, run: ScheduleRun, payouts: l
                 )
                 db.add(alloc)
 
-                # Stop if no more room on this payout
                 if (available - total_deducted) <= 0:
                     break
 
-        # Persist adjustments for this model's payouts before next model
+            gross = Decimal(payout.gross_amount or payout.amount or 0)
+            payout.net_amount = Decimal(payout.amount or 0)
+            payout.advance_deduction_amount = total_deducted
+            payout.gross_amount = gross if gross >= payout.net_amount else payout.net_amount + total_deducted
+            payout.amount = payout.net_amount
+            payout.breakdown_source = "native"
+            db.add(payout)
+
         db.flush()
 
 
@@ -1461,10 +1534,228 @@ def reset_application_data(db: Session) -> dict[str, int]:
             db.query(Model).delete(synchronize_session=False) or 0
         )
 
-        # Optionally keep audit logs for traceability; do not delete by default
+        from app.models import SyncState
+
+        sync = db.get(SyncState, 1)
+        if sync:
+            sync.revision = 0
+            db.add(sync)
+
         db.commit()
     except Exception:
         db.rollback()
         raise
 
     return deleted
+
+
+# --- External API list helpers (keyset pagination, exact filters) ------------
+
+def _apply_keyset(stmt, model_id_col, after_id: int | None):
+    if after_id is not None:
+        stmt = stmt.where(model_id_col > after_id)
+    return stmt
+
+
+def list_models_api(
+    db: Session,
+    *,
+    code: str | None = None,
+    status: str | None = None,
+    payment_frequency: str | None = None,
+    payment_method: str | None = None,
+    after_id: int | None = None,
+    limit: int = 100,
+) -> Sequence[Model]:
+    stmt = select(Model)
+    if code:
+        stmt = stmt.where(Model.code == code.strip())
+    if status:
+        stmt = stmt.where(Model.status == status)
+    if payment_frequency:
+        stmt = stmt.where(Model.payment_frequency == payment_frequency)
+    if payment_method:
+        stmt = stmt.where(Model.payment_method == payment_method)
+    stmt = _apply_keyset(stmt, Model.id, after_id)
+    stmt = stmt.order_by(Model.id.asc()).limit(limit + 1)
+    return db.execute(stmt).scalars().all()
+
+
+def list_payouts_api(
+    db: Session,
+    *,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    status: str | None = None,
+    model_id: int | None = None,
+    run_id: int | None = None,
+    after_id: int | None = None,
+    limit: int = 100,
+) -> Sequence[Payout]:
+    stmt = select(Payout).options(selectinload(Payout.model))
+    if date_from:
+        stmt = stmt.where(Payout.pay_date >= date_from)
+    if date_to:
+        stmt = stmt.where(Payout.pay_date <= date_to)
+    if status:
+        stmt = stmt.where(Payout.status == status)
+    if model_id is not None:
+        stmt = stmt.where(Payout.model_id == model_id)
+    if run_id is not None:
+        stmt = stmt.where(Payout.schedule_run_id == run_id)
+    stmt = _apply_keyset(stmt, Payout.id, after_id)
+    stmt = stmt.order_by(Payout.id.asc()).limit(limit + 1)
+    return db.execute(stmt).scalars().all()
+
+
+def list_schedule_runs_api(
+    db: Session,
+    *,
+    year: int | None = None,
+    month: int | None = None,
+    after_id: int | None = None,
+    limit: int = 100,
+) -> Sequence[ScheduleRun]:
+    stmt = select(ScheduleRun)
+    if year is not None:
+        stmt = stmt.where(ScheduleRun.target_year == year)
+    if month is not None:
+        stmt = stmt.where(ScheduleRun.target_month == month)
+    stmt = _apply_keyset(stmt, ScheduleRun.id, after_id)
+    stmt = stmt.order_by(ScheduleRun.id.asc()).limit(limit + 1)
+    return db.execute(stmt).scalars().all()
+
+
+def list_validation_issues_api(
+    db: Session,
+    *,
+    run_id: int | None = None,
+    model_id: int | None = None,
+    severity: str | None = None,
+    after_id: int | None = None,
+    limit: int = 100,
+) -> Sequence[ValidationIssue]:
+    stmt = select(ValidationIssue)
+    if run_id is not None:
+        stmt = stmt.where(ValidationIssue.schedule_run_id == run_id)
+    if model_id is not None:
+        stmt = stmt.where(ValidationIssue.model_id == model_id)
+    if severity:
+        stmt = stmt.where(ValidationIssue.severity == severity)
+    stmt = _apply_keyset(stmt, ValidationIssue.id, after_id)
+    stmt = stmt.order_by(ValidationIssue.id.asc()).limit(limit + 1)
+    return db.execute(stmt).scalars().all()
+
+
+def list_adhoc_payments_api(
+    db: Session,
+    *,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    status: str | None = None,
+    model_id: int | None = None,
+    after_id: int | None = None,
+    limit: int = 100,
+) -> Sequence[AdhocPayment]:
+    stmt = select(AdhocPayment)
+    if date_from:
+        stmt = stmt.where(AdhocPayment.pay_date >= date_from)
+    if date_to:
+        stmt = stmt.where(AdhocPayment.pay_date <= date_to)
+    if status:
+        stmt = stmt.where(AdhocPayment.status == status)
+    if model_id is not None:
+        stmt = stmt.where(AdhocPayment.model_id == model_id)
+    stmt = _apply_keyset(stmt, AdhocPayment.id, after_id)
+    stmt = stmt.order_by(AdhocPayment.id.asc()).limit(limit + 1)
+    return db.execute(stmt).scalars().all()
+
+
+def list_adjustments_api(
+    db: Session,
+    *,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    model_id: int | None = None,
+    after_id: int | None = None,
+    limit: int = 100,
+) -> Sequence[ModelCompensationAdjustment]:
+    stmt = select(ModelCompensationAdjustment)
+    if date_from:
+        stmt = stmt.where(ModelCompensationAdjustment.effective_date >= date_from)
+    if date_to:
+        stmt = stmt.where(ModelCompensationAdjustment.effective_date <= date_to)
+    if model_id is not None:
+        stmt = stmt.where(ModelCompensationAdjustment.model_id == model_id)
+    stmt = _apply_keyset(stmt, ModelCompensationAdjustment.id, after_id)
+    stmt = stmt.order_by(ModelCompensationAdjustment.id.asc()).limit(limit + 1)
+    return db.execute(stmt).scalars().all()
+
+
+def list_advances_api(
+    db: Session,
+    *,
+    status: str | None = None,
+    model_id: int | None = None,
+    after_id: int | None = None,
+    limit: int = 100,
+) -> Sequence[ModelAdvance]:
+    stmt = select(ModelAdvance)
+    if status:
+        stmt = stmt.where(ModelAdvance.status == status)
+    if model_id is not None:
+        stmt = stmt.where(ModelAdvance.model_id == model_id)
+    stmt = _apply_keyset(stmt, ModelAdvance.id, after_id)
+    stmt = stmt.order_by(ModelAdvance.id.asc()).limit(limit + 1)
+    return db.execute(stmt).scalars().all()
+
+
+def get_advance_with_repayments(db: Session, advance_id: int) -> ModelAdvance | None:
+    stmt = (
+        select(ModelAdvance)
+        .options(selectinload(ModelAdvance.repayments))
+        .where(ModelAdvance.id == advance_id)
+    )
+    return db.execute(stmt).scalar_one_or_none()
+
+
+def list_advance_repayments_api(
+    db: Session,
+    *,
+    advance_id: int | None = None,
+    payout_id: int | None = None,
+    after_id: int | None = None,
+    limit: int = 100,
+) -> Sequence[AdvanceRepayment]:
+    stmt = select(AdvanceRepayment)
+    if advance_id is not None:
+        stmt = stmt.where(AdvanceRepayment.advance_id == advance_id)
+    if payout_id is not None:
+        stmt = stmt.where(AdvanceRepayment.payout_id == payout_id)
+    stmt = _apply_keyset(stmt, AdvanceRepayment.id, after_id)
+    stmt = stmt.order_by(AdvanceRepayment.id.asc()).limit(limit + 1)
+    return db.execute(stmt).scalars().all()
+
+
+def list_advance_allocations_api(
+    db: Session,
+    *,
+    run_id: int | None = None,
+    payout_id: int | None = None,
+    model_id: int | None = None,
+    advance_id: int | None = None,
+    after_id: int | None = None,
+    limit: int = 100,
+) -> Sequence[PayoutAdvanceAllocation]:
+    stmt = select(PayoutAdvanceAllocation)
+    if run_id is not None:
+        stmt = stmt.where(PayoutAdvanceAllocation.schedule_run_id == run_id)
+    if payout_id is not None:
+        stmt = stmt.where(PayoutAdvanceAllocation.payout_id == payout_id)
+    if model_id is not None:
+        stmt = stmt.where(PayoutAdvanceAllocation.model_id == model_id)
+    if advance_id is not None:
+        stmt = stmt.where(PayoutAdvanceAllocation.advance_id == advance_id)
+    stmt = _apply_keyset(stmt, PayoutAdvanceAllocation.id, after_id)
+    stmt = stmt.order_by(PayoutAdvanceAllocation.id.asc()).limit(limit + 1)
+    return db.execute(stmt).scalars().all()

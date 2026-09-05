@@ -29,6 +29,8 @@ exports/
 
 # Local database state
 data/*.db
+data/*.db-shm
+data/*.db-wal
 
 # OS / editor noise
 .DS_Store

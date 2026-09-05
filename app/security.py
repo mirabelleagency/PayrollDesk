@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.auth import User
+from app.auth_session import bump_session_version
 from app.models import LoginAttempt
 from app.core.formatting import format_display_datetime
+from app.time_utils import utc_now
 
 # Configuration
 MAX_FAILED_ATTEMPTS = 5
@@ -39,7 +42,7 @@ def get_failed_attempts_count(
     minutes: int = RATE_LIMIT_WINDOW_MINUTES,
 ) -> int:
     """Get count of failed login attempts in the last N minutes."""
-    cutoff_time = datetime.now() - timedelta(minutes=minutes)
+    cutoff_time = utc_now() - timedelta(minutes=minutes)
     
     stmt = select(LoginAttempt).where(
         LoginAttempt.username == username,
@@ -63,14 +66,14 @@ def is_account_locked(db: Session, username: str) -> tuple[bool, str | None]:
     
     # Check if account is permanently locked by admin
     if user.is_locked:
-        if user.locked_until and user.locked_until > datetime.now():
+        if user.locked_until and user.locked_until > utc_now():
             formatted = format_display_datetime(user.locked_until)
             return True, f"Account is locked until {formatted}"
         else:
-            # Auto-unlock if lockout period has passed
             user.is_locked = False
             user.locked_until = None
             user.failed_login_count = 0
+            bump_session_version(db, user)
             db.add(user)
             db.commit()
             return False, None
@@ -88,8 +91,9 @@ def lock_account(
     
     if user:
         user.is_locked = True
-        user.locked_until = datetime.now() + timedelta(minutes=duration_minutes)
-        user.failed_login_count = 0  # Reset counter
+        user.locked_until = utc_now() + timedelta(minutes=duration_minutes)
+        user.failed_login_count = 0
+        bump_session_version(db, user)
         db.add(user)
         db.commit()
 
@@ -100,7 +104,7 @@ def increment_failed_login(db: Session, username: str) -> None:
     
     if user:
         user.failed_login_count += 1
-        user.last_failed_login = datetime.now()
+        user.last_failed_login = utc_now()
         db.add(user)
         db.commit()
         
@@ -129,6 +133,7 @@ def unlock_account(db: Session, username: str) -> None:
         user.locked_until = None
         user.failed_login_count = 0
         user.last_failed_login = None
+        bump_session_version(db, user)
         db.add(user)
         db.commit()
 

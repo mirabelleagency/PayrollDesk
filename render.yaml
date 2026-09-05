@@ -11,6 +11,12 @@ services:
     envVars:
       - key: PAYROLL_DATABASE_URL
         value: "<SET_IN_RENDER_UI>"
+      - key: ENVIRONMENT
+        value: "production"
+      - key: SESSION_SECRET
+        value: "<SET_IN_RENDER_UI>"
+      - key: ADMIN_INITIAL_PASSWORD
+        value: "<SET_IN_RENDER_UI>"
       - key: PYTHONUNBUFFERED
         value: "1"
     healthCheckPath: /health

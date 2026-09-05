@@ -8,11 +8,18 @@ from app.database import SessionLocal
 from app.models import Model, ScheduleRun, Payout
 
 
-def seed_overdue(session, days_ago: int = 1, code: str = "MOD1") -> tuple[ScheduleRun, Payout]:
+def seed_overdue(
+    session,
+    days_ago: int = 1,
+    code: str = "MOD1",
+    *,
+    target_year: int | None = None,
+    target_month: int | None = None,
+) -> tuple[ScheduleRun, Payout]:
     today = date.today()
     run = ScheduleRun(
-        target_year=today.year,
-        target_month=today.month,
+        target_year=target_year or today.year,
+        target_month=target_month or today.month,
         currency="USD",
         include_inactive=False,
         summary_models_paid=0,
@@ -64,9 +71,11 @@ def login_admin(client: TestClient) -> None:
 def test_overdue_consolidated_list_includes_all_runs():
     session = SessionLocal()
     try:
-        # Seed two different overdue payouts across separate runs
-        seed_overdue(session, days_ago=3, code="A001")
-        seed_overdue(session, days_ago=5, code="B002")
+        today = date.today()
+        prev_month = today.month - 1 or 12
+        prev_year = today.year if today.month > 1 else today.year - 1
+        seed_overdue(session, days_ago=3, code="A001", target_year=today.year, target_month=today.month)
+        seed_overdue(session, days_ago=5, code="B002", target_year=prev_year, target_month=prev_month)
     finally:
         session.close()
 

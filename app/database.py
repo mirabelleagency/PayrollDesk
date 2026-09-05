@@ -1,253 +1,152 @@
-"""Database configuration for the payroll web application."""
-from __future__ import annotations
-
-import os
-from datetime import date, datetime
-from pathlib import Path
-from urllib.parse import urlsplit, urlunsplit
-from typing import Generator
-
-from sqlalchemy import create_engine, inspect, text
-from sqlalchemy.orm import Session, declarative_base, sessionmaker
-
-DEFAULT_SQLITE_PATH = Path("data/payroll.db")
-DEFAULT_SQLITE_PATH.parent.mkdir(parents=True, exist_ok=True)
-
-DATABASE_URL = os.getenv("PAYROLL_DATABASE_URL", f"sqlite:///{DEFAULT_SQLITE_PATH}")
-
-
-def _mask_db_url(url: str) -> str:
-    """Redact credentials when logging database URLs."""
-    try:
-        parts = urlsplit(url)
-        netloc = parts.netloc
-        if "@" not in netloc:
-            return url
-        creds, _, host_part = netloc.partition("@")
-        if ":" not in creds:
-            return url
-        username = creds.split(":", 1)[0]
-        masked_netloc = f"{username}:****@{host_part}"
-        return urlunsplit((parts.scheme, masked_netloc, parts.path, parts.query, parts.fragment))
-    except Exception:
-        return url
-
-
-def _create_engine(url: str):
-    """Create a SQLAlchemy engine for the given URL, handling sqlite connect args."""
-    connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {}
-    return create_engine(url, connect_args=connect_args, future=True)
-
-
-# Try to create the engine and verify a quick connection. On local development
-# environments, if the configured database (commonly PostgreSQL) is unreachable
-# we fall back to the SQLite file so developers can run the app without a
-# running Postgres instance. In production we re-raise the exception.
-masked_url = 'sqlite:///*' if DATABASE_URL.startswith('sqlite') else _mask_db_url(DATABASE_URL)
-print(f"[database] ENVIRONMENT={os.getenv('ENVIRONMENT', 'unset')} | PAYROLL_DATABASE_URL={masked_url}")
-
-try:
-    engine = _create_engine(DATABASE_URL)
-    # quick smoke-check connection (some DBs may reject on connect)
-    with engine.connect() as _conn:  # type: ignore[var-annotated]
-        pass
-except Exception as e:  # pragma: no cover - environment dependent
-    env = os.getenv("ENVIRONMENT", "production").lower()
-    default_fallback_flag = "true" if env in ("development", "dev", "local") else "false"
-    allow_dev_fallback = os.getenv("LOCAL_DEV_SQLITE_FALLBACK", default_fallback_flag).lower() in ("1", "true", "yes")
-    print(f"[database] Could not connect to database at {DATABASE_URL!r}: {e}")
-    if env in ("development", "dev", "local") and allow_dev_fallback:
-        # Use local SQLite for development if Postgres is not available and fallback is explicitly enabled
-        fallback = f"sqlite:///{DEFAULT_SQLITE_PATH}"
-        print(f"[database] Falling back to SQLite (dev-only) at {fallback}")
-        DATABASE_URL = fallback
-        engine = _create_engine(DATABASE_URL)
-    else:
-        # Re-raise for non-dev environments or when fallback not enabled so startup fails loudly
-        print("[database] Fallback disabled; aborting startup")
-        raise
-
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
-
-Base = declarative_base()
-
-
-def get_session() -> Generator[Session, None, None]:
-    """FastAPI dependency that yields a database session."""
-
-    session = SessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
-
-
-def init_db() -> None:
-    """Ensure database tables exist and create default admin user if needed."""
-
-    from app import models  # noqa: F401  (import ensures model metadata is registered)
-    from app.auth import User
-
-    # Try to create all tables; if they already exist, skip
-    try:
-        Base.metadata.create_all(bind=engine, checkfirst=True)
-    except Exception as e:
-        # If table creation fails due to existing tables, just log and continue
-        if "already exists" in str(e).lower():
-            print(f"[init_db] Tables already exist, skipping creation: {e}")
-        else:
-            print(f"[init_db] Warning during table creation: {e}")
-    
-    # Create default admin user if it doesn't exist
-    session = SessionLocal()
-    try:
-        # Check if admin user exists
-        admin_count = session.query(User).filter(User.username == "admin").count()
-        if admin_count == 0:
-            # Admin doesn't exist, create it
-            admin_user = User.create_user("admin", "admin", role="admin")
-            session.add(admin_user)
-            session.commit()
-            print("[init_db] Created default admin user (username: admin, password: admin, role: admin)")
-        else:
-            print("[init_db] Admin user already exists, skipping creation")
-    except Exception as e:
-        print(f"[init_db] Error with admin user: {type(e).__name__}: {e}")
-        try:
-            session.rollback()
-        except:
-            pass
-    finally:
-        try:
-            session.close()
-        except:
-            pass
-    
-        ensure_schema_updates()
-
-
-def ensure_schema_updates() -> None:
-    """Ensure all required columns exist in the database tables."""
-    from app.models import Model, ModelCompensationAdjustment
-
-    inspector = inspect(engine)
-    
-    # Remove is_active column from users table (migration from soft-delete to hard-delete)
-    try:
-        users_columns = {column["name"] for column in inspector.get_columns("users")}
-        if "is_active" in users_columns:
-            print("[ensure_schema_updates] Removing deprecated is_active column from users table")
-            with engine.begin() as connection:
-                connection.execute(text("ALTER TABLE users DROP COLUMN is_active"))
-                print("[ensure_schema_updates] Successfully removed is_active column")
-    except Exception as e:
-        print(f"[ensure_schema_updates] Error removing is_active column: {e}")
-    
-    # Ensure users table has role column
-    try:
-        users_columns = {column["name"] for column in inspector.get_columns("users")}
-        if "role" not in users_columns:
-            print("[ensure_schema_updates] Adding role column to users table")
-            with engine.begin() as connection:
-                connection.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(50) NOT NULL DEFAULT 'user'"))
-                print("[ensure_schema_updates] Successfully added role column to users table")
-        else:
-            # Column exists, but make sure admin user has admin role
-            print("[ensure_schema_updates] Checking and fixing admin user role")
-            with engine.begin() as connection:
-                # Update any admin user to have admin role
-                connection.execute(text("UPDATE users SET role = 'admin' WHERE username = 'admin' AND role != 'admin'"))
-                # Ensure no NULL roles exist
-                connection.execute(text("UPDATE users SET role = 'user' WHERE role IS NULL"))
-    except Exception as e:
-        print(f"[ensure_schema_updates] Error updating users table: {e}")
-    
-    # Ensure payouts table has status column
-    try:
-        payouts_columns = {column["name"] for column in inspector.get_columns("payouts")}
-        if "status" not in payouts_columns:
-            print("[ensure_schema_updates] Adding status column to payouts table")
-            with engine.begin() as connection:
-                connection.execute(text("ALTER TABLE payouts ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'not_paid'"))
-                print("[ensure_schema_updates] Successfully added status column to payouts table")
-    except Exception as e:
-        print(f"[ensure_schema_updates] Error updating payouts table: {e}")
-    
-    # Ensure models table has crypto_wallet column
-    try:
-        models_columns = {column["name"] for column in inspector.get_columns("models")}
-        if "crypto_wallet" not in models_columns:
-            print("[ensure_schema_updates] Adding crypto_wallet column to models table")
-            with engine.begin() as connection:
-                connection.execute(text("ALTER TABLE models ADD COLUMN crypto_wallet VARCHAR(200)"))
-                print("[ensure_schema_updates] Successfully added crypto_wallet column to models table")
-    except Exception as e:
-        print(f"[ensure_schema_updates] Error updating models table: {e}")
-    
-    # Ensure users table has security fields
-    try:
-        users_columns = {column["name"] for column in inspector.get_columns("users")}
-        if "is_locked" not in users_columns:
-            print("[ensure_schema_updates] Adding security fields to users table")
-            with engine.begin() as connection:
-                is_postgres = DATABASE_URL.startswith("postgresql")
-                
-                # Add is_locked column
-                connection.execute(text("ALTER TABLE users ADD COLUMN is_locked BOOLEAN NOT NULL DEFAULT false"))
-                
-                # Add locked_until column (use TIMESTAMP for PostgreSQL, DATETIME for SQLite)
-                datetime_type = "TIMESTAMP" if is_postgres else "DATETIME"
-                connection.execute(text(f"ALTER TABLE users ADD COLUMN locked_until {datetime_type}"))
-                
-                # Add failed_login_count column
-                connection.execute(text("ALTER TABLE users ADD COLUMN failed_login_count INTEGER NOT NULL DEFAULT 0"))
-                
-                # Add last_failed_login column
-                connection.execute(text(f"ALTER TABLE users ADD COLUMN last_failed_login {datetime_type}"))
-                
-                print("[ensure_schema_updates] Successfully added security fields to users table")
-    except Exception as e:
-        print(f"[ensure_schema_updates] Error updating users table: {e}")
-
-        # Ensure compensation adjustments table exists and is populated from existing models
-        try:
-            tables = inspector.get_table_names()
-        except Exception as e:
-            print(f"[ensure_schema_updates] Error listing tables: {e}")
-            tables = []
-
-        try:
-            if "model_compensation_adjustments" not in tables:
-                print("[ensure_schema_updates] Creating model_compensation_adjustments table")
-                ModelCompensationAdjustment.__table__.create(bind=engine, checkfirst=True)
-        except Exception as e:
-            print(f"[ensure_schema_updates] Error creating model_compensation_adjustments table: {e}")
-
-        session = SessionLocal()
-        try:
-            for model in session.query(Model).all():
-                existing = (
-                    session.query(ModelCompensationAdjustment)
-                    .filter(ModelCompensationAdjustment.model_id == model.id)
-                    .first()
-                )
-                if existing:
-                    continue
-                effective_date = model.start_date or date.today()
-                adjustment = ModelCompensationAdjustment(
-                    model_id=model.id,
-                    effective_date=effective_date,
-                    amount_monthly=model.amount_monthly,
-                    notes="Seeded from existing model record",
-                )
-                session.add(adjustment)
-            session.commit()
-        except Exception as e:
-            print(f"[ensure_schema_updates] Error seeding compensation adjustments: {e}")
-            try:
-                session.rollback()
-            except Exception:
-                pass
-        finally:
-            session.close()
-
+"""Database configuration for the payroll web application."""
+from __future__ import annotations
+
+import os
+from pathlib import Path
+from typing import Generator
+from urllib.parse import urlsplit, urlunsplit
+
+from sqlalchemy import create_engine, event, text
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
+
+DEFAULT_SQLITE_PATH = Path("data/payroll.db")
+DEFAULT_SQLITE_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+DATABASE_URL = os.getenv("PAYROLL_DATABASE_URL", f"sqlite:///{DEFAULT_SQLITE_PATH}")
+
+
+def _mask_db_url(url: str) -> str:
+    try:
+        parts = urlsplit(url)
+        netloc = parts.netloc
+        if "@" not in netloc:
+            return url
+        creds, _, host_part = netloc.partition("@")
+        if ":" not in creds:
+            return url
+        username = creds.split(":", 1)[0]
+        masked_netloc = f"{username}:****@{host_part}"
+        return urlunsplit((parts.scheme, masked_netloc, parts.path, parts.query, parts.fragment))
+    except Exception:
+        return url
+
+
+def _configure_sqlite_connection(dbapi_conn, _connection_record) -> None:
+    cursor = dbapi_conn.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.execute("PRAGMA busy_timeout=5000")
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.close()
+
+
+def _create_engine(url: str):
+    connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {}
+    eng = create_engine(url, connect_args=connect_args, future=True)
+    if eng.dialect.name == "sqlite":
+        event.listen(eng, "connect", _configure_sqlite_connection)
+    return eng
+
+
+masked_url = "sqlite:///*" if DATABASE_URL.startswith("sqlite") else _mask_db_url(DATABASE_URL)
+print(f"[database] ENVIRONMENT={os.getenv('ENVIRONMENT', 'unset')} | PAYROLL_DATABASE_URL={masked_url}")
+
+try:
+    engine = _create_engine(DATABASE_URL)
+    with engine.connect() as _conn:
+        pass
+except Exception as e:  # pragma: no cover
+    env = os.getenv("ENVIRONMENT", "production").lower()
+    default_fallback_flag = "true" if env in ("development", "dev", "local") else "false"
+    allow_dev_fallback = os.getenv("LOCAL_DEV_SQLITE_FALLBACK", default_fallback_flag).lower() in ("1", "true", "yes")
+    print(f"[database] Could not connect to database at {DATABASE_URL!r}: {e}")
+    if env in ("development", "dev", "local") and allow_dev_fallback:
+        fallback = f"sqlite:///{DEFAULT_SQLITE_PATH}"
+        print(f"[database] Falling back to SQLite (dev-only) at {fallback}")
+        DATABASE_URL = fallback
+        engine = _create_engine(DATABASE_URL)
+    else:
+        print("[database] Fallback disabled; aborting startup")
+        raise
+
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+Base = declarative_base()
+_sync_events_registered = False
+
+
+def get_session() -> Generator[Session, None, None]:
+    session = SessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
+
+
+def get_api_read_session() -> Generator[Session, None, None]:
+    session = SessionLocal()
+    session.info["read_only_api"] = True
+    try:
+        if session.bind and session.bind.dialect.name == "postgresql":
+            session.execute(text("SET TRANSACTION READ ONLY"))
+        yield session
+    finally:
+        session.close()
+
+
+def init_db() -> None:
+    global _sync_events_registered
+    from app import models  # noqa: F401
+    from app.auth import User
+    from app.migrations import SCHEMA_VERSION, upgrade, verify_schema
+    from app.sync import register_sync_events
+
+    if not _sync_events_registered:
+        register_sync_events()
+        _sync_events_registered = True
+
+    try:
+        verify_schema(engine)
+    except RuntimeError:
+        env = os.getenv("ENVIRONMENT", "production").lower()
+        if env in ("development", "dev", "local", "test"):
+            upgrade(engine)
+            verify_schema(engine)
+        else:
+            raise
+
+    session = SessionLocal()
+    try:
+        from app.session_config import is_development_environment
+
+        admin = session.query(User).filter(User.username == "admin").first()
+        if admin is None:
+            if is_development_environment():
+                admin_password = "admin"
+                print("[init_db] Created default admin user (username: admin, password: admin, role: admin)")
+            else:
+                initial_password = os.getenv("ADMIN_INITIAL_PASSWORD", "").strip()
+                if not initial_password:
+                    raise RuntimeError(
+                        "No admin user exists and ADMIN_INITIAL_PASSWORD is not set. "
+                        f"Set ADMIN_INITIAL_PASSWORD before starting with ENVIRONMENT={os.getenv('ENVIRONMENT', 'production')!r}."
+                    )
+                if len(initial_password) < 12:
+                    raise RuntimeError("ADMIN_INITIAL_PASSWORD must be at least 12 characters.")
+                admin_password = initial_password
+                print("[init_db] Created admin user from ADMIN_INITIAL_PASSWORD (username: admin)")
+            session.add(User.create_user("admin", admin_password, role="admin"))
+            session.commit()
+        else:
+            print("[init_db] Admin user already exists, skipping creation")
+            if not is_development_environment() and admin.verify_password("admin"):
+                raise RuntimeError(
+                    "Default admin/admin credentials detected. Change the admin password before "
+                    f"running with ENVIRONMENT={os.getenv('ENVIRONMENT', 'production')!r}."
+                )
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+    print(f"[init_db] Schema verified at version {SCHEMA_VERSION}")
+
