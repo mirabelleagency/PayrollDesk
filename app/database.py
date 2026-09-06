@@ -167,6 +167,18 @@ def get_session() -> Generator[Session, None, None]:
         session.close()
 
 
+def get_api_read_session() -> Generator[Session, None, None]:
+    """Yield a read-only session for external API handlers."""
+    session = SessionLocal()
+    session.info["read_only_api"] = True
+    try:
+        if session.bind and session.bind.dialect.name == "postgresql":
+            session.execute(text("SET TRANSACTION READ ONLY"))
+        yield session
+    finally:
+        session.close()
+
+
 def init_db() -> None:
     """Initialize database tables and create default admin user.
     
@@ -175,6 +187,10 @@ def init_db() -> None:
     """
     from app import models  # noqa: F401 - registers models with Base.metadata
     from app.auth import User
+    from app.env_config import validate_api_secrets_at_startup
+    from app.sync import register_sync_events
+
+    validate_api_secrets_at_startup()
 
     # Create tables (no-op if they exist)
     try:
@@ -226,6 +242,23 @@ def init_db() -> None:
             logger.info("Seeded default frequency plans")
     except Exception as e:
         logger.error("Error seeding pay config: %s", e)
+        session.rollback()
+    finally:
+        session.close()
+
+    from app.sync import register_sync_events
+
+    register_sync_events()
+
+    session = SessionLocal()
+    try:
+        from app.models import SyncState
+
+        if session.get(SyncState, 1) is None:
+            session.add(SyncState(id=1, revision=0))
+            session.commit()
+    except Exception as e:
+        logger.error("Error seeding sync_state: %s", e)
         session.rollback()
     finally:
         session.close()

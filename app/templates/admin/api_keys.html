@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}API Keys · Payroll Desk{% endblock %}
+{% block content %}
+<nav class="breadcrumb">
+  <a href="/dashboard">Dashboard</a>
+  <span class="breadcrumb__sep">›</span>
+  <span class="breadcrumb__current">API Keys</span>
+</nav>
+
+<section class="page-header" style="margin-bottom: 16px;">
+  <div>
+    <h1 class="page-title">{{ icon('key-round') }} API Keys</h1>
+    <p style="color:#94a3b8; margin:8px 0 0 0;">Create and revoke keys for external read-only access via <code>X-API-Key</code></p>
+  </div>
+</section>
+
+{% if message %}
+<div class="alert success">{{ message }}</div>
+{% endif %}
+{% if error %}
+<div class="alert error">{{ error }}</div>
+{% endif %}
+
+{% if new_plaintext_key %}
+<section class="card" style="margin-bottom: 16px; border: 1px solid rgba(16, 185, 129, 0.4);">
+  <h2 style="margin-top:0;">New API key (shown once)</h2>
+  <p style="color:#94a3b8;">Copy this value now. It cannot be retrieved later.</p>
+  <pre id="new-api-key" style="background: rgba(15,23,42,0.8); padding: 12px; border-radius: 6px; overflow-x: auto; color: #f8fafc;">{{ new_plaintext_key }}</pre>
+  <button type="button" class="button button--primary" onclick="navigator.clipboard.writeText(document.getElementById('new-api-key').innerText)">Copy to clipboard</button>
+</section>
+{% endif %}
+
+<section class="card" style="margin-bottom: 16px;">
+  <h2 style="margin-top:0;">Create key</h2>
+  <form method="post" action="/admin/api-keys">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token(request) }}" />
+    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:12px;">
+      <div>
+        <label for="key-name" style="display:block; margin-bottom:4px; color:#94a3b8;">Name</label>
+        <input id="key-name" name="name" required maxlength="100" placeholder="Integration name"
+               style="padding:8px 10px; min-width:260px; background: rgba(15,23,42,0.7); color:#f8fafc; border:1px solid rgba(148,163,184,0.3); border-radius:6px;" />
+      </div>
+      <button class="button button--primary" type="submit">Create API key</button>
+    </div>
+    <fieldset style="border:1px solid rgba(148,163,184,0.25); border-radius:6px; padding:12px;">
+      <legend style="color:#94a3b8;">Scopes</legend>
+      <p style="color:#94a3b8; margin:0 0 8px 0; font-size:14px;">
+        Use <code>v2:*</code> for full read access. Keys expose legal names, notes, and wallet addresses.
+      </p>
+      <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:8px;">
+        {% for scope in scope_choices %}
+        <label style="color:#cbd5e1;">
+          <input type="checkbox" name="scopes" value="{{ scope }}" {% if scope == 'v2:*' %}checked{% endif %} />
+          <code>{{ scope }}</code>
+        </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+  </form>
+</section>
+
+<section class="card">
+  <h2 style="margin-top:0;">Existing keys</h2>
+  {% if api_keys %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Prefix</th>
+        <th>Scopes</th>
+        <th>Created</th>
+        <th>Last used</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for key in api_keys %}
+      <tr>
+        <td>{{ key.name }}</td>
+        <td><code>{{ key.key_prefix }}…</code></td>
+        <td><code>{{ key.scopes }}</code></td>
+        <td>{{ key.created_at.strftime('%Y-%m-%d %H:%M') if key.created_at else '—' }}</td>
+        <td>{{ key.last_used_at.strftime('%Y-%m-%d %H:%M') if key.last_used_at else 'Never' }}</td>
+        <td>{% if key.revoked_at %}Revoked{% else %}Active{% endif %}</td>
+        <td>
+          {% if not key.revoked_at %}
+          <form method="post" action="/admin/api-keys/{{ key.id }}/revoke" style="display:inline;">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token(request) }}" />
+            <button type="submit" class="button secondary" onclick="return confirm('Revoke this API key?')">Revoke</button>
+          </form>
+          {% else %}—{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color:#94a3b8;">No API keys yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

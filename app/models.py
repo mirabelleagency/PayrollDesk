@@ -1,6 +1,7 @@
 ﻿"""SQLAlchemy models for the payroll application."""
 from __future__ import annotations
 
+import json
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
@@ -233,6 +234,46 @@ class AdhocPayment(Base):
             name="ck_adhoc_payments_status_valid",
         ),
     )
+
+
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    key_prefix: Mapped[str] = mapped_column(String(12), nullable=False)
+    key_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    scopes: Mapped[str] = mapped_column(Text, nullable=False, default='["v1:*"]')
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    revoked_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    revoke_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    def scope_list(self) -> list[str]:
+        try:
+            parsed = json.loads(self.scopes or "[]")
+            return [str(s) for s in parsed] if isinstance(parsed, list) else []
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+
+class SyncState(Base):
+    __tablename__ = "sync_state"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
+class ApiRateWindow(Base):
+    __tablename__ = "api_rate_windows"
+
+    bucket_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    window_start_epoch: Mapped[int] = mapped_column(Integer, primary_key=True)
+    request_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"

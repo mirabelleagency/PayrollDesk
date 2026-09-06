@@ -229,12 +229,12 @@ class TestPayoutCrud:
 
     def test_total_paid_by_model(self, db_session, test_model, schedule_run):
         """Test calculating total paid by model."""
-        # Create paid payouts
-        for amount in [Decimal("100.00"), Decimal("200.00")]:
+        # Create paid payouts (unique pay_date per v4 uniqueness constraint)
+        for idx, amount in enumerate([Decimal("100.00"), Decimal("200.00")]):
             payout = Payout(
                 schedule_run_id=schedule_run.id,
                 model_id=test_model.id,
-                pay_date=date(2099, 1, 21),
+                pay_date=date(2099, 1, 21 + idx),
                 code=test_model.code,
                 real_name=test_model.real_name,
                 working_name=test_model.working_name,
@@ -263,19 +263,19 @@ class TestPayoutAggregations:
 
     def test_payout_status_counts(self, db_session, test_model, schedule_run):
         """Test counting payouts by status."""
-        # Create payouts with different statuses
-        for status in ["paid", "paid", "not_paid"]:
+        # Create payouts with different statuses (unique pay_date per row)
+        for idx, payout_status in enumerate(["paid", "paid", "not_paid"]):
             payout = Payout(
                 schedule_run_id=schedule_run.id,
                 model_id=test_model.id,
-                pay_date=date(2099, 1, 22),
+                pay_date=date(2099, 1, 22 + idx),
                 code=test_model.code,
                 real_name=test_model.real_name,
                 working_name=test_model.working_name,
                 payment_method="bank",
                 payment_frequency="monthly",
                 amount=Decimal("100.00"),
-                status=status,
+                status=payout_status,
             )
             db_session.add(payout)
         db_session.flush()
@@ -375,19 +375,21 @@ class TestPayoutAggregations:
 
     def test_run_payment_summary(self, db_session, test_model, schedule_run):
         """Test getting payment summary for a run."""
-        # Create paid and unpaid payouts
-        for status, amount in [("paid", Decimal("100.00")), ("not_paid", Decimal("200.00"))]:
+        # Create paid and unpaid payouts (unique pay_date per row)
+        for idx, (payout_status, amount) in enumerate(
+            [("paid", Decimal("100.00")), ("not_paid", Decimal("200.00"))]
+        ):
             payout = Payout(
                 schedule_run_id=schedule_run.id,
                 model_id=test_model.id,
-                pay_date=date(2099, 1, 27),
+                pay_date=date(2099, 1, 27 + idx),
                 code=test_model.code,
                 real_name=test_model.real_name,
                 working_name=test_model.working_name,
                 payment_method="bank",
                 payment_frequency="monthly",
                 amount=amount,
-                status=status,
+                status=payout_status,
             )
             db_session.add(payout)
         db_session.flush()

@@ -11,6 +11,10 @@ services:
     envVars:
       - key: PAYROLL_DATABASE_URL
         value: "<SET_IN_RENDER_UI>"
+      - key: API_RATE_SECRET
+        value: "<SET_IN_RENDER_UI>"
+      - key: API_CURSOR_SECRET
+        value: "<SET_IN_RENDER_UI>"
       - key: PYTHONUNBUFFERED
         value: "1"
     healthCheckPath: /health

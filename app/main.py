@@ -26,7 +26,10 @@ from app.database import init_db, get_session
 from app import __version__
 from app.core.rate_limiter import limiter
 from app.dependencies import verify_csrf
-from app.routers import admin, auth, changelog, commissions, dashboard, models, profile, schedules
+from app.env_config import current_environment
+from app.routers import admin, admin_api_keys, auth, changelog, commissions, dashboard, models, profile, schedules
+from app.api.v1 import router as api_v1_router
+from app.api.v2 import router as api_v2_router
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +40,25 @@ HASHED_FILE_PATTERN = re.compile(r"^/static/.*-[a-zA-Z0-9]{8,}\.(js|css|woff2?)$
 # Paths exempt from CSRF validation
 _CSRF_EXEMPT_PATHS = {"/health", "/health/db", "/login"}
 _STATE_CHANGING_METHODS = {"POST", "PUT", "DELETE", "PATCH"}
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "[::1]", "::1"})
+
+
+def _normalize_netloc(netloc: str) -> str:
+    """Treat localhost and 127.0.0.1 as equivalent for local dev CSRF checks."""
+    if not netloc:
+        return netloc
+    host, sep, port = netloc.rpartition(":")
+    if sep and host.startswith("["):
+        host = host.strip("[]")
+    if host in _LOOPBACK_HOSTS:
+        host = "127.0.0.1"
+    return f"{host}:{port}" if sep else host
+
+
+def _request_hosts_match(expected: str, actual: str) -> bool:
+    if expected == actual:
+        return True
+    return _normalize_netloc(expected) == _normalize_netloc(actual)
 
 
 class CSRFMiddleware(BaseHTTPMiddleware):
@@ -50,10 +72,11 @@ class CSRFMiddleware(BaseHTTPMiddleware):
                 origin = request.headers.get("origin")
                 referer = request.headers.get("referer")
 
-                if origin:
+                # Browsers may send Origin: null for same-origin form posts; use Referer instead.
+                if origin and origin.lower() != "null":
                     parsed = urlparse(origin)
                     origin_host = parsed.netloc
-                    if origin_host != host:
+                    if origin_host and not _request_hosts_match(host, origin_host):
                         logger.warning(
                             "CSRF blocked: origin=%s host=%s path=%s",
                             origin, host, path,
@@ -65,7 +88,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
                 elif referer:
                     parsed = urlparse(referer)
                     referer_host = parsed.netloc
-                    if referer_host != host:
+                    if not _request_hosts_match(host, referer_host):
                         logger.warning(
                             "CSRF blocked: referer=%s host=%s path=%s",
                             referer, host, path,
@@ -78,7 +101,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 
 
 class CacheControlMiddleware(BaseHTTPMiddleware):
-    """Add cache-control headers for static assets."""
+    """Add cache-control headers for static assets and sensitive routes."""
     
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
@@ -91,6 +114,11 @@ class CacheControlMiddleware(BaseHTTPMiddleware):
             # Non-hashed static files: 1 day cache with revalidation
             else:
                 response.headers["Cache-Control"] = "public, max-age=86400, must-revalidate"
+        elif path.startswith("/api/") or path.startswith("/admin/api-keys"):
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["Referrer-Policy"] = "no-referrer"
+            response.headers["X-Frame-Options"] = "DENY"
+            response.headers["X-Content-Type-Options"] = "nosniff"
         
         return response
 
@@ -100,7 +128,14 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="Payroll Desk", version=__version__, lifespan=lifespan, dependencies=[Depends(verify_csrf)])
+app = FastAPI(
+    title="Payroll Desk",
+    version=__version__,
+    lifespan=lifespan,
+    dependencies=[Depends(verify_csrf)],
+    docs_url=None if current_environment() == "production" else "/docs",
+    redoc_url=None if current_environment() == "production" else "/redoc",
+)
 
 # Add rate limiter state to app
 app.state.limiter = limiter
@@ -125,10 +160,13 @@ app.include_router(auth.router)
 app.include_router(profile.router)
 app.include_router(commissions.router)
 app.include_router(admin.router)
+app.include_router(admin_api_keys.router)
 app.include_router(changelog.router)
 app.include_router(dashboard.router)
 app.include_router(models.router)
 app.include_router(schedules.router)
+app.include_router(api_v1_router, prefix="/api/v1", tags=["API"])
+app.include_router(api_v2_router, prefix="/api/v2", tags=["API v2"])
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
@@ -218,10 +256,19 @@ async def http_exception_redirect_login(request: Request, exc: HTTPException):
     """Redirect 401 HTML page requests to /login; preserve JSON for API calls.
 
     Logic:
+    - `/api/*` always returns JSON (never session-cookie HTML redirects).
     - If status == 401 and client expects HTML → redirect to /login.
     - For other errors, render a styled error page for HTML clients.
     - JSON clients always get JSON responses.
     """
+    path = request.url.path
+    if path.startswith("/api/"):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
+            headers=exc.headers,
+        )
+
     accept = request.headers.get("accept", "")
     wants_html = "text/html" in accept or "*/*" in accept
 
@@ -241,11 +288,12 @@ async def http_exception_redirect_login(request: Request, exc: HTTPException):
     title = _ERROR_TITLES.get(code, "Error")
     default_detail = HTTPException(status_code=code).detail
     if exc.detail and exc.detail != default_detail:
-        message = exc.detail
+        message = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
     else:
         message = _ERROR_MESSAGES.get(code, str(exc.detail))
     return templates.TemplateResponse(
+        request,
         "errors/error.html",
-        {"request": request, "status_code": code, "title": title, "message": message},
+        {"status_code": code, "title": title, "message": message},
         status_code=code,
     )

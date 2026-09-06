@@ -9,6 +9,9 @@ _TEMP_DIR = tempfile.mkdtemp(prefix="payroll_tests_")
 _DB_FILE = os.path.join(_TEMP_DIR, "test_payroll.db")
 os.environ["PAYROLL_DATABASE_URL"] = f"sqlite:///{_DB_FILE}"
 os.environ.setdefault("ADMIN_DEFAULT_PASSWORD", "admin")
+os.environ.setdefault("ENVIRONMENT", "test")
+os.environ.setdefault("API_RATE_SECRET", "test-rate-secret-for-pytest-only-32chars")
+os.environ.setdefault("API_CURSOR_SECRET", "test-cursor-secret-for-pytest-32c")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -49,9 +52,17 @@ def setup_test_database():
 def _clean_domain_tables():
     from app import crud
     from app.database import SessionLocal
+    from app.models import ApiKey, SyncState
     session = SessionLocal()
     try:
         crud.reset_application_data(session)
+        session.query(ApiKey).delete(synchronize_session=False)
+        sync = session.get(SyncState, 1)
+        if sync is None:
+            session.add(SyncState(id=1, revision=0))
+        else:
+            sync.revision = 0
+        session.commit()
     finally:
         try:
             session.close()

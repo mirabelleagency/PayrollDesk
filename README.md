@@ -94,6 +94,34 @@ python -m pytest
 
 Sample data is available in `models_sample.csv` for quick experimentation.
 
+## External read-only API (v1 / v2)
+
+Server-to-server integration uses scoped API keys — not browser session cookies.
+
+1. Set secrets (32+ characters each; required outside `development` / `test`):
+
+   | Variable | Purpose |
+   |----------|---------|
+   | `API_RATE_SECRET` | HMAC salt for per-key and per-IP rate windows |
+   | `API_CURSOR_SECRET` | HMAC salt for signed pagination cursors |
+
+2. Log in as admin → **Admin → API Keys**, create a key (e.g. scope `v2:*`). Copy the plaintext secret once; only a prefix is stored.
+
+3. Call the API with the header `X-API-Key: pd_…`:
+
+   ```powershell
+   curl -H "X-API-Key: pd_your_key" http://127.0.0.1:8000/api/v2/snapshot
+   curl -H "X-API-Key: pd_your_key" "http://127.0.0.1:8000/api/v2/models?snapshot_revision=0"
+   ```
+
+   v2 collections require a current `snapshot_revision` from `/api/v2/snapshot`. If payroll data changes mid-sync, stale revisions return **409** — refresh the snapshot and retry.
+
+Notes:
+
+- CORS is closed; use curl or a backend client, not browser JS from another origin.
+- `v2:*` exposes legal names, notes, and crypto wallet addresses — grant narrowly in production.
+- Responses use `Cache-Control: no-store`.
+
 ## Versioning & Release Notes
 
 - Run `python scripts/auto_bump_and_changelog.py` before pushing to `staging`, `develop`, or `main`. The helper bumps `app/__version__`, appends the latest commits to `CHANGELOG.md`, and tags the release when run in CI.

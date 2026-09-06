@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.52.0 - 2026-09-06
+
+### Added
+- feat(api): External read-only pull API v1/v2 on payrolldesk-v4 with scoped API keys, snapshot revision sync, HMAC cursors, and rate limits
+- feat(admin): Admin → API Keys page for creating and revoking integration keys
+- docs: README section for local API testing with `X-API-Key`, `v2:*`, and `snapshot_revision`
+
+### Security
+- API handlers use read-only DB sessions on PostgreSQL; `/api/*` and `/admin/api-keys` responses use `Cache-Control: no-store`
+- Production startup requires `API_RATE_SECRET` and `API_CURSOR_SECRET` (32+ chars); entrypoint no longer logs those values
+
+---
+
 ## v2.51.2 - 2026-03-23
 
 ### Fixed
