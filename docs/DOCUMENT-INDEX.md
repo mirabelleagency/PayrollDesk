@@ -1,11 +1,12 @@
 # Document Index
 
-> Last updated: 2026-03-23 | Version: v2.51.2
+> Last updated: 2026-09-07 | Version: v2.52.0
 
 ## Active Documentation
 
 | Document | Purpose |
 |----------|---------|
+| [EXTERNAL-API.md](EXTERNAL-API.md) | **External read-only API (v1/v2)** — auth, scopes, sync, endpoints |
 | [ALEMBIC_GUIDE.md](ALEMBIC_GUIDE.md) | Schema migrations with Alembic |
 | [ASSESSMENT_GUIDE.md](ASSESSMENT_GUIDE.md) | 14-category assessment framework |
 | [DESIGN_AUDIT.md](DESIGN_AUDIT.md) | Design system, colors, typography, icons |

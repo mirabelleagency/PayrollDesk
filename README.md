@@ -116,6 +116,8 @@ Server-to-server integration uses scoped API keys — not browser session cookie
 
    v2 collections require a current `snapshot_revision` from `/api/v2/snapshot`. If payroll data changes mid-sync, stale revisions return **409** — refresh the snapshot and retry.
 
+   Full developer reference: **[docs/EXTERNAL-API.md](docs/EXTERNAL-API.md)** (share with integrators).
+
 Notes:
 
 - CORS is closed; use curl or a backend client, not browser JS from another origin.
