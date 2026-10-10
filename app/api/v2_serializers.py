@@ -54,7 +54,8 @@ def serialize_v2_payout(payout: Payout) -> dict:
         "real_name": payout.real_name,
         "working_name": payout.working_name,
         "payment_method": payout.payment_method,
-        "payment_frequency": payout.payment_frequency,
+        # Generated schedules store title case ("Weekly"); the v2 enum is lowercase.
+        "payment_frequency": (payout.payment_frequency or "").lower(),
         "gross_amount": _money(gross),
         "advance_deduction_amount": _money(deduction),
         "net_amount": _money(net),
