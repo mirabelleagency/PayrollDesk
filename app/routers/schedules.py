@@ -2047,7 +2047,7 @@ def combined_payouts_bulk_status(
     payout_ids: str = Form(""),
     status: str = Form(...),
     db: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_admin_user),
 ):
     """AJAX endpoint to update payout statuses across multiple runs."""
     status_value = (status or "").strip().lower()
@@ -2067,10 +2067,16 @@ def combined_payouts_bulk_status(
     overdue_flags: dict[int, bool] = {}
     total_advance_deducted = Decimal("0")
 
+    skipped: list[dict[str, object]] = []
+
     for pid in ids:
         payout = crud.get_payout(db, pid)
         if payout:
-            deducted = crud.update_payout(db, payout, payout.notes, status_value)
+            try:
+                deducted = crud.update_payout(db, payout, payout.notes, status_value)
+            except crud.PayoutStatusError as exc:
+                skipped.append({"id": pid, "reason": str(exc)})
+                continue
             total_advance_deducted += deducted
             updated.append(pid)
             overdue_flags[pid] = bool(
@@ -2085,6 +2091,7 @@ def combined_payouts_bulk_status(
         "updated_ids": updated,
         "new_status": status_value,
         "overdue_flags": overdue_flags,
+        "skipped": skipped,
     }
     if total_advance_deducted > 0:
         resp["advance_deducted"] = str(total_advance_deducted)
@@ -2650,7 +2657,7 @@ def update_payout_record(
     status: str = Form("not_paid"),
     redirect_to: str | None = Form(None),
     db: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_admin_user),
 ):
     payout = crud.get_payout(db, payout_id)
     if not payout or payout.schedule_run_id != run_id:
@@ -2661,7 +2668,10 @@ def update_payout_record(
         raise HTTPException(status_code=400, detail="Invalid payout status")
 
     trimmed = notes.strip()
-    advance_deducted = crud.update_payout(db, payout, trimmed if trimmed else None, status_value)
+    try:
+        advance_deducted = crud.update_payout(db, payout, trimmed if trimmed else None, status_value)
+    except crud.PayoutStatusError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
     _invalidate_dashboard_cache()  # Clear cache after payout update
 
     wants_json = request.headers.get("x-requested-with", "").lower() == "fetch"
@@ -2696,7 +2706,7 @@ def bulk_update_payouts(
     status: str = Form("not_paid"),
     redirect_to: str | None = Form(None),
     db: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_admin_user),
 ):
     """Bulk update status for multiple payouts."""
     run = crud.get_schedule_run(db, run_id)
@@ -2723,8 +2733,12 @@ def bulk_update_payouts(
     for payout_id in ids:
         payout = crud.get_payout(db, payout_id)
         if payout and payout.schedule_run_id == run_id:
-            # Preserve existing notes, only update status
-            crud.update_payout(db, payout, payout.notes, status_value)
+            # Preserve existing notes, only update status. A disallowed change
+            # (e.g. un-paying a payout with a recorded repayment) is skipped.
+            try:
+                crud.update_payout(db, payout, payout.notes, status_value)
+            except crud.PayoutStatusError:
+                continue
     
     _invalidate_dashboard_cache()  # Clear cache after bulk update
     
@@ -2740,7 +2754,7 @@ def api_bulk_update_payouts(
     payout_ids: str = Form(""),
     status: str = Form(...),
     db: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_admin_user),
 ):
     """AJAX-friendly endpoint to bulk update payouts without full-page reload."""
     run = crud.get_schedule_run(db, run_id)
@@ -2764,10 +2778,16 @@ def api_bulk_update_payouts(
     overdue_flags: dict[int, bool] = {}
     total_advance_deducted = Decimal("0")
 
+    skipped: list[dict[str, object]] = []
+
     for pid in ids:
         payout = crud.get_payout(db, pid)
         if payout and payout.schedule_run_id == run_id:
-            deducted = crud.update_payout(db, payout, payout.notes, status_value)
+            try:
+                deducted = crud.update_payout(db, payout, payout.notes, status_value)
+            except crud.PayoutStatusError as exc:
+                skipped.append({"id": pid, "reason": str(exc)})
+                continue
             total_advance_deducted += deducted
             updated.append(pid)
             overdue_flags[pid] = bool(payout.pay_date and payout.pay_date < today and status_value in ("not_paid", "on_hold"))
@@ -2780,6 +2800,7 @@ def api_bulk_update_payouts(
         "updated_ids": updated,
         "new_status": status_value,
         "overdue_flags": overdue_flags,
+        "skipped": skipped,
     }
     if total_advance_deducted > 0:
         resp["advance_deducted"] = str(total_advance_deducted)
@@ -2792,7 +2813,7 @@ def api_update_payout_status(
     payout_id: int,
     status: str = Form(...),
     db: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_admin_user),
 ):
     """AJAX-friendly endpoint to update a single payout's status without full-page reload.
 
@@ -2807,7 +2828,10 @@ def api_update_payout_status(
         raise HTTPException(status_code=400, detail="Invalid payout status")
 
     # Preserve existing notes, only update status
-    advance_deducted = crud.update_payout(db, payout, payout.notes, status_value)
+    try:
+        advance_deducted = crud.update_payout(db, payout, payout.notes, status_value)
+    except crud.PayoutStatusError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
     _invalidate_dashboard_cache()  # Clear cache after status update
 
     # Compute overdue flag server-side to reduce client logic differences
