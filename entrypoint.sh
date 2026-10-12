@@ -9,10 +9,23 @@ pip --disable-pip-version-check list || true
 echo "[entrypoint] environment vars (secrets filtered):"
 env | sort | grep -v -E '(DATABASE_URL|SESSION_SECRET|PASSWORD|SECRET_KEY|API_KEY|API_RATE_SECRET|API_CURSOR_SECRET|TOKEN|_SECRET)'
 
-# Run database migrations
-echo "[entrypoint] running alembic migrations..."
-alembic upgrade head || {
-    echo "[entrypoint] WARNING: alembic upgrade failed, continuing anyway"
+# Bring the schema up to date. A fresh database gets the full schema and is
+# stamped at head; otherwise `alembic upgrade head`. A failed migration stops the
+# deploy here: carrying on ran the app against a half-migrated schema and hid
+# the failure in the logs.
+echo "[entrypoint] migrating database..."
+python -m app.db_bootstrap || {
+    echo "[entrypoint] FATAL: database migration failed, not starting"
+    exit 1
+}
+
+# Load the app once before gunicorn binds the port. If it cannot import (a
+# missing driver, a bad config), the deploy fails here and the port never opens,
+# rather than gunicorn listening while every worker crashes on boot.
+echo "[entrypoint] checking the app loads..."
+python -c "import app.main" || {
+    echo "[entrypoint] FATAL: app failed to load, not starting"
+    exit 1
 }
 
 # Default port if not set
