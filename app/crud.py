@@ -29,6 +29,7 @@ from app.models import (
     ModelAdvance,
     AdvanceRepayment,
     PayoutAdvanceAllocation,
+    PAYOUT_STATUS_ENUM,
 )
 from app.schemas import AdhocPaymentCreate, AdhocPaymentUpdate, ModelCreate, ModelUpdate
 
@@ -746,21 +747,61 @@ def get_payout(db: Session, payout_id: int) -> Payout | None:
     return db.get(Payout, payout_id)
 
 
-def update_payout(db: Session, payout: Payout, note: str | None, status: str) -> Decimal:
-    """Update payout notes/status. Returns advance deduction amount (0 if none)."""
-    payout.notes = note or None
-    payout.status = status
-    # Lock payout when marked as paid (immutable after payment)
-    if status == "paid":
-        payout.is_locked = True
-    db.add(payout)
-    db.commit()
+class PayoutStatusError(ValueError):
+    """A payout status change that is not allowed."""
 
+
+def check_payout_status_change(db: Session, payout: Payout, new_status: str) -> None:
+    """Raise PayoutStatusError if ``payout`` may not move to ``new_status``.
+
+    Unpaid statuses (not_paid, approved, on_hold) move freely, and any of them
+    can become paid. Paid is final once an advance repayment has been recorded
+    against the payout: reverting it would leave that repayment (and the
+    advance's reduced balance) behind with nothing paid to back it. A paid
+    payout with no repayment can be reverted, to correct a mistaken click.
+    """
+    if new_status not in PAYOUT_STATUS_ENUM:
+        raise PayoutStatusError(f"Invalid payout status: {new_status}")
+    if payout.status != "paid" or new_status == "paid":
+        return
+    has_repayment = db.execute(
+        select(AdvanceRepayment.id).where(AdvanceRepayment.payout_id == payout.id).limit(1)
+    ).first()
+    if has_repayment:
+        raise PayoutStatusError(
+            "This payout is paid and an advance repayment was recorded against it, "
+            "so it can't be marked unpaid."
+        )
+
+
+def update_payout(db: Session, payout: Payout, note: str | None, status: str) -> Decimal:
+    """Update payout notes/status. Returns advance deduction amount (0 if none).
+
+    Raises PayoutStatusError for a disallowed status change (see
+    check_payout_status_change). Marking paid locks the payout and realizes its
+    planned advance allocations in one transaction, so a failure leaves the
+    payout exactly as it was rather than paid and locked with no repayment.
+    """
+    check_payout_status_change(db, payout, status)
+    was_paid = payout.status == "paid"
     advance_deducted = Decimal("0")
-    # If payout marked as paid, realize any planned allocations as repayments (idempotent)
-    if status == "paid":
-        advance_deducted = _realize_allocations_for_paid_payout(db, payout)
+    try:
+        payout.notes = note or None
+        payout.status = status
+        if status == "paid":
+            # Locked payouts are kept as-is when the run is refreshed.
+            payout.is_locked = True
+            # Realize planned allocations as repayments (idempotent).
+            advance_deducted = _realize_allocations_for_paid_payout(db, payout)
+        elif was_paid:
+            # Correcting a mistaken "paid" (no repayment recorded): unlock so the
+            # payout is treated like any other unpaid one again.
+            payout.is_locked = False
+        db.add(payout)
         db.commit()
+    except Exception:
+        db.rollback()
+        raise
     return advance_deducted
 
 
@@ -1846,7 +1887,14 @@ def record_advance_repayment(
     amount: Decimal,
     source: str = "manual",
     payout: Payout | None = None,
+    commit: bool = True,
 ) -> AdvanceRepayment:
+    """Record a repayment against an advance.
+
+    ``commit=False`` leaves the transaction open so a caller can make several
+    changes atomically (marking a payout paid realizes all of its allocations
+    together); the caller then commits or rolls back.
+    """
     if amount <= 0:
         raise ValueError("Repayment amount must be > 0")
     # Atomic update to prevent race conditions on concurrent repayments.
@@ -1868,7 +1916,8 @@ def record_advance_repayment(
         )
     )
     if rows_updated == 0:
-        db.rollback()
+        if commit:
+            db.rollback()
         raise ValueError("Advance balance changed concurrently; please retry")
     db.refresh(advance)
     repayment = AdvanceRepayment(
@@ -1879,8 +1928,11 @@ def record_advance_repayment(
     )
     close_advance_if_settled(db, advance)
     db.add(repayment)
-    db.commit()
-    db.refresh(repayment)
+    if commit:
+        db.commit()
+        db.refresh(repayment)
+    else:
+        db.flush()
     return repayment
 
 
@@ -2000,7 +2052,7 @@ def _realize_allocations_for_paid_payout(db: Session, payout: Payout) -> Decimal
             continue
         amt = Decimal(alloc.planned_amount or 0)
         total += amt
-        record_advance_repayment(db, adv, amount=amt, source="auto", payout=payout)
+        record_advance_repayment(db, adv, amount=amt, source="auto", payout=payout, commit=False)
         # Allocation will be deleted by cascade when clearing runs is not guaranteed, so delete explicitly on realize
         db.delete(alloc)
     db.flush()

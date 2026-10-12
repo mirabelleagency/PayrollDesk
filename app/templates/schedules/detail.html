@@ -2634,6 +2634,18 @@ document.addEventListener('submit', function (e) {
                 applyRowStatusUpdate(String(pid), newStatus, !!overdue_flags[pid]);
             });
 
+            // Payouts the server refused (a paid payout with a recorded advance
+            // repayment can't be un-paid) go back to the status they had.
+            const skipped = data.skipped || [];
+            skipped.forEach(function(s) {
+                var pid = String(s.id);
+                var row = document.querySelector('tr.payout-row[data-payout-id="' + pid + '"]');
+                if (row && prevStates[pid]) applyRowStatusUpdate(pid, prevStates[pid], computeRowOverdue(row, prevStates[pid]));
+            });
+            if (skipped.length) {
+                showAdvanceToast(skipped.length + ' payout' + (skipped.length === 1 ? '' : 's') + ' not changed: ' + skipped[0].reason);
+            }
+
             // Clear selection and hide bulk bar
             cancelBulkUpdate();
             if (typeof recomputeVisibleTotal === 'function') {
