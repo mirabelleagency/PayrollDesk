@@ -1,0 +1,79 @@
+# Checks every pull request and every push to the deployed branches.
+#
+# Production deploys straight from payrolldesk-v4 on push, so this is the only
+# gate before a change goes live. Three jobs:
+#   - tests:       the pytest suite (SQLite, as conftest.py sets up)
+#   - postgres:    boots the app against a real Postgres and hits /health — the
+#                  suite never touches Postgres, which is how a missing driver
+#                  (SQLAlchemy 2.1 → psycopg) reached production on 2026-10-10
+#   - docker:      builds the production image, so a broken build fails here
+#                  rather than on Render
+
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [payrolldesk-v4, main]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: pytest -q
+
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: payroll
+          POSTGRES_PASSWORD: payroll
+          POSTGRES_DB: payroll
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U payroll"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PAYROLL_DATABASE_URL: postgresql://payroll:payroll@localhost:5432/payroll
+      ENVIRONMENT: test
+      API_RATE_SECRET: ci-rate-secret-not-used-anywhere-else-32c
+      API_CURSOR_SECRET: ci-cursor-secret-not-used-anywhere-else-3
+      ADMIN_DEFAULT_PASSWORD: ci-admin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: App boots on Postgres and /health answers
+        run: |
+          python - <<'EOF'
+          from fastapi.testclient import TestClient
+          from app.database import engine
+          from app.main import app
+
+          assert engine.dialect.name == "postgresql", engine.dialect.name
+          print("driver:", engine.dialect.driver)
+          with TestClient(app) as client:
+              response = client.get("/health")
+              print("/health", response.status_code, response.text[:200])
+              assert response.status_code == 200
+          EOF
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t payrolldesk-ci .
