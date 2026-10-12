@@ -3,7 +3,8 @@
 # Production deploys straight from payrolldesk-v4 on push, so this is the only
 # gate before a change goes live. Three jobs:
 #   - tests:       the pytest suite (SQLite, as conftest.py sets up)
-#   - postgres:    boots the app against a real Postgres and hits /health — the
+#   - postgres:    builds the schema on an empty Postgres (as a first deploy
+#                  does), then boots the app and hits /health — the
 #                  suite never touches Postgres, which is how a missing driver
 #                  (SQLAlchemy 2.1 → psycopg) reached production on 2026-10-10
 #   - docker:      builds the production image, so a broken build fails here
@@ -56,6 +57,13 @@ jobs:
           python-version: "3.11"
           cache: pip
       - run: pip install -r requirements.txt
+      # What entrypoint.sh does on deploy: an empty database gets the full schema
+      # and is stamped at head; the second run is the next deploy's upgrade.
+      - name: Schema builds on an empty database
+        run: |
+          python -m app.db_bootstrap
+          python -m app.db_bootstrap
+          test "$(alembic current 2>/dev/null | grep -c '(head)')" = "1"
       - name: App boots on Postgres and /health answers
         run: |
           python - <<'EOF'
