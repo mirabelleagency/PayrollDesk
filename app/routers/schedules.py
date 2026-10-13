@@ -1323,7 +1323,7 @@ def export_dashboard_excel(
     end_query: str | None = Query(default=None, alias="end"),
     range_query: str | None = Query(default=None, alias="range"),
     db: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_admin_user),
 ):
     today = date.today()
     target_year = year_filter or year_query or today.year
@@ -1842,7 +1842,7 @@ def export_runs_all_table(
     end: str | None = Query(default=None, description="Filter end date (YYYY-MM-DD)"),
     range: str | None = Query(default=None, description="Quick range identifier"),
     db: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_admin_user),
 ):
     today = date.today()
     target_year = year or today.year
@@ -2490,7 +2490,7 @@ def download_export(
     request: Request,
     status: str | None = Query(None, description="Filter payouts by status before exporting"),
     db: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_admin_user),
 ):
     run = crud.get_schedule_run(db, run_id)
     if not run:

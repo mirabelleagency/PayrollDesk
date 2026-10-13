@@ -15,7 +15,7 @@ from app.auth import User
 from app.database import get_session
 from app.dependencies import templates
 from app.core.formatting import format_display_date, format_display_datetime
-from app.routers.auth import get_current_user
+from app.routers.auth import get_current_user, get_admin_user
 from app.models import Model, ScheduleRun
 from app.exporting import export_full_workbook
 from fastapi.responses import Response
@@ -190,7 +190,7 @@ def _iter_model_export_rows(models: Iterable[Model]) -> Iterable[list[str]]:
 @router.get("/dashboard/export")
 def export_dashboard_models(
     db: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_admin_user),
 ) -> StreamingResponse:
     _ = user  # ensure the user is authenticated but not otherwise used
     models = (
@@ -215,7 +215,7 @@ def export_dashboard_models(
 
 
 @router.get("/dashboard/export-xlsx")
-def export_dashboard_xlsx(db: Session = Depends(get_session), user: User = Depends(get_current_user)) -> Response:
+def export_dashboard_xlsx(db: Session = Depends(get_session), user: User = Depends(get_admin_user)) -> Response:
     if not user.is_admin():
         from fastapi import HTTPException
 

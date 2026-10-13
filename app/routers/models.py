@@ -590,7 +590,7 @@ def export_models_csv(
     payment_method: str | None = None,
     include_payments: str | None = None,
     db: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_admin_user),
 ):
     """
     Export models to CSV.
@@ -1158,7 +1158,7 @@ def export_models_data(
     start_date: str | None = Form(None),
     end_date: str | None = Form(None),
     db: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_admin_user),
 ):
     """Export selected datasets across models to an Excel workbook.
 
