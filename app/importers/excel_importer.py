@@ -626,7 +626,8 @@ def import_payouts(
             existing.working_name = model.working_name
             existing.payment_method = method_value
             existing.payment_frequency = frequency_value
-            existing.amount = amount
+            # The sheet holds what is paid; gross follows (keeps gross = paid + advance).
+            crud.set_payout_net(session, existing, amount)
             existing.status = status_value
             existing.notes = notes_value
         else:
@@ -640,6 +641,7 @@ def import_payouts(
                 payment_method=method_value,
                 payment_frequency=frequency_value,
                 amount=amount,
+                gross_amount=amount,  # a new payout has no advance deduction yet
                 status=status_value,
                 notes=notes_value,
             )
