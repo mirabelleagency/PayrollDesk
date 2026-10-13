@@ -24,7 +24,7 @@ from app.core.payroll import (
     validate_row,
 )
 from app import crud
-from app.models import Model, PayConfig, FrequencyPlan
+from app.models import Model, PayConfig, Payout, FrequencyPlan
 
 logger = logging.getLogger(__name__)
 
@@ -152,6 +152,9 @@ class PayrollService:
         
         # Preserve old payout status and notes for matching payouts
         old_payout_data = {}
+        # (model_id, pay_date) -> gross an admin chose for an unpaid payout.
+        # Refresh regenerates unpaid payouts from rates; these are put back.
+        overridden_gross: dict[tuple, Decimal] = {}
         locked_codes: set[str] = set()
         # (model_id, pay_date) of locked payouts. Keyed by model, not code: a
         # renamed code used to slip past the filter, the regenerated payout then
@@ -170,6 +173,10 @@ class PayrollService:
                         "status": payout.status,
                         "notes": payout.notes,
                     }
+                    if payout.amount_overridden:
+                        overridden_gross[(payout.model_id, payout.pay_date)] = Decimal(
+                            payout.gross_amount if payout.gross_amount is not None else payout.amount
+                        )
             # Clear only unlocked payouts (locked ones stay). Nothing below is
             # committed until the whole run is rebuilt, so a failure part-way
             # leaves the run exactly as it was instead of half-cleared.
@@ -240,6 +247,16 @@ class PayrollService:
             commit=False,
         )
         crud.store_validation_messages(self.db, run, records, include_inactive, commit=False)
+
+        # Put back amounts an admin chose (applied alert, imported sheet).
+        if overridden_gross:
+            for payout in self.db.query(Payout).filter(
+                Payout.schedule_run_id == run.id, Payout.is_locked == False  # noqa: E712
+            ):
+                gross = overridden_gross.get((payout.model_id, payout.pay_date))
+                if gross is not None:
+                    crud.set_payout_gross(self.db, payout, gross)
+            self.db.flush()
 
         # Log amendment
         affected_codes = [r.code for r in records]

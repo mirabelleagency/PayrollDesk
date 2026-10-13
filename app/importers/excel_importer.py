@@ -642,6 +642,7 @@ def import_payouts(
                 payment_frequency=frequency_value,
                 amount=amount,
                 gross_amount=amount,  # a new payout has no advance deduction yet
+                amount_overridden=True,  # the sheet's amount, not the model's rate
                 status=status_value,
                 notes=notes_value,
             )

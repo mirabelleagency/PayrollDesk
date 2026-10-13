@@ -860,6 +860,7 @@ def set_payout_gross(db: Session, payout: Payout, gross: Decimal) -> None:
     gross = Decimal(gross)
     payout.gross_amount = gross
     payout.amount = gross - payout_advance_deduction(db, payout)
+    payout.amount_overridden = True
 
 
 def set_payout_net(db: Session, payout: Payout, net: Decimal) -> None:
@@ -867,6 +868,7 @@ def set_payout_net(db: Session, payout: Payout, net: Decimal) -> None:
     net = Decimal(net)
     payout.amount = net
     payout.gross_amount = net + payout_advance_deduction(db, payout)
+    payout.amount_overridden = True
 
 
 def delete_schedule_run(db: Session, run: ScheduleRun) -> None:
