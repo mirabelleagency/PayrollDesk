@@ -1,7 +1,7 @@
 """API scope constants and validation."""
 from __future__ import annotations
 
-V1_RESOURCES = (
+V2_RESOURCES = (
     "models",
     "payouts",
     "schedule-runs",
@@ -13,13 +13,8 @@ V1_RESOURCES = (
     "advance-allocations",
 )
 
-V2_RESOURCES = V1_RESOURCES
-
-ALL_KNOWN_SCOPES: set[str] = set()
-for resource in V1_RESOURCES:
-    ALL_KNOWN_SCOPES.add(f"v1:{resource}")
-    ALL_KNOWN_SCOPES.add(f"v2:{resource}")
-ALL_KNOWN_SCOPES.update({"v1:*", "v2:*"})
+# The v1 API was removed (2026-10); keys still holding v1 scopes match no route.
+ALL_KNOWN_SCOPES: set[str] = {f"v2:{resource}" for resource in V2_RESOURCES} | {"v2:*"}
 
 
 def normalize_scopes(raw: list[str]) -> list[str]:

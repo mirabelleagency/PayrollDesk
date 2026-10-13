@@ -6,7 +6,7 @@
 
 | Document | Purpose |
 |----------|---------|
-| [EXTERNAL-API.md](EXTERNAL-API.md) | **External read-only API (v1/v2)** — auth, scopes, sync, endpoints |
+| [EXTERNAL-API.md](EXTERNAL-API.md) | **External read-only API (v2)** — auth, scopes, sync, endpoints |
 | [ALEMBIC_GUIDE.md](ALEMBIC_GUIDE.md) | Schema migrations with Alembic |
 | [ASSESSMENT_GUIDE.md](ASSESSMENT_GUIDE.md) | 14-category assessment framework |
 | [DESIGN_AUDIT.md](DESIGN_AUDIT.md) | Design system, colors, typography, icons |

@@ -52,7 +52,7 @@ def _run_smoke(base_url: str, api_key: str) -> int:
         check("adhoc-payments", client.get(f"/api/v2/adhoc-payments?snapshot_revision={rev}"))
         check("validation-issues", client.get(f"/api/v2/validation-issues?snapshot_revision={rev}"))
         check("adjustments", client.get(f"/api/v2/adjustments?snapshot_revision={rev}"))
-        check("v1 catalog", client.get("/api/v1"), expect=403)
+        check("v1 removed", client.get("/api/v1"), expect=404)
         check("no auth", httpx.get(f"{base_url}/api/v2/snapshot", timeout=10), expect=401)
 
     print(f"=== API smoke test ({base_url}) ===")

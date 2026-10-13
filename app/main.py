@@ -28,7 +28,6 @@ from app.core.rate_limiter import limiter
 from app.dependencies import verify_csrf
 from app.env_config import current_environment
 from app.routers import admin, admin_api_keys, auth, changelog, commissions, dashboard, models, profile, schedules
-from app.api.v1 import router as api_v1_router
 from app.api.v2 import router as api_v2_router
 
 logger = logging.getLogger(__name__)
@@ -165,7 +164,6 @@ app.include_router(changelog.router)
 app.include_router(dashboard.router)
 app.include_router(models.router)
 app.include_router(schedules.router)
-app.include_router(api_v1_router, prefix="/api/v1", tags=["API"])
 app.include_router(api_v2_router, prefix="/api/v2", tags=["API v2"])
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")

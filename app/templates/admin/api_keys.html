@@ -150,7 +150,7 @@ PAYROLLDESK_API_KEY={{ new_plaintext_key }}</pre>
         <span class="api-keys__chip api-keys__chip--{{ chip.kind }}" title="{{ chip.scope }}">{{ chip.label }}</span>
         {% endfor %}
         {% if row.legacy %}
-        <div class="api-keys__hint">Legacy v1 key — reads <code>/api/v1</code> only. Replace with a v2 key.</div>
+        <div class="api-keys__hint">v1 key — the v1 API has been removed, so this key no longer works. Revoke it.</div>
         {% endif %}
       </td>
       <td>{{ key.created_at.strftime('%Y-%m-%d') if key.created_at else '—' }}</td>

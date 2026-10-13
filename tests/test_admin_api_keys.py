@@ -102,7 +102,7 @@ def test_create_form_offers_only_v2(client):
 def test_new_keys_cannot_be_given_v1_scopes(client, test_db):
     _login_admin(client)
     resp = _create(client, name="Old style", preset="custom", scopes="v1:*")
-    assert "v1 scopes are legacy" in resp.text
+    assert "v1 API has been removed" in resp.text
     assert 'value="Old style"' in resp.text  # the form keeps what was typed
     assert test_db.query(ApiKey).count() == 0
 
@@ -134,7 +134,8 @@ def test_expired_and_legacy_keys_are_labelled(client, test_db):
     from app.time_utils import utc_now
 
     create_api_key_record(test_db, name="Lapsed", created_by="admin", scopes=["v2:*"])
-    create_api_key_record(test_db, name="Ancient", created_by="admin", scopes=["v1:*"])
+    ancient, _ = create_api_key_record(test_db, name="Ancient", created_by="admin", scopes=["v2:*"])
+    ancient.scopes = '["v1:*"]'  # as stored before v1 was removed
     lapsed = test_db.query(ApiKey).filter_by(name="Lapsed").one()
     lapsed.expires_at = utc_now() - timedelta(days=1)
     test_db.commit()
@@ -145,7 +146,7 @@ def test_expired_and_legacy_keys_are_labelled(client, test_db):
     # Before: an expired key was listed as Active.
     assert "Lapsed" in inactive and "Lapsed" not in active
     assert "Expired" in inactive
-    assert "Legacy v1 key" in active
+    assert "this key no longer works" in active
 
 
 def test_rotate_issues_a_replacement_and_keeps_the_old_key(client, test_db):
@@ -178,3 +179,16 @@ def test_revoked_keys_cannot_be_rotated(client, test_db):
     client.get("/admin/api-keys")
     resp = client.post(f"/admin/api-keys/{key.id}/rotate", data={"_csrf_token": csrf_token_for(client)})
     assert resp.status_code == 400
+
+
+def test_v1_keys_cannot_be_rotated(client, test_db):
+    from app.api.keys import create_api_key_record
+
+    old, _ = create_api_key_record(test_db, name="Ancient", created_by="admin", scopes=["v2:*"])
+    old.scopes = '["v1:*"]'  # as stored before v1 was removed
+    test_db.commit()
+    _login_admin(client)
+    client.get("/admin/api-keys")
+    resp = client.post(f"/admin/api-keys/{old.id}/rotate", data={"_csrf_token": csrf_token_for(client)})
+    assert resp.status_code == 400
+    assert test_db.query(ApiKey).count() == 1

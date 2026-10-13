@@ -13,17 +13,16 @@ PayrollDesk exposes a **read-only HTTP JSON API** for server-to-server integrati
 2. [Base URL and transport](#base-url-and-transport)
 3. [Authentication](#authentication)
 4. [Scopes](#scopes)
-5. [API versions (v1 vs v2)](#api-versions-v1-vs-v2)
+5. [API versions](#api-versions)
 6. [Snapshot sync (v2)](#snapshot-sync-v2)
 7. [Pagination](#pagination)
 8. [Rate limits](#rate-limits)
 9. [Data conventions](#data-conventions)
 10. [Error reference](#error-reference)
-11. [Endpoints — v2 (recommended)](#endpoints--v2-recommended)
-12. [Endpoints — v1 (legacy)](#endpoints--v1-legacy)
-13. [Resource schemas](#resource-schemas)
-14. [Example sync workflow](#example-sync-workflow)
-15. [Security notes](#security-notes)
+11. [Endpoints — v2](#endpoints--v2)
+12. [Resource schemas](#resource-schemas)
+13. [Example sync workflow](#example-sync-workflow)
+14. [Security notes](#security-notes)
 
 ---
 
@@ -51,7 +50,7 @@ curl -s -H "X-API-Key: $API_KEY" \
   "$BASE_URL/api/v2/models?cursor=...&limit=100" | jq .
 ```
 
-For local development, see [README.md](../README.md#external-read-only-api-v1--v2) and `scripts/seed_api_demo.py` / `scripts/smoke_api_live.py`.
+For local development, see [README.md](../README.md#external-read-only-api-v2) and `scripts/seed_api_demo.py` / `scripts/smoke_api_live.py`.
 
 ---
 
@@ -68,8 +67,7 @@ For local development, see [README.md](../README.md#external-read-only-api-v1--v
 
 Path prefixes:
 
-- **v2 (recommended):** `/api/v2/…`
-- **v1 (legacy):** `/api/v1/…`
+- **v2:** `/api/v2/…` (the only version; v1 was removed in October 2026)
 
 ---
 
@@ -102,25 +100,23 @@ Each API key carries one or more scopes. Scopes are granted when an admin create
 | Scope | Grants |
 |-------|--------|
 | `v2:*` | All v2 collections |
-| `v1:*` | All v1 collections |
 
 ### Per-resource scopes
 
-| Resource | v2 scope | v1 scope |
-|----------|----------|----------|
-| Models | `v2:models` | `v1:models` |
-| Payouts | `v2:payouts` | `v1:payouts` |
-| Schedule runs | `v2:schedule-runs` | `v1:schedule-runs` |
-| Validation issues | `v2:validation-issues` | `v1:validation-issues` |
-| Adhoc payments | `v2:adhoc-payments` | `v1:adhoc-payments` |
-| Adjustments | `v2:adjustments` | `v1:adjustments` |
-| Advances | `v2:advances` | `v1:advances` |
-| Advance repayments | `v2:advance-repayments` | `v1:advance-repayments` |
-| Advance allocations | `v2:advance-allocations` | `v1:advance-allocations` |
+| Resource | Scope |
+|----------|-------|
+| Models | `v2:models` |
+| Payouts | `v2:payouts` |
+| Schedule runs | `v2:schedule-runs` |
+| Validation issues | `v2:validation-issues` |
+| Adhoc payments | `v2:adhoc-payments` |
+| Adjustments | `v2:adjustments` |
+| Advances | `v2:advances` |
+| Advance repayments | `v2:advance-repayments` |
+| Advance allocations | `v2:advance-allocations` |
 
 ### Special scope rules
 
-- **`GET /api/v1/advances/{id}`** requires **both** `v1:advances` **and** `v1:advance-repayments` (returns nested repayments).
 - **`GET /api/v2/advances/{id}`** requires only `v2:advances`.
 - **`GET /api/v2/snapshot`** requires at least one v2 resource scope; the response lists only collections your key may access.
 
@@ -128,19 +124,9 @@ Grant the minimum scopes needed. Keys with `v2:*` expose real names, notes, and 
 
 ---
 
-## API versions (v1 vs v2)
+## API versions
 
-| Feature | v1 | v2 |
-|---------|----|----|
-| Snapshot revision | No | **Yes** — consistent reads across collections |
-| Pagination cursor | Integer `after_id` | Signed opaque `cursor` (HMAC) |
-| Timestamps | Local ISO (`2026-09-01T12:00:00`) | UTC with `Z` suffix (`2026-09-01T04:00:00Z`) |
-| Payout breakdown | `amount` only | `gross_amount`, `advance_deduction_amount`, `net_amount`, `is_locked` |
-| Schedule run | Includes `export_path` | Includes `run_status`, `pay_config_id` |
-| Mid-sync conflict detection | No | **409** if domain revision changes during read |
-| Recommendation | Legacy integrations | **New integrations** |
-
-Use **v2** for all new work. v1 remains available for backward compatibility.
+Only **v2** is served. The v1 API (`/api/v1`, integer `after_id` paging, no snapshot revision) was removed in October 2026; its routes return **404** and keys holding only `v1:*` scopes are refused (**403**) on v2.
 
 v2 can be disabled server-side with `API_V2_ENABLED=false` (returns **404** on v2 routes).
 
@@ -240,30 +226,6 @@ Cursor rules:
 - Using another key's cursor fails validation (**400**).
 - Expired cursors return **400** — restart from page 1 with a fresh `snapshot_revision`.
 
-### v1 — integer `after_id`
-
-v1 uses stable ascending `id` ordering:
-
-```
-GET /api/v1/models?limit=100
-GET /api/v1/models?limit=100&after_id=42
-```
-
-Response:
-
-```json
-{
-  "data": [ /* … */ ],
-  "pagination": {
-    "limit": 100,
-    "next_cursor": 42,
-    "has_more": true
-  }
-}
-```
-
-Here `next_cursor` is an integer ID, not an opaque token.
-
 ---
 
 ## Rate limits
@@ -314,10 +276,7 @@ Calendar dates use ISO 8601 date form:
 
 ### Timestamps
 
-| Version | Format | Example |
-|---------|--------|---------|
-| v1 | ISO 8601 (server local) | `"2026-09-01T12:00:00"` |
-| v2 | UTC with `Z` | `"2026-09-01T04:00:00Z"` |
+UTC with a `Z` suffix, e.g. `"2026-09-01T04:00:00Z"`.
 
 ### Soft deletes
 
@@ -355,7 +314,7 @@ Unknown query filter values return **422**.
 
 ---
 
-## Endpoints — v2 (recommended)
+## Endpoints — v2
 
 All paths are prefixed with `/api/v2`. Collection list endpoints share pagination parameters described above.
 
@@ -465,43 +424,6 @@ Requires `snapshot_revision`. Does not embed repayments (pull `/advance-repaymen
 | `model_id` | int | Model |
 | `advance_id` | int | Advance |
 | `snapshot_revision`, `cursor`, `limit` | | Pagination |
-
----
-
-## Endpoints — v1 (legacy)
-
-Prefix: `/api/v1`. Pagination uses integer `after_id`. No snapshot revision.
-
-### `GET /api/v1`
-
-Catalog of available v1 routes. Requires at least one v1 scope.
-
-### Collection routes
-
-Same resource names as v2, with these differences:
-
-| Route | v1-only notes |
-|-------|---------------|
-| `GET /api/v1/advances/{id}` | Requires **both** `v1:advances` and `v1:advance-repayments`; includes nested `repayments` array |
-| `GET /api/v1/schedule-runs/{id}` | Response includes `export_path` |
-| All list routes | Use `after_id` instead of `cursor`; no `snapshot_revision` |
-
-Full v1 route list (from catalog):
-
-```
-GET /api/v1/models
-GET /api/v1/models/{id}
-GET /api/v1/payouts
-GET /api/v1/schedule-runs
-GET /api/v1/schedule-runs/{id}
-GET /api/v1/validation-issues
-GET /api/v1/adhoc-payments
-GET /api/v1/adjustments
-GET /api/v1/advances
-GET /api/v1/advances/{id}
-GET /api/v1/advance-repayments
-GET /api/v1/advance-allocations
-```
 
 ---
 

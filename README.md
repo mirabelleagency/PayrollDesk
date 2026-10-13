@@ -94,7 +94,7 @@ python -m pytest
 
 Sample data is available in `models_sample.csv` for quick experimentation.
 
-## External read-only API (v1 / v2)
+## External read-only API (v2)
 
 Server-to-server integration uses scoped API keys — not browser session cookies.
 
@@ -105,7 +105,7 @@ Server-to-server integration uses scoped API keys — not browser session cookie
    | `API_RATE_SECRET` | HMAC salt for per-key and per-IP rate windows |
    | `API_CURSOR_SECRET` | HMAC salt for signed pagination cursors |
 
-2. Log in as admin → **Admin → API Keys**, create a key (e.g. scope `v2:*`). Copy the plaintext secret once; only a prefix is stored.
+2. Log in as admin → **Admin → API Keys**, create a key (e.g. **Salary sync** for Miranance, or full read access). Copy the plaintext secret once; only a prefix is stored.
 
 3. Call the API with the header `X-API-Key: pd_…`:
 
