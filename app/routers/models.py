@@ -1665,9 +1665,15 @@ async def import_models_excel(
         )
 
         summary = import_from_excel(db, contents, import_options, run_options)
-        db.commit()
-        db.expire_all()
-        extra_context["import_summary"] = summary
+        if summary.has_errors:
+            # All or nothing: committing the rows that parsed left a half-imported
+            # payroll whenever any row failed. Nothing is saved; fix and re-import.
+            db.rollback()
+            extra_context["import_rejected"] = summary
+        else:
+            db.commit()
+            db.expire_all()
+            extra_context["import_summary"] = summary
     except Exception as exc:
         db.rollback()
         extra_context["import_error"] = str(exc)

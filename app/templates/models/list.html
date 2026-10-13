@@ -40,8 +40,19 @@
 <div class="alert error">
     <strong>Import failed.</strong> {{ import_error }}
 </div>
+{% elif import_rejected %}
+<div class="alert error">
+    <strong>Import not applied.</strong>
+    {{ import_rejected.row_errors|length }} row(s) have problems, so nothing was imported.
+    Fix these rows and import the file again:
+    <ul>
+        {% for message in import_rejected.row_errors %}
+        <li>{{ message }}</li>
+        {% endfor %}
+    </ul>
+</div>
 {% elif import_summary %}
-    {% set skipped_rows = (import_summary.model_errors + import_summary.payout_errors + import_summary.adjustment_errors + import_summary.adhoc_errors) %}
+    {% set skipped_rows = import_summary.warnings %}
 <div class="alert success">
     <strong>Import complete.</strong>
     Added {{ import_summary.models_created }} model(s), updated {{ import_summary.models_updated }},
@@ -60,7 +71,7 @@
     {% endif %}
     {% if skipped_rows %}
     <details>
-        <summary>View skipped rows</summary>
+        <summary>Notes</summary>
         <ul>
             {% for message in skipped_rows %}
             <li>{{ message }}</li>
