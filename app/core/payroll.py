@@ -342,11 +342,20 @@ def build_pay_schedule(
         paid_this_month = False
 
         for position, plan_index in enumerate(plan):
+            if not 0 <= plan_index < len(pay_dates):
+                # A plan pointing past the configured pay days used to raise
+                # IndexError and abort the whole run; settings now refuse it.
+                continue
             pay_date = pay_dates[plan_index]
             monthly_amount = resolve_monthly_amount(record, pay_date)
             if monthly_amount is None or monthly_amount <= Decimal("0"):
                 continue
             base_amount = (monthly_amount / plan_length).quantize(MONEY_QUANT, rounding=ROUND_HALF_UP)
+            if position == plan_length - 1:
+                # The last payout takes the remainder, so a month's payouts add
+                # up to the monthly amount exactly (1000 / 3 -> 333.33 x2 + 333.34)
+                # instead of losing or adding cents.
+                base_amount = monthly_amount - base_amount * (plan_length - 1)
             if not is_eligible_for_date(record, pay_date):
                 if record.start_date and record.start_date > pay_date:
                     skipped_due_to_start = True

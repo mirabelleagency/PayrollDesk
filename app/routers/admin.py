@@ -369,6 +369,19 @@ def update_pay_config(
                 continue
             if not isinstance(item, int) or item < 1 or item > 31:
                 raise ValueError(f"Invalid pay day: {item}. Must be 1-31 or 'eom'.")
+        # Two entries landing on the same date produce duplicate payouts (and a
+        # unique-constraint failure): repeated days, or a day >= 28 next to
+        # "eom", which coincide in short months.
+        if len(set(parsed)) != len(parsed):
+            raise ValueError("Pay days must not repeat.")
+        if "eom" in parsed and any(item != "eom" and item >= 28 for item in parsed):
+            raise ValueError("A pay day of 28 or later can fall on the same date as 'eom'; use one or the other.")
+        # Active frequency plans point at pay days by position.
+        for plan in crud.list_active_frequency_plans(db):
+            if any(i >= len(parsed) for i in json.loads(plan.pay_day_indices)):
+                raise ValueError(
+                    f"Frequency plan '{plan.name}' uses a pay day position beyond the {len(parsed)} configured."
+                )
     except json.JSONDecodeError:
         return RedirectResponse(
             url="/admin/settings?error=Invalid+JSON+for+pay+days", status_code=303
@@ -420,6 +433,14 @@ def update_frequency_plan(
         parsed = json.loads(pay_day_indices)
         if not isinstance(parsed, list):
             raise ValueError("pay_day_indices must be a list")
+        config = crud.get_pay_config(db)
+        pay_day_count = len(json.loads(config.pay_days)) if config else 4
+        if not all(isinstance(i, int) and not isinstance(i, bool) for i in parsed):
+            raise ValueError("indices must be whole numbers")
+        if len(set(parsed)) != len(parsed):
+            raise ValueError("indices must not repeat")
+        if any(i < 0 or i >= pay_day_count for i in parsed):
+            raise ValueError(f"indices must be between 0 and {pay_day_count - 1}")
     except (json.JSONDecodeError, ValueError) as e:
         return RedirectResponse(
             url=f"/admin/settings?error=Invalid+indices:+{e}", status_code=303
