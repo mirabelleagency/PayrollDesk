@@ -153,6 +153,9 @@ class Payout(Base):
     # Revamp: per-payout locking and gross tracking
     is_locked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     gross_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    # Set when an admin chose this amount (applied alert, imported sheet); a
+    # schedule refresh keeps it instead of recalculating from the model's rate.
+    amount_overridden: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
 
     schedule_run: Mapped[ScheduleRun] = relationship(back_populates="payouts")
     model: Mapped[Model] = relationship(back_populates="payouts")
