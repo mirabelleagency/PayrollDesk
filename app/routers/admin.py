@@ -210,6 +210,8 @@ def reset_user_password(
         raise HTTPException(status_code=400, detail=error_msg)
 
     user.password_hash = User.hash_password(new_password)
+    # Whoever was logged in as this user is logged out.
+    user.end_all_sessions()
     # Auto-unlock the account if it was locked
     if user.is_locked:
         unlock_account(db, user.username)

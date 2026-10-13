@@ -28,6 +28,9 @@ class User(Base):
     locked_until: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     failed_login_count: Mapped[int] = mapped_column(default=0, nullable=False)
     last_failed_login: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    # Bumped on logout and password change; a session cookie is only valid for
+    # the version it was issued with, so bumping it ends every existing session.
+    session_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
     
     @staticmethod
     def hash_password(password: str) -> str:
@@ -44,6 +47,10 @@ class User(Base):
         """Create a new user with hashed password."""
         return cls(username=username, password_hash=cls.hash_password(password), role=role)
     
+    def end_all_sessions(self) -> None:
+        """Invalidate every session cookie issued to this user so far."""
+        self.session_version = (self.session_version or 0) + 1
+
     def is_admin(self) -> bool:
         """Check if user is an admin."""
         return self.role == Role.ADMIN

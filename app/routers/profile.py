@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.auth import User
 from app.database import get_session
 from app.dependencies import templates
-from app.routers.auth import get_current_user
+from app.routers.auth import get_current_user, set_session_cookie
 from app.security import PasswordValidator
 
 router = APIRouter(prefix="/profile", tags=["Profile"])
@@ -80,11 +80,13 @@ def change_password(
             status_code=400,
         )
     
-    # Update password
+    # Update password and end every other session; this browser gets a fresh
+    # cookie so the user who just changed it stays logged in here.
     user.password_hash = User.hash_password(new_password)
+    user.end_all_sessions()
     db.commit()
     
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         request,
         "profile/profile.html",
         {
@@ -93,4 +95,6 @@ def change_password(
             "success": "Password changed successfully",
         },
     )
+    set_session_cookie(response, user)
+    return response
 
