@@ -415,7 +415,7 @@ def clear_schedule_data(db: Session, schedule_run: ScheduleRun) -> None:
     db.commit()
 
 
-def clear_unlocked_schedule_data(db: Session, schedule_run: ScheduleRun) -> None:
+def clear_unlocked_schedule_data(db: Session, schedule_run: ScheduleRun, commit: bool = True) -> None:
     """Clear only unlocked (unpaid) payouts and their allocations.
     
     Locked payouts (is_locked=True, typically paid) and their realized 
@@ -453,7 +453,10 @@ def clear_unlocked_schedule_data(db: Session, schedule_run: ScheduleRun) -> None
     db.query(Payout).filter(Payout.id.in_(unlocked_payout_ids)).delete(synchronize_session=False)
     # Clear validations (they'll be regenerated)
     db.query(ValidationIssue).filter(ValidationIssue.schedule_run_id == schedule_run.id).delete(synchronize_session=False)
-    db.commit()
+    if commit:
+        db.commit()
+    else:
+        db.flush()
 
 
 def create_schedule_run(
@@ -494,7 +497,7 @@ def create_schedule_run(
     return run
 
 
-def store_payouts(db: Session, run: ScheduleRun, payouts: Iterable[dict], amount_column: str, old_payout_data: dict | None = None) -> None:
+def store_payouts(db: Session, run: ScheduleRun, payouts: Iterable[dict], amount_column: str, old_payout_data: dict | None = None, commit: bool = True) -> None:
     """Store payouts, preserving status and notes from previous payouts when available."""
     if old_payout_data is None:
         old_payout_data = {}
@@ -532,7 +535,10 @@ def store_payouts(db: Session, run: ScheduleRun, payouts: Iterable[dict], amount
     # Apply cash advance allocations and adjust payout amounts (net), without posting repayments yet
     _apply_advance_allocations_for_run(db, run, objects)
 
-    db.commit()
+    if commit:
+        db.commit()
+    else:
+        db.flush()
 
 
 def store_validation_messages(
@@ -540,6 +546,7 @@ def store_validation_messages(
     run: ScheduleRun,
     records: Iterable[ModelRecord],
     include_inactive: bool,
+    commit: bool = True,
 ) -> None:
     issues: list[ValidationIssue] = []
     for record in records:
@@ -557,7 +564,10 @@ def store_validation_messages(
             )
     if issues:
         db.add_all(issues)
-        db.commit()
+        if commit:
+            db.commit()
+        else:
+            db.flush()
 
 
 def _lookup_model_id(db: Session, code: str) -> int | None:
@@ -640,6 +650,7 @@ def create_amendment(
     models_affected: list[str],
     changes_summary: list[dict],
     created_by: str = "system",
+    commit: bool = True,
 ) -> ScheduleAmendment:
     """Log a schedule amendment for audit trail."""
     amendment = ScheduleAmendment(
@@ -650,7 +661,10 @@ def create_amendment(
         created_by=created_by,
     )
     db.add(amendment)
-    db.commit()
+    if commit:
+        db.commit()
+    else:
+        db.flush()
     db.refresh(amendment)
     return amendment
 

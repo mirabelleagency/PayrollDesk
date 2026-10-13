@@ -153,7 +153,10 @@ class PayrollService:
         # Preserve old payout status and notes for matching payouts
         old_payout_data = {}
         locked_codes: set[str] = set()
-        locked_payout_keys: set[tuple] = set()  # (code, pay_date) pairs with locked payouts
+        # (model_id, pay_date) of locked payouts. Keyed by model, not code: a
+        # renamed code used to slip past the filter, the regenerated payout then
+        # hit uq_payout_run_model_date, and the refresh died half-way.
+        locked_payout_keys: set[tuple] = set()
         if existing_runs:
             run = existing_runs[0]  # Use the most recent run for this month
             # Save status and notes from old payouts before clearing
@@ -161,14 +164,16 @@ class PayrollService:
                 key = (payout.code, payout.pay_date)
                 if payout.is_locked:
                     locked_codes.add(payout.code)
-                    locked_payout_keys.add(key)
+                    locked_payout_keys.add((payout.model_id, payout.pay_date))
                 else:
                     old_payout_data[key] = {
                         "status": payout.status,
                         "notes": payout.notes,
                     }
-            # Clear only unlocked payouts (locked ones stay)
-            crud.clear_unlocked_schedule_data(self.db, run)
+            # Clear only unlocked payouts (locked ones stay). Nothing below is
+            # committed until the whole run is rebuilt, so a failure part-way
+            # leaves the run exactly as it was instead of half-cleared.
+            crud.clear_unlocked_schedule_data(self.db, run, commit=False)
         else:
             run = crud.create_schedule_run(
                 self.db,
@@ -203,7 +208,7 @@ class PayrollService:
         run.summary_models_paid = summary.get("models_paid", 0)
         run.summary_total_payout = Decimal(str(summary.get("total_payout", 0)))
         run.summary_frequency_counts = json.dumps(summary.get("frequency_counts", {}))
-        self.db.commit()
+        self.db.flush()
 
         amount_column = f"Amount ({currency})"
         payout_records = schedule_df.to_dict(orient="records")
@@ -220,9 +225,10 @@ class PayrollService:
 
         # Exclude payouts that would conflict with locked payouts already in DB
         if locked_payout_keys:
+            model_id_by_code = {m.code: m.id for m in models}
             payout_records = [
                 p for p in payout_records
-                if (p["Code"], p["Pay Date"]) not in locked_payout_keys
+                if (model_id_by_code.get(p["Code"]), p["Pay Date"]) not in locked_payout_keys
             ]
 
         crud.store_payouts(
@@ -231,8 +237,9 @@ class PayrollService:
             payout_records,
             amount_column=amount_column,
             old_payout_data=old_payout_data,
+            commit=False,
         )
-        crud.store_validation_messages(self.db, run, records, include_inactive)
+        crud.store_validation_messages(self.db, run, records, include_inactive, commit=False)
 
         # Log amendment
         affected_codes = [r.code for r in records]
@@ -241,7 +248,10 @@ class PayrollService:
             self.db, run, amendment_type, affected_codes,
             [{"action": amendment_type, "models_count": len(affected_codes),
               "locked_count": len(locked_codes)}],
+            commit=False,
         )
+        # The run is rebuilt: commit it as one unit (run_payroll rolls back on error).
+        self.db.commit()
 
         # Build export schedule from DB payouts to reflect cash advance deductions (net vs gross)
         payouts_with_allocs = crud.list_payouts_with_allocations_for_run(self.db, run.id)
