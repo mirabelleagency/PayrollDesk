@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Iterable, Sequence, Dict
 
 import json
@@ -11,7 +11,7 @@ import json
 from sqlalchemy import case, delete, distinct, func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from app.core.payroll import ModelRecord, ValidationMessage
+from app.core.payroll import ModelRecord, ValidationMessage, payout_plan
 from app.models import (
     AdhocPayment,
     CommissionPayout,
@@ -613,6 +613,20 @@ def get_pay_config(db: Session, config_id: int | None = None) -> PayConfig | Non
 def list_active_frequency_plans(db: Session) -> Sequence[FrequencyPlan]:
     """Get all active frequency plans."""
     return db.query(FrequencyPlan).filter(FrequencyPlan.is_active == True).order_by(FrequencyPlan.name).all()
+
+
+def payouts_per_month(db: Session, frequency: str | None) -> int:
+    """How many payouts a monthly rate is split into for ``frequency`` — the
+    same plan schedule generation uses (active DB plans, else the defaults)."""
+    plans = {p.name: json.loads(p.pay_day_indices) for p in list_active_frequency_plans(db)} or None
+    return max(len(payout_plan((frequency or "").lower(), plans)), 1)
+
+
+def per_payout_share(db: Session, monthly_amount: Decimal, frequency: str | None) -> Decimal:
+    """One payout's share of a monthly rate, rounded as generation rounds it."""
+    return (Decimal(monthly_amount) / payouts_per_month(db, frequency)).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
 
 
 # ============================================================================
@@ -2653,6 +2667,7 @@ def generate_alerts_for_compensation_change(
                     target_year=run.target_year,
                     target_month=run.target_month,
                     payment_frequency=payout.payment_frequency,
+                    payouts_per_month=payouts_per_month(db, payout.payment_frequency),
                 )
                 
                 alert = create_compensation_alert(
@@ -2678,6 +2693,7 @@ def calculate_prorated_compensation(
     target_year: int,
     target_month: int,
     payment_frequency: str,
+    payouts_per_month: int | None = None,
 ) -> Decimal:
     """
     Calculate prorated compensation when a rate change happens mid-period.
@@ -2713,7 +2729,9 @@ def calculate_prorated_compensation(
         # use the new rate for that entire payment
         if pay_date >= effective_date:
             # Calculate what portion of monthly this payment represents
-            if payment_frequency.lower() == "weekly":
+            if payouts_per_month:
+                divisor = payouts_per_month
+            elif payment_frequency.lower() == "weekly":
                 divisor = 4
             else:  # biweekly
                 divisor = 2
