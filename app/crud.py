@@ -34,8 +34,9 @@ from app.models import (
 from app.schemas import AdhocPaymentCreate, AdhocPaymentUpdate, ModelCreate, ModelUpdate
 
 # --- Defaults for advances policy knobs ---
-ADVANCE_DEFAULT_MIN_FLOOR = Decimal("500")
-ADVANCE_DEFAULT_MAX_PER_RUN = Decimal("600")
+# Non-blocking unless an admin sets them on the advance: no minimum take-home,
+# and max per run defaults to the advance's whole amount (see create_advance).
+ADVANCE_DEFAULT_MIN_FLOOR = Decimal("0")
 ADVANCE_DEFAULT_CAP_MULTIPLIER = Decimal("1.0")
 
 
@@ -1914,7 +1915,7 @@ def create_advance(
         fixed_amount=fixed_amount if strategy_value == "fixed" else None,
         percent_rate=percent_rate if strategy_value == "percent" else None,
         min_net_floor=(min_net_floor if min_net_floor is not None else ADVANCE_DEFAULT_MIN_FLOOR),
-        max_per_run=(max_per_run if max_per_run is not None else ADVANCE_DEFAULT_MAX_PER_RUN),
+        max_per_run=(max_per_run if max_per_run is not None else amount_total),
         cap_multiplier=(cap_multiplier if cap_multiplier is not None else ADVANCE_DEFAULT_CAP_MULTIPLIER),
         notes=(notes.strip() if notes else None),
     )
@@ -2059,8 +2060,10 @@ def _apply_advance_allocations_for_run(db: Session, run: ScheduleRun, payouts: l
             for adv in advances
         }
 
+        # Deducted per advance within this run, for max_per_run.
+        planned_this_run: dict[int, Decimal] = {adv.id: Decimal("0") for adv in advances}
+
         for payout in rows:
-            # Available to deduct is the full payout amount (no floor)
             available = Decimal(payout.amount or 0)
             if available <= 0:
                 continue
@@ -2076,9 +2079,20 @@ def _apply_advance_allocations_for_run(db: Session, run: ScheduleRun, payouts: l
                     # percent of gross payout amount
                     pct = Decimal(adv.percent_rate or 0) / Decimal("100")
                     candidate = (Decimal(payout.amount or 0) * pct)
+                # Guardrails, in the order the spec gives them:
+                # cap_multiplier scales the strategy amount ...
+                candidate = candidate * Decimal(adv.cap_multiplier if adv.cap_multiplier is not None else 1)
+                # ... net pay never goes below min_net_floor ...
+                floor_room = Decimal(payout.amount or 0) - Decimal(adv.min_net_floor or 0)
+                # ... and one run never takes more than max_per_run from this advance.
+                if adv.max_per_run is not None:
+                    run_room = Decimal(adv.max_per_run) - planned_this_run[adv.id]
+                else:
+                    run_room = candidate
                 # Respect remaining room on this payout and advance balance
                 remaining_room = max(available - total_deducted, Decimal("0"))
-                planned = min(candidate, temp_remaining[adv.id], remaining_room)
+                planned = min(candidate, temp_remaining[adv.id], remaining_room, floor_room, run_room)
+                planned = planned.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
                 # Ensure non-negative and meaningful
                 if planned <= 0:
                     continue
@@ -2087,6 +2101,7 @@ def _apply_advance_allocations_for_run(db: Session, run: ScheduleRun, payouts: l
                 payout.amount = (Decimal(payout.amount or 0) - planned)
                 total_deducted += planned
                 temp_remaining[adv.id] = temp_remaining[adv.id] - planned
+                planned_this_run[adv.id] += planned
 
                 # Create allocation row
                 alloc = PayoutAdvanceAllocation(

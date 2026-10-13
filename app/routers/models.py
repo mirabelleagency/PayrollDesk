@@ -1457,6 +1457,8 @@ def create_model_advance(
     strategy: str = Form("fixed"),
     fixed_amount: str = Form(""),
     percent_rate: str = Form(""),
+    min_net_floor: str = Form(""),
+    max_per_run: str = Form(""),
     notes: str = Form(""),
     auto_approve: str | None = Form(None),
     db: Session = Depends(get_session),
@@ -1480,6 +1482,10 @@ def create_model_advance(
 
     fx_amt = _to_decimal(fixed_amount)
     pct = _to_decimal(percent_rate)
+    floor = _to_decimal(min_net_floor)
+    per_run = _to_decimal(max_per_run)
+    if (floor is not None and floor < 0) or (per_run is not None and per_run <= 0):
+        return _redirect_to_model(model_id, error="Minimum take-home can't be negative and max per run must be above zero.")
     try:
         adv = crud.create_advance(
             db,
@@ -1488,6 +1494,8 @@ def create_model_advance(
             strategy=strategy,
             fixed_amount=(fx_amt.quantize(Decimal("0.01")) if fx_amt is not None else None),
             percent_rate=(pct.quantize(Decimal("0.01")) if pct is not None else None),
+            min_net_floor=(floor.quantize(Decimal("0.01")) if floor is not None else None),
+            max_per_run=(per_run.quantize(Decimal("0.01")) if per_run is not None else None),
             notes=(notes.strip() if notes else None),
         )
         if auto_approve is not None:
