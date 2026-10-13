@@ -149,6 +149,9 @@ def generate_referral_schedule(
             windows = _frequency_windows(frequency)
             if not windows:
                 continue
+            # Commission runs for the agreed number of months from the
+            # referral's start; it used to be scheduled indefinitely.
+            duration = term.commission_duration_months or referrer.commission_duration_months
             entries.extend(
                 _build_schedule_for_referral(
                     db,
@@ -160,6 +163,7 @@ def generate_referral_schedule(
                     payout_map=payout_map,
                     months_forward=months_forward,
                     today=today,
+                    duration_months=duration,
                 )
             )
 
@@ -178,6 +182,7 @@ def _build_schedule_for_referral(
     payout_map: dict,
     months_forward: int,
     today: date,
+    duration_months: int | None = None,
 ) -> list[ReferralScheduleEntry]:
     from app.models import CommissionPayout
 
@@ -187,7 +192,11 @@ def _build_schedule_for_referral(
 
     accepted_on = referral.start_date
     referral_name = _display_name(referral)
+    # Commission ends `duration_months` after the referral started (exclusive).
+    ends_on = _add_months(accepted_on, duration_months) if accepted_on and duration_months else None
     for pay_date, schedule_type in _iter_payment_dates(accepted_on, today, months_forward, allowed):
+        if ends_on and pay_date >= ends_on:
+            continue
         # Check if a payout record exists for this entry
         payout_key = (referrer.id, referral.id, pay_date, schedule_type)
         existing_payout = payout_map.get(payout_key)
