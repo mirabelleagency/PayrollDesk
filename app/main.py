@@ -217,8 +217,11 @@ def health_db(db: Session = Depends(get_session)) -> dict[str, Any]:
                 "engine": db_type,
             },
         }
-    except Exception as e:
+    except Exception:
         elapsed_ms = (time.perf_counter() - start) * 1000
+        # Unauthenticated endpoint: the raw error (host names, driver details)
+        # goes to the server log, not the response.
+        logging.getLogger(__name__).exception("Database health check failed")
         return JSONResponse(
             status_code=503,
             content={
@@ -226,7 +229,7 @@ def health_db(db: Session = Depends(get_session)) -> dict[str, Any]:
                 "database": {
                     "connected": False,
                     "response_time_ms": round(elapsed_ms, 2),
-                    "error": str(e),
+                    "error": "database unavailable",
                 },
             },
         )
