@@ -9,7 +9,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 # Provide a lightweight bcrypt stub so unit tests do not require the optional dependency.
-if "bcrypt" not in sys.modules:
+try:  # the real bcrypt when installed (it's pinned); a stub that accepts every
+    import bcrypt  # noqa: F401  password would otherwise leak into the whole session
+except ImportError:
+    bcrypt = None
+if bcrypt is None:
     mock_bcrypt = types.ModuleType("bcrypt")
 
     def _gensalt() -> bytes:

@@ -88,25 +88,19 @@ def login(
         increment_failed_login(db, username)
         record_login_attempt(db, username, False, client_ip, user_agent)
         
-        # Get updated failed attempt count
-        user = db.query(User).filter(User.username == username).first()
-        failed_count = user.failed_login_count if user else 0
-        attempts_remaining = max(0, 5 - failed_count)
         
-        # Create error message with attempt counter
+        # Same message whether or not the username exists. The old "(N attempts
+        # remaining)" counted down only for real accounts (unknown names always
+        # said 5), which told anyone which usernames exist.
         error_msg = "Invalid username or password"
-        if attempts_remaining > 0:
-            error_msg += f" ({attempts_remaining} attempt{'s' if attempts_remaining != 1 else ''} remaining)"
         
-        # Return login page with error and attempt count
+        # Return login page with the error
         return templates.TemplateResponse(
             request,
             "auth/login.html",
             {
                 "request": request,
                 "error": error_msg,
-                "attempts_remaining": attempts_remaining,
-                "failed_count": failed_count,
             },
             status_code=401,
         )
