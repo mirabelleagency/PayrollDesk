@@ -8421,4 +8421,28 @@ section {
     }
 }
 
-
+/* New ad hoc payment panel on /schedules/adhoc */
+.adhoc-new-card {
+  margin-bottom: 1rem;
+}
+.adhoc-new-card__summary {
+  cursor: pointer;
+  list-style: none;
+}
+.adhoc-new-card__summary::-webkit-details-marker {
+  display: none;
+}
+.adhoc-new-card__summary h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.adhoc-new-card[open] .adhoc-new-card__summary {
+  margin-bottom: 1rem;
+}
+.adhoc-new-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}

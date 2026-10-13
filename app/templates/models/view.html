@@ -711,7 +711,7 @@ details[open] > .collapsible-summary::after {
     {% set latest_payment = adhoc_payments[0] if adhoc_count else None %}
 
     <!-- Ad Hoc Payments (collapsible header + form; table moved outside to stay always visible) -->
-    <details id="adhoc-card" class="model-view-table-card collapsible-card" aria-labelledby="adhoc-title">
+    <details id="adhoc-card" class="model-view-table-card collapsible-card" aria-labelledby="adhoc-title"{% if pending_count %} open{% endif %}>
         <summary class="model-view-table-header collapsible-summary" aria-expanded="false" aria-controls="adhoc-content">
             <div class="model-view-table-title">
                 <span class="model-view-section__icon" aria-hidden="true">{{ icon('trending-down') }}</span>

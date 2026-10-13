@@ -1024,6 +1024,38 @@ def model_snapshot_data(
     return JSONResponse(content=payload)
 
 
+def parse_adhoc_payment_form(
+    pay_date: str, amount: str, description: str, notes: str
+) -> tuple[AdhocPaymentCreate | None, str | None]:
+    """Validate the ad hoc payment form; returns (payload, None) or (None, error)."""
+    pay_date_value = (pay_date or "").strip()
+    if not pay_date_value:
+        return None, "Pay date is required."
+    try:
+        pay_date_obj = date.fromisoformat(pay_date_value)
+    except ValueError:
+        return None, "Pay date must use YYYY-MM-DD format."
+
+    amount_value = (amount or "").strip()
+    if not amount_value:
+        return None, "Amount is required."
+    try:
+        amount_decimal = Decimal(amount_value)
+    except (InvalidOperation, ValueError):
+        return None, "Amount must be a valid number."
+    if not amount_decimal.is_finite() or amount_decimal <= 0:
+        return None, "Amount must be greater than zero."
+    amount_decimal = amount_decimal.quantize(_DECIMAL_PLACES)
+
+    payload = AdhocPaymentCreate(
+        pay_date=pay_date_obj,
+        amount=amount_decimal,
+        description=description.strip() if description else None,
+        notes=notes.strip() if notes else None,
+    )
+    return payload, None
+
+
 @router.post("/{model_id}/adhoc-payments")
 def create_adhoc_payment(
     model_id: int,
@@ -1038,31 +1070,9 @@ def create_adhoc_payment(
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
 
-    pay_date_value = (pay_date or "").strip()
-    if not pay_date_value:
-        return _redirect_to_model(model_id, error="Pay date is required.")
-    try:
-        pay_date_obj = date.fromisoformat(pay_date_value)
-    except ValueError:
-        return _redirect_to_model(model_id, error="Pay date must use YYYY-MM-DD format.")
-
-    amount_value = (amount or "").strip()
-    if not amount_value:
-        return _redirect_to_model(model_id, error="Amount is required.")
-    try:
-        amount_decimal = Decimal(amount_value)
-    except (InvalidOperation, ValueError):
-        return _redirect_to_model(model_id, error="Amount must be a valid number.")
-    if amount_decimal <= 0:
-        return _redirect_to_model(model_id, error="Amount must be greater than zero.")
-    amount_decimal = amount_decimal.quantize(_DECIMAL_PLACES)
-
-    payload = AdhocPaymentCreate(
-        pay_date=pay_date_obj,
-        amount=amount_decimal,
-        description=description.strip() if description else None,
-        notes=notes.strip() if notes else None,
-    )
+    payload, error = parse_adhoc_payment_form(pay_date, amount, description, notes)
+    if error:
+        return _redirect_to_model(model_id, error=error)
     crud.create_adhoc_payment(db, model, payload)
     return _redirect_to_model(model_id, success="Ad hoc payment created.")
 

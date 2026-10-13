@@ -20,12 +20,70 @@
         <p>Accounting command center for one-off payment management and reconciliation.</p>
     </div>
     <div class="header-actions">
+        {% if user.role == 'admin' %}
+        <a class="button button--primary" href="#new-adhoc" id="new-adhoc-button" title="Record a one-off payment for a model">
+            <span class="button__icon">{{ icon('plus', size=16) }}</span>
+            <span>New ad hoc payment</span>
+        </a>
+        {% endif %}
         <button class="button export" onclick="window.print()" title="Print or export ad hoc payments">
             <span class="button__icon">{{ icon('chart-bar', size=16) }}</span>
             <span>Export to Excel</span>
         </button>
     </div>
 </section>
+
+{% if error_message %}
+<div class="alert error" role="alert">
+    <strong>Could not complete request.</strong> {{ error_message }}
+</div>
+{% endif %}
+{% if success_message %}
+<div class="alert success" role="status">
+    <strong>Done.</strong> {{ success_message }}
+</div>
+{% endif %}
+
+{% if user.role == 'admin' %}
+<details id="new-adhoc" class="card adhoc-new-card" {% if error_message %}open{% endif %}>
+    <summary class="adhoc-new-card__summary">
+        <h2><span class="section-icon">{{ icon('plus') }}</span> New ad hoc payment</h2>
+    </summary>
+    <form action="/schedules/adhoc" method="post">
+        <div class="form-grid two-column">
+            <div class="form-row span-all">
+                <label for="adhoc-new-model">Model <span class="required-badge">Required</span></label>
+                <input id="adhoc-new-model" name="model" type="text" list="adhoc-model-options" autocomplete="off" required placeholder="Type a code or name, e.g. 115" />
+                <datalist id="adhoc-model-options">
+                    {% for option in adhoc_model_options %}
+                    <option value="{{ option.label }}">{% if option.status != 'Active' %}{{ option.status }}{% endif %}</option>
+                    {% endfor %}
+                </datalist>
+            </div>
+            <div class="form-row">
+                <label for="adhoc-new-pay-date">Pay Date <span class="required-badge">Required</span></label>
+                <input id="adhoc-new-pay-date" name="pay_date" type="date" value="{{ today_iso }}" required />
+            </div>
+            <div class="form-row">
+                <label for="adhoc-new-amount">Amount (USD) <span class="required-badge">Required</span></label>
+                <input id="adhoc-new-amount" name="amount" type="number" step="0.01" min="0.01" required />
+            </div>
+            <div class="form-row span-all">
+                <label for="adhoc-new-description">Description</label>
+                <input id="adhoc-new-description" name="description" type="text" maxlength="255" placeholder="Reason or memo, e.g. hotel reimbursement" />
+            </div>
+            <div class="form-row span-all">
+                <label for="adhoc-new-notes">Notes (internal)</label>
+                <textarea id="adhoc-new-notes" name="notes" rows="2" placeholder="Optional"></textarea>
+            </div>
+        </div>
+        <div class="adhoc-new-card__actions">
+            <button class="button" type="submit">Add Ad Hoc Payment</button>
+            <span class="info-value--muted">Saved as pending. Mark it paid from the table below.</span>
+        </div>
+    </form>
+</details>
+{% endif %}
 
 <!-- Quick Action Bar -->
 {% if monthly_adhoc_summary.has_payments and pending_count > 0 %}
@@ -286,6 +344,23 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    const newCard = document.getElementById('new-adhoc');
+    const newButton = document.getElementById('new-adhoc-button');
+    function openNewCard() {
+        if (!newCard) return;
+        newCard.open = true;
+        newCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const modelInput = document.getElementById('adhoc-new-model');
+        if (modelInput) modelInput.focus({ preventScroll: true });
+    }
+    if (newButton) {
+        newButton.addEventListener('click', function (event) {
+            event.preventDefault();
+            openNewCard();
+        });
+    }
+    if (window.location.hash === '#new-adhoc') openNewCard();
+
     const statusSelects = document.querySelectorAll('.adhoc-status-select');
     statusSelects.forEach(function (select) {
         select.addEventListener('change', function () {

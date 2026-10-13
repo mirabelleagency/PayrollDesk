@@ -27,6 +27,7 @@ from app.dependencies import templates
 from app.core.formatting import format_display_date
 from app.models import AdhocPayment, PAYOUT_STATUS_ENUM, Payout, Model, ScheduleRun
 from app.routers.auth import get_current_user, get_admin_user
+from app.routers.models import parse_adhoc_payment_form
 from app.services import PayrollService
 from app.export_safety import safe_df, safe_csv_writer
 
@@ -1317,6 +1318,10 @@ def view_adhoc_payments(
             "filters": filters_payload,
             "year_overview": [],  # Not needed without period selector
             "monthly_adhoc_summary": all_summary,  # Use all-time summary
+            "adhoc_model_options": _adhoc_model_options(db) if user.is_admin() else [],
+            "today_iso": date.today().isoformat(),
+            "success_message": request.query_params.get("success"),
+            "error_message": request.query_params.get("error"),
             "monthly_adhoc_payments": filtered_payments,
             "monthly_adhoc_single": None,  # Not needed anymore
             "filtered_adhoc_summary": filtered_summary,
@@ -1325,6 +1330,62 @@ def view_adhoc_payments(
             "quick_range_options": quick_range_options,
         },
     )
+
+
+def _adhoc_model_label(model: Model) -> str:
+    name = (model.working_name or "").strip()
+    return f"{model.code} · {name}" if name else model.code
+
+
+def _adhoc_model_options(db: Session) -> list[dict[str, str]]:
+    """Models the ad hoc form can pay, active first, as picker labels."""
+    models = crud.list_models(db)
+    ordered = sorted(models, key=lambda m: ((m.status or "") != "Active", m.code or ""))
+    return [
+        {"label": _adhoc_model_label(m), "status": m.status or ""}
+        for m in ordered
+    ]
+
+
+def _resolve_adhoc_model(db: Session, value: str) -> Model | None:
+    """Match the picker's text to one model: its full label, its exact code, or
+    the number its code starts with ("115" for "115 LEX") when only one has it."""
+    wanted = (value or "").strip().casefold()
+    if not wanted:
+        return None
+    models = crud.list_models(db)
+    for model in models:
+        if _adhoc_model_label(model).casefold() == wanted:
+            return model
+    matches = [m for m in models if (m.code or "").casefold() == wanted]
+    if not matches:
+        matches = [m for m in models if ((m.code or "").casefold().split() or [""])[0] == wanted]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _redirect_to_adhoc(**params: str) -> RedirectResponse:
+    query = urlencode({key: value for key, value in params.items() if value})
+    return RedirectResponse(url=f"/schedules/adhoc?{query}" if query else "/schedules/adhoc", status_code=303)
+
+
+@router.post("/adhoc")
+def create_adhoc_payment_from_workspace(
+    model: str = Form(""),
+    pay_date: str = Form(""),
+    amount: str = Form(""),
+    description: str = Form(""),
+    notes: str = Form(""),
+    db: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    target = _resolve_adhoc_model(db, model)
+    if not target:
+        return _redirect_to_adhoc(error="Pick a model from the list.")
+    payload, error = parse_adhoc_payment_form(pay_date, amount, description, notes)
+    if error:
+        return _redirect_to_adhoc(error=error)
+    crud.create_adhoc_payment(db, target, payload)
+    return _redirect_to_adhoc(success=f"Ad hoc payment recorded for {_adhoc_model_label(target)}.")
 
 
 @router.post("/export")
