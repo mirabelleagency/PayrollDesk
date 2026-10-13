@@ -3,7 +3,7 @@ services:
     name: payroll-desk
     env: docker
     repo: mirabelleagency/PayrollDesk
-    branch: main
+    branch: payrolldesk-v4
     plan: free
     dockerfile_path: Dockerfile
     build_command: ""
