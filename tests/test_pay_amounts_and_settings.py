@@ -35,8 +35,8 @@ def test_plan_pointing_past_pay_days_does_not_crash():
 
 
 @pytest.mark.parametrize("value, expected", [
-    ("2026-11-01T17:00+08:00", datetime(2026, 11, 1, 9, 0)),
-    ("2026-11-01T17:00", datetime(2026, 11, 1, 17, 0)),
+    ("2099-11-01T17:00+08:00", datetime(2099, 11, 1, 9, 0)),
+    ("2099-11-01T17:00", datetime(2099, 11, 1, 17, 0)),
     ("", None),
 ])
 def test_api_key_expiry_is_utc(value, expected):
