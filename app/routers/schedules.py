@@ -28,6 +28,7 @@ from app.core.formatting import format_display_date
 from app.models import AdhocPayment, PAYOUT_STATUS_ENUM, Payout, Model, ScheduleRun
 from app.routers.auth import get_current_user, get_admin_user
 from app.services import PayrollService
+from app.export_safety import safe_df, safe_csv_writer
 
 router = APIRouter(prefix="/schedules", tags=["Schedules"])
 
@@ -1474,7 +1475,7 @@ def export_dashboard_excel(
                 summary_rows.append({"Metric": "Quick Range", "Value": active_preset})
 
             summary_df = pd.DataFrame(summary_rows)
-            summary_df.to_excel(writer, sheet_name="Monthly Summary", index=False)
+            safe_df(summary_df).to_excel(writer, sheet_name="Monthly Summary", index=False)
 
             frequency_totals: dict[str, int] = {}
             for card in export_run_cards:
@@ -1493,7 +1494,7 @@ def export_dashboard_excel(
                     for label, count in sorted(frequency_totals.items())
                 ]
                 freq_df = pd.DataFrame(freq_rows)
-                freq_df.to_excel(
+                safe_df(freq_df).to_excel(
                     writer,
                     sheet_name="Monthly Summary",
                     index=False,
@@ -1530,7 +1531,7 @@ def export_dashboard_excel(
                 "Frequency Mix",
             ]
             cycles_df = pd.DataFrame(cycle_rows, columns=cycle_columns)
-            cycles_df.to_excel(writer, sheet_name="Cycles", index=False)
+            safe_df(cycles_df).to_excel(writer, sheet_name="Cycles", index=False)
 
         if options["adhoc_summary"]:
             adhoc_summary = filtered_adhoc_summary
@@ -1545,7 +1546,7 @@ def export_dashboard_excel(
                 {"Metric": "Latest Pay Date", "Value": adhoc_summary.get("latest_pay_date_display", "")},
             ]
             adhoc_df = pd.DataFrame(adhoc_rows)
-            adhoc_df.to_excel(writer, sheet_name="Adhoc Summary", index=False)
+            safe_df(adhoc_df).to_excel(writer, sheet_name="Adhoc Summary", index=False)
 
             status_rows = [
                 {
@@ -1557,7 +1558,7 @@ def export_dashboard_excel(
             ]
             if status_rows:
                 status_df = pd.DataFrame(status_rows)
-                status_df.to_excel(
+                safe_df(status_df).to_excel(
                     writer,
                     sheet_name="Adhoc Summary",
                     index=False,
@@ -1590,7 +1591,7 @@ def export_dashboard_excel(
                 "Notes",
             ]
             adhoc_details_df = pd.DataFrame(adhoc_detail_rows, columns=adhoc_detail_columns)
-            adhoc_details_df.to_excel(writer, sheet_name="Adhoc Payments", index=False)
+            safe_df(adhoc_details_df).to_excel(writer, sheet_name="Adhoc Payments", index=False)
 
         if options["recent_runs"]:
             recent_rows: list[dict[str, object]] = []
@@ -1620,7 +1621,7 @@ def export_dashboard_excel(
                 "Outstanding",
             ]
             recent_df = pd.DataFrame(recent_rows, columns=recent_columns)
-            recent_df.to_excel(writer, sheet_name="Recent Cycles", index=False)
+            safe_df(recent_df).to_excel(writer, sheet_name="Recent Cycles", index=False)
 
     buffer.seek(0)
 
@@ -1921,7 +1922,7 @@ def export_runs_all_table(
             if not (start_date or end_date or active_preset)
             else "Cycles_Filtered"
         )
-        dataframe.to_excel(writer, sheet_name=sheet_name, index=False)
+        safe_df(dataframe).to_excel(writer, sheet_name=sheet_name, index=False)
 
     buffer.seek(0)
 
@@ -2520,7 +2521,7 @@ def download_export(
         )
         
         output = io.StringIO()
-        writer = csv.writer(output)
+        writer = safe_csv_writer(output)
         
         # Write header
         writer.writerow([
@@ -2610,7 +2611,7 @@ def download_export(
 
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-            dataframe.to_excel(writer, sheet_name="Payouts", index=False)
+            safe_df(dataframe).to_excel(writer, sheet_name="Payouts", index=False)
         buffer.seek(0)
 
         filename_suffix = f"_{status_filter}" if status_filter else ""

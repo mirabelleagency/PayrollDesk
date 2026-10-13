@@ -19,6 +19,7 @@ from app.routers.auth import get_current_user, get_admin_user
 from app.models import Model, ScheduleRun
 from app.exporting import export_full_workbook
 from fastapi.responses import Response
+from app.export_safety import safe_csv_writer
 
 router = APIRouter(tags=["Dashboard"])
 
@@ -201,7 +202,7 @@ def export_dashboard_models(
     )
 
     buffer = StringIO()
-    writer = csv.writer(buffer)
+    writer = safe_csv_writer(buffer)
     for row in _iter_model_export_rows(models):
         writer.writerow(row)
 

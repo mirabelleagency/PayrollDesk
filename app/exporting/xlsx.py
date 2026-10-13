@@ -7,6 +7,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 
 from app.core.payroll import ensure_non_empty_frames
+from app.export_safety import safe_df
 from app.models import (
     AdhocPayment,
     CommissionPayout,
@@ -231,15 +232,15 @@ def export_full_workbook(db: Session, currency: str = "USD") -> bytes:
 
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        df_models.to_excel(writer, sheet_name="Models", index=False)
-        df_adjustments.to_excel(writer, sheet_name="CompensationAdjustments", index=False)
-        df_adhoc.to_excel(writer, sheet_name="AdhocPayments", index=False)
-        df_runs.to_excel(writer, sheet_name="ScheduleRuns", index=False)
-        df_payouts.to_excel(writer, sheet_name="Payouts", index=False)
+        safe_df(df_models).to_excel(writer, sheet_name="Models", index=False)
+        safe_df(df_adjustments).to_excel(writer, sheet_name="CompensationAdjustments", index=False)
+        safe_df(df_adhoc).to_excel(writer, sheet_name="AdhocPayments", index=False)
+        safe_df(df_runs).to_excel(writer, sheet_name="ScheduleRuns", index=False)
+        safe_df(df_payouts).to_excel(writer, sheet_name="Payouts", index=False)
         # New: cash advance data
-        df_advances.to_excel(writer, sheet_name="Advances", index=False)
-        df_repayments.to_excel(writer, sheet_name="AdvanceRepayments", index=False)
-        df_commissions.to_excel(writer, sheet_name="CommissionPayouts", index=False)
+        safe_df(df_advances).to_excel(writer, sheet_name="Advances", index=False)
+        safe_df(df_repayments).to_excel(writer, sheet_name="AdvanceRepayments", index=False)
+        safe_df(df_commissions).to_excel(writer, sheet_name="CommissionPayouts", index=False)
         # AdvanceAllocations sheet removed per request
 
     buffer.seek(0)
