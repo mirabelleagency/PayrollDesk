@@ -12,7 +12,9 @@ from sqlalchemy.orm import Session
 from app.database import get_session
 from app.auth import User
 from app.dependencies import templates
+from app.env_config import current_environment, is_development_environment, is_test_environment
 from app.security import (
+    safe_redirect_path,
     record_login_attempt,
     is_account_locked,
     increment_failed_login,
@@ -21,9 +23,19 @@ from app.security import (
 
 logger = logging.getLogger(__name__)
 
-_SESSION_SECRET = os.getenv("SESSION_SECRET", os.getenv("SECRET_KEY", "change-me-in-production"))
-if os.getenv("ENVIRONMENT", "development").lower() == "production" and _SESSION_SECRET == "change-me-in-production":
-    raise RuntimeError("SESSION_SECRET or SECRET_KEY must be set in production; refusing to start with default secret.")
+_PLACEHOLDER_SECRET = "change-me-in-production"
+_SESSION_SECRET = (os.getenv("SESSION_SECRET") or os.getenv("SECRET_KEY") or "").strip()
+if not _SESSION_SECRET or _SESSION_SECRET == _PLACEHOLDER_SECRET:
+    # Only an explicitly dev/test environment may run on a known secret. This
+    # used to treat a *missing* ENVIRONMENT as development, so a deploy without
+    # ENVIRONMENT or SESSION_SECRET signed sessions with the public default and
+    # anyone could forge an admin cookie.
+    if not (is_development_environment() or is_test_environment()):
+        raise RuntimeError(
+            "SESSION_SECRET (or SECRET_KEY) must be set; refusing to start with no "
+            f"session secret when ENVIRONMENT={current_environment()!r}."
+        )
+    _SESSION_SECRET = "dev-session-secret-not-for-production-use"
 _SESSION_MAX_AGE = 86400  # 24 hours
 _signer = URLSafeTimedSerializer(_SESSION_SECRET, salt="user-session")
 
@@ -104,10 +116,8 @@ def login(
     record_login_attempt(db, username, True, client_ip, user_agent)
     
     # Determine safe redirect target
-    redirect_to = next or request.query_params.get("next") or "/dashboard"
     # Prevent open redirects: only allow same-site paths
-    if not isinstance(redirect_to, str) or "://" in redirect_to or not redirect_to.startswith("/"):
-        redirect_to = "/dashboard"
+    redirect_to = safe_redirect_path(next or request.query_params.get("next"), "/dashboard")
 
     # Set signed session cookie and redirect
     response = RedirectResponse(url=redirect_to, status_code=303)

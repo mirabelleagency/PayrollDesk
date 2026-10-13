@@ -189,3 +189,23 @@ class PasswordValidator:
             return False, "Password must include at least one letter and one number"
 
         return True, ""
+
+
+def safe_redirect_path(target: object, default: str = "/dashboard") -> str:
+    r"""Return ``target`` if it is a path on this site, else ``default``.
+
+    Rejects anything a browser would send off-site: absolute URLs, but also
+    scheme-relative ``//evil.com`` (which passed the old ``startswith("/")``
+    check) and backslash forms like ``/\evil.com`` that browsers treat as
+    ``//``.
+    """
+    from urllib.parse import urlsplit
+
+    if not isinstance(target, str) or not target.startswith("/") or target.startswith("//"):
+        return default
+    if "\\" in target or any(ord(ch) < 32 for ch in target):
+        return default
+    parts = urlsplit(target)
+    if parts.scheme or parts.netloc:
+        return default
+    return target
