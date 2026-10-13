@@ -2922,7 +2922,10 @@ async function resolveAlert(alertId, action) {
                 if (payoutRow) {
                     const amountCell = payoutRow.querySelector('.column-amount');
                     if (amountCell) {
-                        amountCell.innerHTML = `<span style="color: #22c55e;">{{ run.currency }} ${formatMoney(data.amount_applied)}</span>`;
+                        const appliedSpan = document.createElement('span');
+                        appliedSpan.style.color = '#22c55e';
+                        appliedSpan.textContent = {{ run.currency|tojson }} + ' ' + formatMoney(data.amount_applied);
+                        amountCell.replaceChildren(appliedSpan);
                         payoutRow.classList.add('payout-row--updated');
                     }
                 }

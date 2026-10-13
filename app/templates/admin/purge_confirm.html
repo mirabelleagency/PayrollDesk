@@ -83,7 +83,7 @@ function toggleDeleteButton(){
   const input = document.getElementById('confirm-code');
   const btn = document.getElementById('confirm-delete');
   if(!input || !btn){ return; }
-  btn.disabled = (input.value.trim() !== '{{ impact.model_code }}');
+  btn.disabled = (input.value.trim() !== {{ impact.model_code|tojson }});
 }
 </script>
 {% endblock %}
