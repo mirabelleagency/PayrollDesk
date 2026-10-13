@@ -2002,8 +2002,32 @@ def _apply_advance_allocations_for_run(db: Session, run: ScheduleRun, payouts: l
         )
         if not advances:
             continue
-        # Track a local temp remaining per advance for this run's planning
-        temp_remaining: dict[int, Decimal] = {adv.id: Decimal(adv.amount_remaining or 0) for adv in advances}
+        # What each advance can still cover: its balance less deductions other
+        # schedule runs have already planned against it. Allocations exist only
+        # for unpaid payouts (paying converts them into repayments, which reduce
+        # amount_remaining), so this is exactly the balance not yet spoken for.
+        # Planning from amount_remaining alone let two unpaid runs both plan the
+        # same balance; paying the second then failed.
+        reserved_elsewhere = dict(
+            db.execute(
+                select(
+                    PayoutAdvanceAllocation.advance_id,
+                    func.coalesce(func.sum(PayoutAdvanceAllocation.planned_amount), 0),
+                )
+                .where(
+                    PayoutAdvanceAllocation.advance_id.in_([adv.id for adv in advances]),
+                    PayoutAdvanceAllocation.schedule_run_id != run.id,
+                )
+                .group_by(PayoutAdvanceAllocation.advance_id)
+            ).all()
+        )
+        temp_remaining: dict[int, Decimal] = {
+            adv.id: max(
+                Decimal(adv.amount_remaining or 0) - Decimal(reserved_elsewhere.get(adv.id, 0) or 0),
+                Decimal("0"),
+            )
+            for adv in advances
+        }
 
         for payout in rows:
             # Available to deduct is the full payout amount (no floor)
