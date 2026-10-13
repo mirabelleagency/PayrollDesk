@@ -2941,9 +2941,12 @@ def resolve_compensation_alert(
     username = user.username if user else "system"
     
     if action == "apply_new":
-        # Apply the new (full) amount
+        # The alert holds the new *monthly* rate; this payout gets its share of
+        # it (a weekly payout a quarter of a 4-payout month). Applying the
+        # monthly figure itself paid a weekly model a whole month per payout.
+        amount_to_apply = crud.per_payout_share(db, alert.new_amount, alert.payout.payment_frequency)
         payout, resolved_alert = crud.apply_alert_to_payout(
-            db, alert, alert.new_amount, resolved_by=username
+            db, alert, amount_to_apply, resolved_by=username
         )
         db.commit()
         _invalidate_dashboard_cache()
@@ -2951,7 +2954,7 @@ def resolve_compensation_alert(
             "ok": True,
             "alert_id": alert_id,
             "action": "applied",
-            "amount_applied": float(alert.new_amount),
+            "amount_applied": float(amount_to_apply),
             "payout_id": payout.id,
         })
     
