@@ -24,6 +24,7 @@ from app.core.rate_limiter import limiter, EXPORT_LIMIT
 from app.models import COMMISSION_PAYOUT_FREQUENCY_ENUM, FREQUENCY_ENUM, STATUS_ENUM, Payout, ScheduleRun
 from app.commission import build_commission_summary, get_eligible_referrals
 from app.routers.auth import get_current_user, get_admin_user
+from app.security import safe_redirect_path
 from app.schemas import AdhocPaymentCreate, AdhocPaymentUpdate, ModelCreate, ModelUpdate
 from app.importers.excel_importer import ImportOptions, RunOptions, import_from_excel
 import pandas as pd
@@ -1091,7 +1092,7 @@ def update_adhoc_payment_status(
     status, message = target
     crud.set_adhoc_payment_status(db, payment, status)
     if return_url:
-        return RedirectResponse(url=return_url, status_code=303)
+        return RedirectResponse(url=safe_redirect_path(return_url, f"/models/{model_id}"), status_code=303)
     return _redirect_to_model(model_id, success=message)
 
 
