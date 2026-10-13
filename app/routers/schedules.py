@@ -2419,7 +2419,10 @@ def delete_schedule_run(run_id: int, db: Session = Depends(get_session), user: U
     if not run:
         raise HTTPException(status_code=404, detail="Schedule run not found")
 
-    crud.delete_schedule_run(db, run)
+    try:
+        crud.delete_schedule_run(db, run)
+    except crud.ScheduleRunHasPaidPayouts as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
     _invalidate_dashboard_cache()  # Clear cache after deletion
     return RedirectResponse(url="/schedules", status_code=303)
 

@@ -871,7 +871,27 @@ def set_payout_net(db: Session, payout: Payout, net: Decimal) -> None:
     payout.amount_overridden = True
 
 
+class ScheduleRunHasPaidPayouts(ValueError):
+    """Deleting the run would delete payment history."""
+
+
 def delete_schedule_run(db: Session, run: ScheduleRun) -> None:
+    """Delete a run and its payouts — only if none of them is paid or locked.
+
+    Paid payouts are the record of money already sent (and advance repayments
+    point at them), so deleting a run that contains any is refused.
+    """
+    paid = (
+        db.query(Payout)
+        .filter(Payout.schedule_run_id == run.id)
+        .filter(or_(Payout.status == "paid", Payout.is_locked == True))  # noqa: E712
+        .count()
+    )
+    if paid:
+        raise ScheduleRunHasPaidPayouts(
+            f"This run has {paid} paid payout{'s' if paid != 1 else ''}; "
+            "it can't be deleted without losing payment history."
+        )
     db.delete(run)
     db.commit()
 
