@@ -1,6 +1,36 @@
 {% extends "base.html" %}
 {% block title %}API Keys · Payroll Desk{% endblock %}
 {% block content %}
+<style>
+  .api-keys__lead { color: #94a3b8; margin: 8px 0 0 0; }
+  .api-keys__muted { color: #94a3b8; }
+  .api-keys__card { margin-bottom: 16px; }
+  .api-keys__card h2 { margin-top: 0; }
+  .api-keys__new { border: 1px solid rgba(16, 185, 129, 0.4); }
+  .api-keys__secret { background: rgba(15, 23, 42, 0.8); padding: 12px; border-radius: 6px; overflow-x: auto; color: #f8fafc; margin: 0 0 8px 0; }
+  .api-keys__actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .api-keys__row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 16px; }
+  .api-keys__field label { display: block; margin-bottom: 4px; color: #94a3b8; }
+  .api-keys__field input { padding: 8px 10px; min-width: 260px; background: rgba(15, 23, 42, 0.7); color: #f8fafc; border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 6px; }
+  .api-keys__hint { color: #64748b; font-size: 13px; margin-top: 4px; }
+  .api-keys__fieldset { border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 6px; padding: 12px; margin-bottom: 16px; }
+  .api-keys__fieldset legend { color: #94a3b8; padding: 0 4px; }
+  .api-keys__option { display: block; color: #cbd5e1; margin-bottom: 10px; cursor: pointer; }
+  .api-keys__option small { display: block; color: #94a3b8; margin-left: 24px; }
+  .api-keys__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin: 4px 0 0 24px; }
+  .api-keys__grid[hidden] { display: none; }
+  .api-keys__chip { display: inline-block; padding: 2px 8px; margin: 1px 2px; border-radius: 999px; font-size: 12px; background: rgba(148, 163, 184, 0.15); color: #cbd5e1; white-space: nowrap; }
+  .api-keys__chip--full { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
+  .api-keys__chip--legacy, .api-keys__chip--warn { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
+  .api-keys__chip--sensitive { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+  .api-keys__status--active { color: #6ee7b7; }
+  .api-keys__status--expired, .api-keys__status--revoked { color: #94a3b8; }
+  .api-keys__inactive summary { cursor: pointer; color: #94a3b8; margin-top: 16px; }
+  .api-keys__empty { color: #94a3b8; }
+  .api-keys__table td:nth-child(n+2) { white-space: nowrap; }
+  .api-keys__table td:nth-child(3) { white-space: normal; min-width: 180px; }
+</style>
+
 <nav class="breadcrumb">
   <a href="/dashboard">Dashboard</a>
   <span class="breadcrumb__sep">›</span>
@@ -10,7 +40,7 @@
 <section class="page-header" style="margin-bottom: 16px;">
   <div>
     <h1 class="page-title">{{ icon('key-round') }} API Keys</h1>
-    <p style="color:#94a3b8; margin:8px 0 0 0;">Create and revoke keys for external read-only access via <code>X-API-Key</code></p>
+    <p class="api-keys__lead">Read-only keys for other systems (such as Miranance) to pull payroll data. Sent in the <code>X-API-Key</code> header to <code>{{ api_base_url }}/api/v2/…</code></p>
   </div>
 </section>
 
@@ -22,81 +52,226 @@
 {% endif %}
 
 {% if new_plaintext_key %}
-<section class="card" style="margin-bottom: 16px; border: 1px solid rgba(16, 185, 129, 0.4);">
-  <h2 style="margin-top:0;">New API key (shown once)</h2>
-  <p style="color:#94a3b8;">Copy this value now. It cannot be retrieved later.</p>
-  <pre id="new-api-key" style="background: rgba(15,23,42,0.8); padding: 12px; border-radius: 6px; overflow-x: auto; color: #f8fafc;">{{ new_plaintext_key }}</pre>
-  <button type="button" class="button button--primary" onclick="navigator.clipboard.writeText(document.getElementById('new-api-key').innerText)">Copy to clipboard</button>
+<section class="card api-keys__card api-keys__new" id="new-key-card">
+  <h2>New key for “{{ new_key_name }}” — copy it now</h2>
+  <p class="api-keys__muted">This is the only time the key is shown. Only a fingerprint is stored, so it cannot be recovered later — if it is lost, rotate or create a new one.</p>
+  <pre id="new-api-key" class="api-keys__secret">{{ new_plaintext_key }}</pre>
+  <div class="api-keys__actions" style="margin-bottom: 12px;">
+    <button type="button" class="button button--primary" data-copy-target="new-api-key">Copy key</button>
+  </div>
+  <p class="api-keys__muted" style="margin-bottom: 4px;">As environment variables (e.g. Miranance's <code>.env</code> or Railway):</p>
+  <pre id="new-api-key-env" class="api-keys__secret">PAYROLLDESK_API_URL={{ api_base_url }}
+PAYROLLDESK_API_KEY={{ new_plaintext_key }}</pre>
+  <div class="api-keys__actions">
+    <button type="button" class="button secondary" data-copy-target="new-api-key-env">Copy as env vars</button>
+    <button type="button" class="button secondary" id="new-key-done">I've saved it</button>
+  </div>
 </section>
 {% endif %}
 
-<section class="card" style="margin-bottom: 16px;">
-  <h2 style="margin-top:0;">Create key</h2>
-  <form method="post" action="/admin/api-keys">
+<section class="card api-keys__card">
+  <h2>Create key</h2>
+  <form method="post" action="/admin/api-keys" id="create-key-form">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token(request) }}" />
-    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:12px;">
-      <div>
-        <label for="key-name" style="display:block; margin-bottom:4px; color:#94a3b8;">Name</label>
-        <input id="key-name" name="name" required maxlength="100" placeholder="Integration name"
-               style="padding:8px 10px; min-width:260px; background: rgba(15,23,42,0.7); color:#f8fafc; border:1px solid rgba(148,163,184,0.3); border-radius:6px;" />
+    <div class="api-keys__row">
+      <div class="api-keys__field">
+        <label for="key-name">Name</label>
+        <input id="key-name" name="name" required maxlength="100" placeholder="e.g. Miranance production sync" value="{{ form.name or '' }}" />
+        <div class="api-keys__hint">Say what uses it, so you know what breaks if it is revoked.</div>
       </div>
-      <button class="button button--primary" type="submit">Create API key</button>
+      <div class="api-keys__field">
+        <label for="key-expiry">Expires (optional)</label>
+        <input id="key-expiry" type="datetime-local" />
+        <input type="hidden" name="expires_at" id="key-expiry-iso" />
+        <div class="api-keys__hint">Your local time. Leave empty for a key that never expires.</div>
+      </div>
     </div>
-    <fieldset style="border:1px solid rgba(148,163,184,0.25); border-radius:6px; padding:12px;">
-      <legend style="color:#94a3b8;">Scopes</legend>
-      <p style="color:#94a3b8; margin:0 0 8px 0; font-size:14px;">
-        Use <code>v2:*</code> for full read access. Keys expose legal names, notes, and wallet addresses.
-      </p>
-      <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:8px;">
-        {% for scope in scope_choices %}
-        <label style="color:#cbd5e1;">
-          <input type="checkbox" name="scopes" value="{{ scope }}" {% if scope == 'v2:*' %}checked{% endif %} />
-          <code>{{ scope }}</code>
+
+    {% set preset = form.preset or 'full' %}
+    {% set picked = form.scopes or [] %}
+    <fieldset class="api-keys__fieldset">
+      <legend>Access</legend>
+      <label class="api-keys__option">
+        <input type="radio" name="preset" value="full" {% if preset == 'full' %}checked{% endif %} />
+        Full read access <span class="api-keys__chip api-keys__chip--sensitive">includes personal data</span>
+        <small>Everything below, including resources added later. Exposes legal names, notes and crypto wallets.</small>
+      </label>
+      <label class="api-keys__option">
+        <input type="radio" name="preset" value="salary" {% if preset == 'salary' %}checked{% endif %} />
+        Salary sync — models, payouts and ad hoc payments
+        <small>What Miranance needs for Model's Salary Cost. Still includes legal names and wallets on models and payouts.</small>
+      </label>
+      <label class="api-keys__option">
+        <input type="radio" name="preset" value="custom" {% if preset == 'custom' %}checked{% endif %} />
+        Custom — pick resources
+      </label>
+      <div class="api-keys__grid" id="custom-scopes" {% if preset != 'custom' %}hidden{% endif %}>
+        {% for choice in scope_choices %}
+        <label class="api-keys__option">
+          <input type="checkbox" name="scopes" value="{{ choice.scope }}" {% if choice.scope in picked %}checked{% endif %} />
+          {{ choice.label }}
+          {% if choice.sensitive %}<span class="api-keys__chip api-keys__chip--sensitive">personal data</span>{% endif %}
+          <small>{{ choice.description }}</small>
         </label>
         {% endfor %}
       </div>
     </fieldset>
+
+    <button class="button button--primary" type="submit">Create API key</button>
   </form>
 </section>
 
-<section class="card">
-  <h2 style="margin-top:0;">Existing keys</h2>
-  {% if api_keys %}
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Prefix</th>
-        <th>Scopes</th>
-        <th>Created</th>
-        <th>Last used</th>
-        <th>Status</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for key in api_keys %}
-      <tr>
-        <td>{{ key.name }}</td>
-        <td><code>{{ key.key_prefix }}…</code></td>
-        <td><code>{{ key.scopes }}</code></td>
-        <td>{{ key.created_at.strftime('%Y-%m-%d %H:%M') if key.created_at else '—' }}</td>
-        <td>{{ key.last_used_at.strftime('%Y-%m-%d %H:%M') if key.last_used_at else 'Never' }}</td>
-        <td>{% if key.revoked_at %}Revoked{% else %}Active{% endif %}</td>
-        <td>
-          {% if not key.revoked_at %}
-          <form method="post" action="/admin/api-keys/{{ key.id }}/revoke" style="display:inline;">
+{% macro key_table(rows, show_actions) %}
+<div class="data-table-wrapper">
+<table class="data-table api-keys__table">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Key</th>
+      <th>Access</th>
+      <th>Created</th>
+      <th>Last used</th>
+      <th>Expires</th>
+      <th>Status</th>
+      {% if show_actions %}<th>Actions</th>{% endif %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    {% set key = row.key %}
+    <tr>
+      <td>
+        {{ key.name }}
+        {% if key.created_by %}<div class="api-keys__hint">by {{ key.created_by }}</div>{% endif %}
+      </td>
+      <td><code>{{ key.key_prefix }}…</code></td>
+      <td>
+        {% for chip in row.chips %}
+        <span class="api-keys__chip api-keys__chip--{{ chip.kind }}" title="{{ chip.scope }}">{{ chip.label }}</span>
+        {% endfor %}
+        {% if row.legacy %}
+        <div class="api-keys__hint">Legacy v1 key — reads <code>/api/v1</code> only. Replace with a v2 key.</div>
+        {% endif %}
+      </td>
+      <td>{{ key.created_at.strftime('%Y-%m-%d') if key.created_at else '—' }}</td>
+      <td>
+        {% if key.last_used_at %}
+        <span title="{{ key.last_used_at.strftime('%Y-%m-%d %H:%M') }} UTC">{{ row.last_used }}</span>
+        {% else %}Never{% endif %}
+        {% if row.stale %}<span class="api-keys__chip api-keys__chip--warn" title="Unused for 90+ days — consider revoking">idle</span>{% endif %}
+      </td>
+      <td>
+        {% if key.expires_at %}
+        <span title="{{ key.expires_at.strftime('%Y-%m-%d %H:%M') }} UTC">{{ row.expires }}</span>
+        {% else %}—{% endif %}
+      </td>
+      <td>
+        <span class="api-keys__status--{{ row.status }}">{{ row.status|capitalize }}</span>
+        {% if row.status == 'revoked' and key.revoked_at %}
+        <div class="api-keys__hint">{{ key.revoked_at.strftime('%Y-%m-%d') }}{% if key.revoked_by %} by {{ key.revoked_by }}{% endif %}</div>
+        {% endif %}
+      </td>
+      {% if show_actions %}
+      <td>
+        <div class="api-keys__actions">
+          <form method="post" action="/admin/api-keys/{{ key.id }}/rotate" data-confirm="Create a replacement key for “{{ key.name }}”? The current key keeps working until you revoke it.">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token(request) }}" />
-            <button type="submit" class="button secondary" onclick="return confirm('Revoke this API key?')">Revoke</button>
+            <button type="submit" class="button secondary">Rotate</button>
           </form>
-          {% else %}—{% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+          <form method="post" action="/admin/api-keys/{{ key.id }}/revoke" data-confirm="Revoke “{{ key.name }}” ({{ key.key_prefix }}…)? Anything using it stops working immediately.">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token(request) }}" />
+            <button type="submit" class="button secondary">Revoke</button>
+          </form>
+        </div>
+      </td>
+      {% endif %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endmacro %}
+
+<section class="card">
+  <h2>Keys in use</h2>
+  {% if active_keys %}
+  {{ key_table(active_keys, true) }}
   {% else %}
-  <p style="color:#94a3b8;">No API keys yet.</p>
+  <p class="api-keys__empty">No active keys. Create one above to let another system read payroll data — for Miranance, pick <em>Salary sync</em> and paste the env vars it shows into Miranance's settings.</p>
+  {% endif %}
+
+  {% if inactive_keys %}
+  <details class="api-keys__inactive">
+    <summary>Revoked and expired keys ({{ inactive_keys|length }})</summary>
+    {{ key_table(inactive_keys, false) }}
+  </details>
   {% endif %}
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var form = document.getElementById('create-key-form');
+  var custom = document.getElementById('custom-scopes');
+  form.querySelectorAll('input[name="preset"]').forEach(function (radio) {
+    radio.addEventListener('change', function () {
+      custom.hidden = form.querySelector('input[name="preset"]:checked').value !== 'custom';
+    });
+  });
+
+  // datetime-local has no zone; send it with the browser's offset so the
+  // server stores the instant the admin meant.
+  var expiry = document.getElementById('key-expiry');
+  var expiryIso = document.getElementById('key-expiry-iso');
+  form.addEventListener('submit', function () {
+    if (!expiry.value) { expiryIso.value = ''; return; }
+    var offset = -new Date(expiry.value).getTimezoneOffset();
+    var sign = offset >= 0 ? '+' : '-';
+    var abs = Math.abs(offset);
+    var pad = function (n) { return String(n).padStart(2, '0'); };
+    expiryIso.value = expiry.value + sign + pad(Math.floor(abs / 60)) + ':' + pad(abs % 60);
+  });
+
+  document.querySelectorAll('form[data-confirm]').forEach(function (f) {
+    f.addEventListener('submit', function (event) {
+      if (!window.confirm(f.dataset.confirm)) { event.preventDefault(); }
+    });
+  });
+
+  var unsaved = !!document.getElementById('new-key-card');
+  function warn(event) {
+    if (!unsaved) { return; }
+    event.preventDefault();
+    event.returnValue = '';
+  }
+  window.addEventListener('beforeunload', warn);
+  document.querySelectorAll('form').forEach(function (f) {
+    f.addEventListener('submit', function (event) { if (!event.defaultPrevented) { unsaved = false; } });
+  });
+
+  document.querySelectorAll('[data-copy-target]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var text = document.getElementById(button.dataset.copyTarget).innerText;
+      var original = button.textContent;
+      navigator.clipboard.writeText(text).then(function () {
+        unsaved = false;
+        button.textContent = 'Copied ✓';
+      }, function () {
+        button.textContent = 'Copy failed — select and copy manually';
+      }).then(function () {
+        setTimeout(function () { button.textContent = original; }, 2000);
+      });
+    });
+  });
+
+  var done = document.getElementById('new-key-done');
+  if (done) {
+    done.addEventListener('click', function () {
+      unsaved = false;
+      document.getElementById('new-key-card').remove();
+    });
+  }
+})();
+</script>
 {% endblock %}
