@@ -1857,9 +1857,18 @@ def cleanup_empty_runs(db: Session) -> dict[str, int | list[int]]:
 def cleanup_orphans(db: Session) -> dict[str, int]:
     """Remove legacy orphan records where model_id is NULL.
 
-    Payouts with model_id NULL are deleted. ValidationIssues with model_id NULL are deleted.
+    Unpaid, unlocked payouts with model_id NULL are deleted — paid ones are the
+    record of money sent and stay. ValidationIssues with model_id NULL are deleted.
     """
-    deleted_payouts = db.query(Payout).filter(Payout.model_id.is_(None)).delete(synchronize_session=False)
+    deleted_payouts = (
+        db.query(Payout)
+        .filter(
+            Payout.model_id.is_(None),
+            Payout.status != "paid",
+            Payout.is_locked == False,  # noqa: E712
+        )
+        .delete(synchronize_session=False)
+    )
     deleted_validations = (
         db.query(ValidationIssue).filter(ValidationIssue.model_id.is_(None)).delete(synchronize_session=False)
     )

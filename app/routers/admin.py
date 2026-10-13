@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from urllib.parse import quote_plus
 import logging
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Query
 from fastapi.responses import RedirectResponse, JSONResponse
@@ -444,7 +445,13 @@ def maintenance_cleanup_orphans(
         crud.log_admin_action(db, admin.id, "cleanup_orphans", result)
     except Exception:
         logger.exception("Audit log failed for cleanup_orphans")
-    return RedirectResponse(url=f"/admin/settings?message={msg}", status_code=303)
+    # `msg` was never defined here, so this route always answered 500 — after
+    # the cleanup itself had already been committed.
+    msg = (
+        f"Cleanup complete: payouts={result.get('payouts', 0)}, "
+        f"validations={result.get('validations', 0)}."
+    )
+    return RedirectResponse(url=f"/admin/settings?message={quote_plus(msg)}", status_code=303)
 
 
 @router.post("/maintenance/reset-application-data")

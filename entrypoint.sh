@@ -6,8 +6,10 @@ echo "[entrypoint] working dir: $(pwd)"
 echo "[entrypoint] python: $(python -V 2>&1)"
 echo "[entrypoint] pip packages:"
 pip --disable-pip-version-check list || true
-echo "[entrypoint] environment vars (secrets filtered):"
-env | sort | grep -v -E '(DATABASE_URL|SESSION_SECRET|PASSWORD|SECRET_KEY|API_KEY|API_RATE_SECRET|API_CURSOR_SECRET|TOKEN|_SECRET)'
+# Only known-safe variables. The old deny-list printed every variable whose
+# name didn't match a fixed pattern, so a newly added secret ended up in logs.
+echo "[entrypoint] environment (allow-listed):"
+env | sort | grep -E '^(ENVIRONMENT|PORT|PYTHON_VERSION|LANG|HOME|PWD|RENDER_(GIT_BRANCH|GIT_COMMIT|SERVICE_NAME|SERVICE_TYPE|INSTANCE_ID|EXTERNAL_URL|CPU_COUNT|WEB_CONCURRENCY))=' || true
 
 # Bring the schema up to date. A fresh database gets the full schema and is
 # stamped at head; otherwise `alembic upgrade head`. A failed migration stops the
