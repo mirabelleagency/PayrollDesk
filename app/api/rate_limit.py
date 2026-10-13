@@ -82,9 +82,12 @@ def _increment_bucket(session: Session, bucket_hash: str, window_start: int) -> 
 
 
 def _cleanup_old_windows(session: Session, current_window: int) -> None:
+    """Drop windows older than the previous one. The table only ever holds a
+    couple of minutes of buckets, so no row limit is needed — and `DELETE …
+    LIMIT` is not valid on Postgres."""
     cutoff = current_window - (2 * WINDOW_SECONDS)
     session.execute(
-        text("DELETE FROM api_rate_windows WHERE window_start_epoch < :cutoff LIMIT 100"),
+        text("DELETE FROM api_rate_windows WHERE window_start_epoch < :cutoff"),
         {"cutoff": cutoff // WINDOW_SECONDS * WINDOW_SECONDS},
     )
 
@@ -96,8 +99,13 @@ def check_rate_limit(kind: str, identifier: str) -> RateLimitResult:
     try:
         count = _increment_bucket(session, bucket, window)
         if count == 1:
+            # Housekeeping only. In its own savepoint: on Postgres a failed
+            # statement aborts the whole transaction, and swallowing the error
+            # here used to roll the increment back with it — every request then
+            # counted as the first, so the limit never applied.
             try:
-                _cleanup_old_windows(session, window)
+                with session.begin_nested():
+                    _cleanup_old_windows(session, window)
             except Exception:
                 pass
         session.commit()
