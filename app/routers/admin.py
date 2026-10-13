@@ -98,6 +98,20 @@ def create_user(
             status_code=400,
         )
     
+    is_valid, error_msg = PasswordValidator.validate(password)
+    if not is_valid:
+        return templates.TemplateResponse(
+            request,
+            "admin/user_form.html",
+            {
+                "request": request,
+                "action": "create",
+                "error": error_msg,
+                "user": admin,
+            },
+            status_code=400,
+        )
+
     new_user = User.create_user(username, password, role=role)
     db.add(new_user)
     try:

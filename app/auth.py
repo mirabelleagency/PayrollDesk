@@ -8,6 +8,13 @@ from app.database import Base
 import bcrypt
 
 
+def _bcrypt_bytes(password: str) -> bytes:
+    """The bytes bcrypt hashes: at most 72. bcrypt < 5 cut longer input off
+    silently (existing hashes depend on it); bcrypt 5 raises instead, which
+    turned a long password at login into a 500."""
+    return password.encode("utf-8")[:72]
+
+
 class Role:
     """Role constants to prevent typos in role checks."""
     ADMIN = "admin"
@@ -36,11 +43,11 @@ class User(Base):
     def hash_password(password: str) -> str:
         """Hash a password using bcrypt."""
         salt = bcrypt.gensalt()
-        return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+        return bcrypt.hashpw(_bcrypt_bytes(password), salt).decode('utf-8')
     
     def verify_password(self, password: str) -> bool:
         """Verify a password against the stored hash."""
-        return bcrypt.checkpw(password.encode('utf-8'), self.password_hash.encode('utf-8'))
+        return bcrypt.checkpw(_bcrypt_bytes(password), self.password_hash.encode('utf-8'))
     
     @classmethod
     def create_user(cls, username: str, password: str, role: str = Role.USER) -> User:
