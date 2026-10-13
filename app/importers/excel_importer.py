@@ -127,6 +127,16 @@ class ImportSummary:
     payout_errors: list[str] = field(default_factory=list)
     adjustment_errors: list[str] = field(default_factory=list)
     adhoc_errors: list[str] = field(default_factory=list)
+    # Not problems with a row (e.g. an empty optional sheet); never block an import.
+    warnings: list[str] = field(default_factory=list)
+
+    @property
+    def row_errors(self) -> list[str]:
+        return self.model_errors + self.payout_errors + self.adjustment_errors + self.adhoc_errors
+
+    @property
+    def has_errors(self) -> bool:
+        return bool(self.row_errors)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -720,7 +730,7 @@ def import_from_excel(
             if not grouping_errors:
                 # Gracefully handle an empty Payouts sheet: don't fail the import.
                 # Return a summary with zero payouts and no schedule runs.
-                summary.payout_errors.append("No payout rows to import (Payouts sheet is empty).")
+                summary.warnings.append("No payout rows to import (Payouts sheet is empty).")
                 return summary
             # Make invalid pay dates non-fatal: surface errors in the summary and finish gracefully.
             summary.payout_errors.append("No valid pay dates found; unable to auto-create schedule runs.")
