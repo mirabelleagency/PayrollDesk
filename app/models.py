@@ -309,8 +309,14 @@ class ModelAdvance(Base):
     percent_rate: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)  # 0-100
 
     # Policy knobs (per-advance overrides)
-    min_net_floor: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=500)
-    max_per_run: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=600)
+    # Guardrails applied when deductions are planned. Defaults don't limit
+    # anything: no minimum take-home, and one run may take the whole advance.
+    min_net_floor: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    max_per_run: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2),
+        nullable=False,
+        default=lambda ctx: ctx.get_current_parameters()["amount_total"],
+    )
     cap_multiplier: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=1.0)
 
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)

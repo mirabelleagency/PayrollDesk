@@ -887,6 +887,14 @@ details[open] > .collapsible-summary::after {
                         <input id="adv-percent" name="percent_rate" type="number" step="0.01" min="0.01" max="100" placeholder="e.g., 25" />
                     </div>
                     <div class="form-row">
+                        <label for="adv-floor">Minimum take-home per payout (optional)</label>
+                        <input id="adv-floor" name="min_net_floor" type="number" step="0.01" min="0" placeholder="No minimum" />
+                    </div>
+                    <div class="form-row">
+                        <label for="adv-max-run">Max deducted per pay run (optional)</label>
+                        <input id="adv-max-run" name="max_per_run" type="number" step="0.01" min="0.01" placeholder="No limit" />
+                    </div>
+                    <div class="form-row">
                         <label for="adv-notes">Notes</label>
                         <textarea id="adv-notes" name="notes" rows="2" placeholder="Optional internal notes"></textarea>
                     </div>
