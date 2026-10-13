@@ -2718,9 +2718,14 @@ def generate_alerts_for_compensation_change(
         for payout in affected_payouts:
             # Only create alert if the payout is on or after the effective date
             if payout.pay_date >= effective_date:
+                # Prorate from the payout's gross. `amount` is net of any advance
+                # deduction; prorating from it and then applying the result as the
+                # new gross took the advance off twice (2000 -> 3000 on Oct 25
+                # with a 200 advance paid 1870.97 instead of 2025.81).
+                original_gross = payout.gross_amount if payout.gross_amount is not None else payout.amount
                 # Calculate prorated amount if effective date is mid-month
                 prorated = calculate_prorated_compensation(
-                    original_amount=payout.amount,
+                    original_amount=original_gross,
                     new_amount=new_amount,
                     effective_date=effective_date,
                     pay_date=payout.pay_date,
@@ -2733,7 +2738,7 @@ def generate_alerts_for_compensation_change(
                 alert = create_compensation_alert(
                     db=db,
                     payout=payout,
-                    original_amount=payout.amount,
+                    original_amount=original_gross,
                     new_amount=new_amount,
                     effective_date=effective_date,
                     prorated_amount=prorated,
