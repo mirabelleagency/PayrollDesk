@@ -1,7 +1,7 @@
 """Admin routes for API key management."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -44,6 +44,25 @@ def list_api_keys_page(
     return _render_page(request, admin, list_api_keys(db))
 
 
+def _parse_expiry(value: str | None) -> datetime | None:
+    """An expiry as naive UTC, which is how keys are stored and compared.
+
+    Accepts ISO 8601. A value with an offset ("2026-11-01T17:00+08:00") is
+    converted to UTC; a bare value is taken as UTC. It used to be parsed as a
+    bare local time and stored as if it were UTC, so a key set to expire at
+    17:00 in UTC+8 lived until 01:00 the next day.
+    """
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.strip())
+    except ValueError as exc:
+        raise ValueError("Expiry must be an ISO date-time, e.g. 2026-11-01T17:00+08:00") from exc
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed
+
+
 @router.post("/api-keys")
 def create_api_key(
     request: Request,
@@ -54,7 +73,7 @@ def create_api_key(
     admin: User = Depends(get_admin_user),
 ):
     try:
-        parsed_expiry = datetime.strptime(expires_at, "%Y-%m-%dT%H:%M") if expires_at else None
+        parsed_expiry = _parse_expiry(expires_at)
         record, plaintext = create_api_key_record(
             db,
             name=name,
