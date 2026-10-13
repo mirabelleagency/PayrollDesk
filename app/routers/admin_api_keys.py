@@ -244,14 +244,15 @@ def rotate_api_key_route(
     now = utc_now()
     if old.revoked_at or (old.expires_at and old.expires_at <= now):
         raise HTTPException(status_code=400, detail="Only active keys can be rotated")
-    if not any(scope.startswith("v2:") for scope in old.scope_list()):
+    v2_scopes = [scope for scope in old.scope_list() if scope.startswith("v2:")]
+    if not v2_scopes:
         raise HTTPException(status_code=400, detail="v1 keys cannot be rotated; create a v2 key instead")
 
     record, plaintext = create_api_key_record(
         db,
         name=old.name,
         created_by=admin.username,
-        scopes=old.scope_list(),
+        scopes=v2_scopes,  # any leftover v1 scopes are dropped
         expires_at=old.expires_at,
     )
     crud.log_admin_action(

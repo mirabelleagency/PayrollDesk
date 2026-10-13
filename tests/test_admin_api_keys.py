@@ -192,3 +192,17 @@ def test_v1_keys_cannot_be_rotated(client, test_db):
     resp = client.post(f"/admin/api-keys/{old.id}/rotate", data={"_csrf_token": csrf_token_for(client)})
     assert resp.status_code == 400
     assert test_db.query(ApiKey).count() == 1
+
+
+def test_rotating_a_mixed_key_keeps_only_v2_scopes(client, test_db):
+    from app.api.keys import create_api_key_record
+
+    old, _ = create_api_key_record(test_db, name="Mixed", created_by="admin", scopes=["v2:payouts"])
+    old.scopes = '["v1:*", "v2:payouts"]'
+    test_db.commit()
+    _login_admin(client)
+    client.get("/admin/api-keys")
+    resp = client.post(f"/admin/api-keys/{old.id}/rotate", data={"_csrf_token": csrf_token_for(client)})
+    assert resp.status_code == 200
+    test_db.expire_all()
+    assert test_db.query(ApiKey).order_by(ApiKey.id.desc()).first().scope_list() == ["v2:payouts"]
