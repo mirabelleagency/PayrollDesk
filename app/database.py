@@ -204,14 +204,30 @@ def init_db() -> None:
     # Create default admin user if needed
     session = SessionLocal()
     try:
-        admin_exists = session.query(User).filter(User.username == "admin").first()
-        if not admin_exists:
+        # Only bootstrap an admin when there is none at all. Checking for the
+        # username "admin" recreated that account after an admin renamed or
+        # removed it — with ADMIN_DEFAULT_PASSWORD, a password sitting in the
+        # deploy config.
+        admin_exists = session.query(User).filter(User.role == "admin").first()
+        username_taken = session.query(User).filter(User.username == "admin").first()
+        if not admin_exists and username_taken:
+            # Don't silently promote whoever holds the name.
+            logger.error(
+                "No admin account exists and the username 'admin' belongs to a non-admin "
+                "user; create or promote an admin manually."
+            )
+        elif not admin_exists:
             import secrets
-            default_password = os.getenv("ADMIN_DEFAULT_PASSWORD", secrets.token_urlsafe(16))
+            env_password = os.getenv("ADMIN_DEFAULT_PASSWORD")
+            default_password = env_password or secrets.token_urlsafe(16)
             admin_user = User.create_user("admin", default_password, role="admin")
             session.add(admin_user)
             session.commit()
-            logger.info("Created default admin user (username: admin, password: %s)", default_password)
+            if env_password:
+                logger.info("Created default admin user 'admin' with ADMIN_DEFAULT_PASSWORD")
+            else:
+                # The only way to learn a generated password; first boot only.
+                logger.info("Created default admin user (username: admin, password: %s)", default_password)
             logger.warning("CHANGE THE DEFAULT ADMIN PASSWORD IMMEDIATELY")
     except Exception as e:
         logger.error("Error creating admin user: %s", e)
