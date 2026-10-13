@@ -64,6 +64,26 @@ jobs:
           python -m app.db_bootstrap
           python -m app.db_bootstrap
           test "$(alembic current 2>/dev/null | grep -c '(head)')" = "1"
+      # The suite runs on SQLite, where a failed statement does not abort the
+      # transaction; this catches limiter bugs that only show on Postgres.
+      - name: API rate limiter counts on Postgres
+        run: |
+          python - <<'EOF'
+          from sqlalchemy import text
+          from app.api import rate_limit
+          from app.database import SessionLocal
+
+          for _ in range(3):
+              assert rate_limit.check_rate_limit("ci", "rate-check").allowed
+          session = SessionLocal()
+          count = session.execute(
+              text("SELECT request_count FROM api_rate_windows WHERE bucket_hash = :h"),
+              {"h": rate_limit._bucket_hash("ci", "rate-check")},
+          ).scalar_one()
+          session.close()
+          print("request_count after 3 calls:", count)
+          assert count == 3, count
+          EOF
       - name: App boots on Postgres and /health answers
         run: |
           python - <<'EOF'
