@@ -39,7 +39,6 @@ SCOPE_CHOICES = [
     for resource, (label, description, sensitive) in SCOPE_RESOURCES.items()
 ]
 
-# v1 is legacy: existing v1 keys keep working, but new keys are v2 only.
 SCOPE_PRESETS = {
     "full": ["v2:*"],
     "salary": ["v2:models", "v2:payouts", "v2:adhoc-payments"],
@@ -167,7 +166,7 @@ def _requested_scopes(preset: str | None, scopes: list[str]) -> list[str]:
             raise ValueError("Pick at least one resource for custom access.")
         return list(SCOPE_PRESETS["full"])
     if any(scope.strip().startswith("v1:") for scope in scopes):
-        raise ValueError("v1 scopes are legacy and can no longer be granted to new keys; use v2.")
+        raise ValueError("The v1 API has been removed; use v2 scopes.")
     return normalize_scopes(scopes)
 
 
@@ -245,12 +244,15 @@ def rotate_api_key_route(
     now = utc_now()
     if old.revoked_at or (old.expires_at and old.expires_at <= now):
         raise HTTPException(status_code=400, detail="Only active keys can be rotated")
+    v2_scopes = [scope for scope in old.scope_list() if scope.startswith("v2:")]
+    if not v2_scopes:
+        raise HTTPException(status_code=400, detail="v1 keys cannot be rotated; create a v2 key instead")
 
     record, plaintext = create_api_key_record(
         db,
         name=old.name,
         created_by=admin.username,
-        scopes=old.scope_list(),
+        scopes=v2_scopes,  # any leftover v1 scopes are dropped
         expires_at=old.expires_at,
     )
     crud.log_admin_action(

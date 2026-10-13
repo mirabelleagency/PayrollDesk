@@ -130,23 +130,6 @@ def require_scope(required: str) -> Callable:
 
 
 
-def require_any_v1_scope(principal: ApiPrincipal = Depends(require_api_key)) -> ApiPrincipal:
-    from app.api.scopes import V1_RESOURCES
-
-    if not any(principal.grants(f"v1:{resource}") for resource in V1_RESOURCES):
-        raise HTTPException(status_code=403, detail="At least one v1 scope is required")
-    return principal
-
-
-def require_v1_advance_detail(principal: ApiPrincipal = Depends(require_api_key)) -> ApiPrincipal:
-    if not principal.grants("v1:advances") or not principal.grants("v1:advance-repayments"):
-        raise HTTPException(
-            status_code=403,
-            detail="Advance detail requires v1:advances and v1:advance-repayments scopes",
-        )
-    return principal
-
-
 def require_any_v2_scope(principal: ApiPrincipal = Depends(require_api_key)) -> ApiPrincipal:
     from app.api.scopes import V2_RESOURCES
 

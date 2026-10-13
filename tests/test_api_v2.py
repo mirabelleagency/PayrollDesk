@@ -7,7 +7,7 @@ from decimal import Decimal
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.keys import create_api_key_record
+from app.api.keys import create_api_key_record, revoke_api_key
 from app.main import app
 from app.models import Model, Payout, ScheduleRun, SyncState
 
@@ -139,3 +139,36 @@ def test_v2_payouts_normalize_title_cased_frequency(client, test_db, v2_headers)
     assert resp.status_code == 200
     frequencies = sorted(row["payment_frequency"] for row in resp.json()["data"])
     assert frequencies == ["biweekly", "monthly", "weekly"]
+
+
+# Moved from the removed v1 suite: authentication is shared by every route.
+def test_v2_rejects_bad_key(client):
+    resp = client.get("/api/v2/snapshot", headers={"X-API-Key": "pd_invalid"})
+    assert resp.status_code == 401
+    assert resp.json()["detail"] == "Invalid API key"
+    assert resp.headers.get("www-authenticate") == "APIKey"
+    assert "location" not in resp.headers
+
+
+def test_v2_rejects_revoked_key(client, test_db):
+    record, plaintext = create_api_key_record(test_db, name="revoke-me", created_by="admin", scopes=["v2:*"])
+    test_db.commit()
+    revoke_api_key(test_db, record.id)
+    test_db.commit()
+    assert client.get("/api/v2/snapshot", headers={"X-API-Key": plaintext}).status_code == 401
+
+
+def test_v2_security_headers(client, v2_headers):
+    resp = client.get("/api/v2/snapshot", headers=v2_headers)
+    assert resp.headers.get("cache-control") == "no-store"
+    assert resp.headers.get("x-content-type-options") == "nosniff"
+
+
+def test_v1_is_gone(client, test_db):
+    record, plaintext = create_api_key_record(test_db, name="old", created_by="admin", scopes=["v2:*"])
+    record.scopes = '["v1:*"]'  # a key issued before v1 was removed
+    test_db.commit()
+    headers = {"X-API-Key": plaintext}
+    assert client.get("/api/v1/models", headers=headers).status_code == 404
+    # A v1-only key grants nothing on v2.
+    assert client.get("/api/v2/snapshot", headers=headers).status_code == 403
