@@ -69,6 +69,27 @@ def _set_cached_dashboard(month: str | None, year: int | None, data: dict[str, A
 DEFAULT_EXPORT_DIR = Path("exports")
 
 
+def _export_dir(output_dir: str | None) -> Path:
+    """Where a new schedule's files go: ``output_dir`` if it lies inside the
+    exports folder, else 400.
+
+    The form field used to be taken as-is, so an admin (or a CSRF'd admin) could
+    write the pay schedule, wallets included, into ``app/static`` — served
+    publicly at /static — or anywhere else the process can write.
+    """
+    root = DEFAULT_EXPORT_DIR.resolve()
+    target = Path(output_dir or DEFAULT_EXPORT_DIR)
+    if not target.is_absolute():
+        target = Path.cwd() / target
+    target = target.resolve()
+    if target != root and root not in target.parents:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Output folder must be inside {DEFAULT_EXPORT_DIR}/.",
+        )
+    return target
+
+
 def _compute_run_etag(db: Session, run_id: int, status_filter: str | None = None) -> str:
     """Compute a lightweight ETag from payout data without building the export."""
     from app.models import Payout
@@ -2180,7 +2201,7 @@ def run_schedule(
 
     currency = currency.upper()
 
-    export_path = Path(output_dir)
+    export_path = _export_dir(output_dir)
     export_path.mkdir(parents=True, exist_ok=True)
 
     service = PayrollService(db)
@@ -2235,7 +2256,7 @@ def run_schedule_async(
 
     currency = currency.upper()
 
-    export_path = Path(output_dir)
+    export_path = _export_dir(output_dir)
     export_path.mkdir(parents=True, exist_ok=True)
 
     run_id = PayrollService.run_payroll_async(
