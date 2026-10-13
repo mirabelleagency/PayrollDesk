@@ -805,6 +805,42 @@ def update_payout(db: Session, payout: Payout, note: str | None, status: str) ->
     return advance_deducted
 
 
+def payout_advance_deduction(db: Session, payout: Payout) -> Decimal:
+    """Advance deduction taken from this payout: planned allocations while
+    unpaid, recorded repayments once paid (paying converts one into the other).
+    """
+    planned = db.execute(
+        select(func.coalesce(func.sum(PayoutAdvanceAllocation.planned_amount), 0))
+        .where(PayoutAdvanceAllocation.payout_id == payout.id)
+    ).scalar_one()
+    repaid = db.execute(
+        select(func.coalesce(func.sum(AdvanceRepayment.amount), 0))
+        .where(AdvanceRepayment.payout_id == payout.id)
+    ).scalar_one()
+    return Decimal(planned or 0) + Decimal(repaid or 0)
+
+
+def set_payout_gross(db: Session, payout: Payout, gross: Decimal) -> None:
+    """Set what the payout is worth before advance deductions; the amount paid
+    (net) follows, keeping any advance deduction already taken from it.
+
+    ``gross_amount`` and ``amount`` must always satisfy
+    gross = amount + advance deduction; writing only ``amount`` left gross at
+    its generated value, so an edited payout reported the wrong gross and the
+    API derived a wrong deduction from it.
+    """
+    gross = Decimal(gross)
+    payout.gross_amount = gross
+    payout.amount = gross - payout_advance_deduction(db, payout)
+
+
+def set_payout_net(db: Session, payout: Payout, net: Decimal) -> None:
+    """Set the amount actually paid (e.g. from an imported sheet); gross follows."""
+    net = Decimal(net)
+    payout.amount = net
+    payout.gross_amount = net + payout_advance_deduction(db, payout)
+
+
 def delete_schedule_run(db: Session, run: ScheduleRun) -> None:
     db.delete(run)
     db.commit()
@@ -2523,9 +2559,13 @@ def apply_alert_to_payout(
     amount_to_apply: Decimal,
     resolved_by: str | None = None,
 ) -> tuple[Payout, PayoutCompensationAlert]:
-    """Apply an alert by updating the payout amount and resolving the alert."""
+    """Apply an alert by updating the payout amount and resolving the alert.
+
+    ``amount_to_apply`` is the payout's new pay before advance deductions, so a
+    planned advance deduction still comes off it rather than being dropped.
+    """
     payout = alert.payout
-    payout.amount = amount_to_apply
+    set_payout_gross(db, payout, amount_to_apply)
     
     alert.status = "applied"
     alert.resolved_at = datetime.now(timezone.utc)
@@ -2752,10 +2792,10 @@ def list_payouts_api(
     after_id: int | None = None,
     limit: int = 100,
 ) -> Sequence[Payout]:
+    # Payouts of soft-deleted models stay listed: they are payroll history, and
+    # dropping them made a consumer's totals for past months shrink when a model
+    # was deleted. The serializer already withholds a deleted model's wallet.
     stmt = select(Payout).options(selectinload(Payout.model))
-    stmt = stmt.outerjoin(Model, Payout.model_id == Model.id).where(
-        or_(Payout.model_id.is_(None), Model.deleted_at.is_(None))
-    )
     if date_from:
         stmt = stmt.where(Payout.pay_date >= date_from)
     if date_to:
