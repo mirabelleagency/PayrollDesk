@@ -377,7 +377,15 @@
             listItem.id = `snapshot-option-${option.id}`;
             listItem.setAttribute("role", "option");
             listItem.setAttribute("data-id", option.id);
-            listItem.innerHTML = `<span class="combobox-option__code">${option.code}</span><span class="combobox-option__name">${option.working_name}</span>`;
+            // textContent, not innerHTML: code and working name are user-entered,
+            // and a name like <img src=x onerror=...> would run in this page.
+            const codeSpan = document.createElement("span");
+            codeSpan.className = "combobox-option__code";
+            codeSpan.textContent = option.code ?? "";
+            const nameSpan = document.createElement("span");
+            nameSpan.className = "combobox-option__name";
+            nameSpan.textContent = option.working_name ?? "";
+            listItem.append(codeSpan, nameSpan);
             listItem.addEventListener("mousedown", (event) => {
                 event.preventDefault();
                 selectOption(index);
