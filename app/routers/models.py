@@ -1109,7 +1109,9 @@ def update_adhoc_payment_notes(
     if not payment or payment.model_id != model_id:
         raise HTTPException(status_code=404, detail="Ad hoc payment not found")
 
-    update_payload = AdhocPaymentUpdate(description=None, notes=notes.strip() if notes else None)
+    # Only notes: passing description=None here counted as "set" and erased the
+    # payment's description every time its notes were edited.
+    update_payload = AdhocPaymentUpdate(notes=notes.strip() if notes else None)
     crud.update_adhoc_payment(db, payment, update_payload)
     return _redirect_to_model(model_id, success="Notes updated.")
 
@@ -1125,6 +1127,13 @@ def delete_adhoc_payment(
     if not payment or payment.model_id != model_id:
         raise HTTPException(status_code=404, detail="Ad hoc payment not found")
 
+    if payment.status == "paid":
+        # A paid ad hoc payment is money already sent; deleting it erased the
+        # record (and a consumer syncing PayrollDesk kept a payment that no
+        # longer exists). Cancel it instead if it was entered by mistake.
+        return _redirect_to_model(
+            model_id, error="Paid ad hoc payments can't be deleted. Set it to pending or cancel it first."
+        )
     crud.delete_adhoc_payment(db, payment)
     return _redirect_to_model(model_id, success="Ad hoc payment deleted.")
 
