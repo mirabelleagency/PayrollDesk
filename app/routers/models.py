@@ -32,6 +32,7 @@ import tempfile
 from fastapi import Form
 from openpyxl import Workbook
 import os
+from app.export_safety import safe_df, safe_csv_writer
 
 router = APIRouter(prefix="/models", tags=["Models"])
 
@@ -614,7 +615,7 @@ def export_models_csv(
     include_payment_history = include_payments and include_payments.lower() == "true"
 
     buffer = io.StringIO()
-    writer = csv.writer(buffer)
+    writer = safe_csv_writer(buffer)
     
     # Header row - always include payment columns to match /schedules/ view
     writer.writerow(
@@ -1299,7 +1300,7 @@ def export_models_data(
             if df is None or df.empty:
                 pd.DataFrame([{'note': 'no data'}]).to_excel(writer, sheet_name=sheet_name, index=False)
             else:
-                df.to_excel(writer, sheet_name=sheet_name, index=False)
+                safe_df(df).to_excel(writer, sheet_name=sheet_name, index=False)
 
     output.seek(0)
     filename = "models_export.xlsx"

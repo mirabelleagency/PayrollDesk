@@ -12,6 +12,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 import pandas as pd
 from dateutil import parser as date_parser
+from app.export_safety import safe_df
 
 CANONICAL_COLUMNS = {
     "status": "status",
@@ -470,13 +471,13 @@ def export_outputs(
 
     excel_path = output_dir / f"{base_filename}.xlsx"
     with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
-        schedule_df.to_excel(writer, sheet_name="Pay_Schedule", index=False)
-        models_df.to_excel(writer, sheet_name="Models", index=False)
-        validation_df.to_excel(writer, sheet_name="Validation", index=False)
+        safe_df(schedule_df).to_excel(writer, sheet_name="Pay_Schedule", index=False)
+        safe_df(models_df).to_excel(writer, sheet_name="Models", index=False)
+        safe_df(validation_df).to_excel(writer, sheet_name="Validation", index=False)
 
-    schedule_df.to_csv(output_dir / f"{base_filename}.csv", index=False)
-    models_df.to_csv(output_dir / f"{base_filename}_models.csv", index=False)
-    validation_df.to_csv(output_dir / f"{base_filename}_validation.csv", index=False)
+    safe_df(schedule_df).to_csv(output_dir / f"{base_filename}.csv", index=False)
+    safe_df(models_df).to_csv(output_dir / f"{base_filename}_models.csv", index=False)
+    safe_df(validation_df).to_csv(output_dir / f"{base_filename}_validation.csv", index=False)
 
 
 def print_preview(schedule_df: pd.DataFrame) -> None:
