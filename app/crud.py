@@ -1606,6 +1606,22 @@ def list_adhoc_payments_for_month(
     return db.execute(stmt).scalars().all()
 
 
+def list_unpaid_adhoc_payments_through_month(db: Session, year: int, month: int) -> Sequence[AdhocPayment]:
+    """Pending ad hoc payments dated in the given month or earlier (still owed)."""
+    if month < 1 or month > 12:
+        raise ValueError("month must be in 1..12")
+
+    next_month_start = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+    stmt = (
+        select(AdhocPayment)
+        .options(selectinload(AdhocPayment.model))
+        .where(AdhocPayment.status == "pending")
+        .where(AdhocPayment.pay_date < next_month_start)
+        .order_by(AdhocPayment.pay_date.asc(), AdhocPayment.id.asc())
+    )
+    return db.execute(stmt).scalars().all()
+
+
 def get_adhoc_payment(db: Session, payment_id: int) -> AdhocPayment | None:
     return db.get(AdhocPayment, payment_id)
 

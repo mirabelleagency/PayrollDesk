@@ -92,7 +92,12 @@ def _export_dir(output_dir: str | None) -> Path:
     return target
 
 
-def _compute_run_etag(db: Session, run_id: int, status_filter: str | None = None) -> str:
+def _compute_run_etag(
+    db: Session,
+    run_id: int,
+    status_filter: str | None = None,
+    adhoc_payments: Sequence[AdhocPayment] = (),
+) -> str:
     """Compute a lightweight ETag from payout data without building the export."""
     from app.models import Payout
     q = db.query(
@@ -102,8 +107,42 @@ def _compute_run_etag(db: Session, run_id: int, status_filter: str | None = None
     if status_filter and status_filter != "overdue":
         q = q.filter(Payout.status == status_filter)
     cnt, max_id = q.one()
-    raw = f"{run_id}:{status_filter}:{cnt}:{max_id}"
+    # Ad hoc rows change independently of payouts (paid, edited, added), so
+    # they get their own fingerprint.
+    adhoc_part = ",".join(f"{p.id}:{p.amount}:{p.updated_at}" for p in adhoc_payments)
+    raw = f"{run_id}:{status_filter}:{cnt}:{max_id}:{adhoc_part}"
     return hashlib.md5(raw.encode()).hexdigest()
+
+
+def _unpaid_adhoc_for_export(db: Session, run: ScheduleRun, status_filter: str | None) -> list[AdhocPayment]:
+    """Unpaid ad hoc payments to append to a run's schedule download.
+
+    They're pending, so they only belong in an unfiltered, "not paid" or
+    "overdue" download.
+    """
+    if status_filter not in (None, "not_paid", "overdue"):
+        return []
+    payments = list(crud.list_unpaid_adhoc_payments_through_month(db, run.target_year, run.target_month))
+    if status_filter == "overdue":
+        today = date.today()
+        payments = [p for p in payments if p.pay_date < today]
+    return payments
+
+
+def _adhoc_export_row(payment: AdhocPayment) -> dict[str, object]:
+    model = payment.model
+    notes = " · ".join(part for part in (payment.description, payment.notes) if part)
+    return {
+        "Pay Date": format_display_date(payment.pay_date),
+        "Code": model.code if model else "",
+        "Working Name": model.working_name if model else "",
+        "Method": (model.payment_method if model else "") or "",
+        "Frequency": "Ad Hoc",
+        "Amount": payment.amount or Decimal("0"),
+        "Status": "Pending (Ad Hoc)",
+        "Crypto Wallet": (getattr(model, "crypto_wallet", None) or "") if model else "",
+        "Notes & Actions": notes,
+    }
 
 
 def _check_etag(request: Request, etag: str) -> Response | None:
@@ -2411,6 +2450,11 @@ def view_schedule(
     # Map of payout_id -> total amount deducted from cash advances (planned allocations)
     advance_allocations = crud.get_allocation_totals_for_run(db, run_id)
     payout_total = sum((payout.amount or Decimal("0")) for payout in payouts)
+    # Ad hoc payments aren't tied to a run; show the ones still pending for this
+    # run's month, plus older pending ones, so they get paid alongside it.
+    unpaid_adhoc_payments = crud.list_unpaid_adhoc_payments_through_month(db, run.target_year, run.target_month)
+    unpaid_adhoc_total = sum((payment.amount or Decimal("0")) for payment in unpaid_adhoc_payments)
+    run_month_start = date(run.target_year, run.target_month, 1)
     validations = crud.list_validation_for_run(db, run_id)
     try:
         frequency_counts = json.loads(run.summary_frequency_counts)
@@ -2448,6 +2492,9 @@ def view_schedule(
             "payouts": payouts,
             "advance_allocations": advance_allocations,
             "payout_total": payout_total,
+            "unpaid_adhoc_payments": unpaid_adhoc_payments,
+            "unpaid_adhoc_total": unpaid_adhoc_total,
+            "run_month_start": run_month_start,
             "validations": validations,
             "frequency_counts": frequency_counts,
             "base_filename": base_filename,
@@ -2592,7 +2639,8 @@ def download_export(
 
     # ETag: return 304 if data hasn't changed since last download
     if file_type in ("schedule_csv", "schedule_excel"):
-        etag = _compute_run_etag(db, run_id, status_filter)
+        adhoc_payments = _unpaid_adhoc_for_export(db, run, status_filter)
+        etag = _compute_run_etag(db, run_id, status_filter, adhoc_payments)
         cached = _check_etag(request, etag)
         if cached:
             return cached
@@ -2638,7 +2686,12 @@ def download_export(
                 model_wallet,
                 payout.notes or "",
             ])
-        
+
+        for payment in adhoc_payments:
+            row = _adhoc_export_row(payment)
+            row["Amount"] = f"{row['Amount']:.2f}"
+            writer.writerow(list(row.values()))
+
         # Return as streaming response
         return StreamingResponse(
             iter([output.getvalue()]),
@@ -2681,6 +2734,11 @@ def download_export(
                     "Notes & Actions": payout.notes or "",
                 }
             )
+
+        for payment in adhoc_payments:
+            row = _adhoc_export_row(payment)
+            row["Amount"] = float(row["Amount"])
+            rows.append(row)
 
         dataframe = pd.DataFrame(rows, columns=[
             "Pay Date",
