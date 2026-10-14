@@ -4,8 +4,6 @@ set -e
 echo "[entrypoint] starting at $(date -u)"
 echo "[entrypoint] working dir: $(pwd)"
 echo "[entrypoint] python: $(python -V 2>&1)"
-echo "[entrypoint] pip packages:"
-pip --disable-pip-version-check list || true
 # Only known-safe variables. The old deny-list printed every variable whose
 # name didn't match a fixed pattern, so a newly added secret ended up in logs.
 echo "[entrypoint] environment (allow-listed):"
@@ -35,6 +33,10 @@ if [ -z "$PORT" ]; then
   PORT=8000
 fi
 
-echo "[entrypoint] launching gunicorn on 0.0.0.0:$PORT"
+# Worker count: Render sizes it to the instance (1 on the free plan's 0.15 CPU,
+# where a second worker only doubled the boot time). Default 2 elsewhere.
+WORKERS="${WEB_CONCURRENCY:-${RENDER_WEB_CONCURRENCY:-2}}"
 
-exec gunicorn -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:$PORT --workers 2 --log-level info
+echo "[entrypoint] launching gunicorn on 0.0.0.0:$PORT with $WORKERS worker(s)"
+
+exec gunicorn -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:$PORT --workers "$WORKERS" --log-level info
