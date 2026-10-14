@@ -1545,7 +1545,13 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
         <div class="table-summary-label">Cycle Total</div>
         <div class="table-summary-value">{{ run.currency }} <span id="visible-total">{{ payout_total|money }}</span></div>
     </div>
-    
+    {% if unpaid_adhoc_payments %}
+    <div class="table-summary-row" id="combined-total-row" data-adhoc-total="{{ unpaid_adhoc_total }}">
+        <div class="table-summary-label">Cycle Total + Unpaid Ad Hoc</div>
+        <div class="table-summary-value">{{ run.currency }} <span id="combined-total">{{ (payout_total + unpaid_adhoc_total)|money }}</span></div>
+    </div>
+    {% endif %}
+
     <!-- Sticky Bulk Actions Bar -->
     <div class="bulk-actions-bar" id="bulk-actions-bar" style="display: none;">
         <div class="bulk-actions-bar__content">
@@ -1579,6 +1585,115 @@ window.addedModelCodes = [{% for code in added_codes_list %}'{{ code|lower }}'{%
         </div>
     </div>
 </section>
+
+{% if unpaid_adhoc_payments %}
+<!-- Unpaid ad hoc payments due by this cycle (not part of the run's payouts) -->
+<section class="card" id="unpaid-adhoc-section" style="margin-top: 32px;">
+    <div class="section-heading">
+        <div>
+            <h2><span class="section-icon">{{ icon('banknote') }}</span> Unpaid Ad Hoc Payments</h2>
+            <p>{{ unpaid_adhoc_payments|length }} pending payment{{ 's' if unpaid_adhoc_payments|length != 1 else '' }} due this cycle or earlier · {{ run.currency }} {{ unpaid_adhoc_total|money }}</p>
+        </div>
+        <div class="heading-actions">
+            <a class="button secondary button--compact" href="/schedules/adhoc">View all ad hoc</a>
+        </div>
+    </div>
+
+    <div class="data-table-wrapper" style="margin-top: 24px;">
+        <table class="data-table schedule-payouts-table" id="unpaid-adhoc-table">
+            <thead>
+                <tr>
+                    <th class="column-pay_date"><span class="column-label">Pay Date</span></th>
+                    <th class="column-code"><span class="column-label">Code</span></th>
+                    <th class="column-working_name"><span class="column-label">Working Name</span></th>
+                    <th class="column-amount"><span class="column-label">Amount</span></th>
+                    <th class="column-status"><span class="column-label">Status</span></th>
+                    <th class="column-notes"><span class="column-label">Description</span></th>
+                    <th class="column-notes"><span class="column-label">Notes</span></th>
+                    {% if user.is_admin() %}
+                    <th class="column-actions"><span class="column-label">Quick Actions</span></th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for payment in unpaid_adhoc_payments %}
+                {% set carried_over = payment.pay_date < run_month_start %}
+                {% set is_overdue = payment.pay_date < today %}
+                <tr class="payout-row payout-row--not_paid {% if is_overdue %}payout-row--overdue{% endif %}">
+                    <td class="column-pay_date" style="white-space: nowrap;">
+                        <strong>{{ payment.pay_date|display_date }}</strong>
+                        {% if is_overdue %}
+                        <span class="overdue-badge" title="Payment is overdue">{{ icon('siren', size=14) }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="column-code">
+                        {% if payment.model %}
+                        <a href="/models/{{ payment.model_id }}/edit" class="model-link" title="Edit model">{{ payment.model.code }}</a>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td class="column-working_name">{{ (payment.model.working_name if payment.model else None) or '—' }}</td>
+                    <td class="column-amount">
+                        <strong style="font-size: 15px;">{{ run.currency }} {{ payment.amount|money }}</strong>
+                    </td>
+                    <td class="column-status" style="text-align: center;">
+                        {# One chip per row: every row here is pending, so carried-over replaces it rather than stacking. #}
+                        {% if carried_over %}
+                        <span class="status-chip status-chip--danger" style="white-space: nowrap;" title="Pending, dated before this cycle">Carried Over</span>
+                        {% else %}
+                        <span class="status-chip status-chip--warning">Pending</span>
+                        {% endif %}
+                    </td>
+                    <td class="column-notes payout-note-cell">
+                        {% if payment.description %}
+                        <span class="payout-note-text" title="{{ payment.description }}">{{ payment.description }}</span>
+                        {% else %}
+                        <span class="payout-note-text payout-note-text--empty">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="column-notes payout-note-cell">
+                        {% if payment.notes %}
+                        <span class="payout-note-text" title="{{ payment.notes }}">{{ payment.notes|replace('
+', ' ') }}</span>
+                        {% else %}
+                        <span class="payout-note-text payout-note-text--empty">—</span>
+                        {% endif %}
+                    </td>
+                    {% if user.is_admin() %}
+                    <td class="column-actions">
+                        {% set adhoc_return = request.url.path ~ ('?' ~ request.url.query if request.url.query else '') ~ '#unpaid-adhoc-section' %}
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <form method="post" action="/models/{{ payment.model_id }}/adhoc-payments/{{ payment.id }}/status" style="margin: 0;">
+                                <input type="hidden" name="return_url" value="{{ adhoc_return }}">
+                                <input type="hidden" name="action" value="mark_paid">
+                                <button type="submit" class="action-button action-button--success"
+                                        title="Mark as Paid" aria-label="Mark ad hoc payment as paid">
+                                    {{ icon('check', size=14) }}
+                                </button>
+                            </form>
+                            <form method="post" action="/models/{{ payment.model_id }}/adhoc-payments/{{ payment.id }}/status" style="margin: 0;"
+                                  onsubmit="return confirm('Cancel this ad hoc payment?');">
+                                <input type="hidden" name="return_url" value="{{ adhoc_return }}">
+                                <input type="hidden" name="action" value="cancel">
+                                <button type="submit" class="action-button action-button--neutral"
+                                        title="Cancel Payment" aria-label="Cancel ad hoc payment">
+                                    ✕
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="table-summary-row">
+        <div class="table-summary-label">Unpaid Ad Hoc Total</div>
+        <div class="table-summary-value">{{ run.currency }} {{ unpaid_adhoc_total|money }}</div>
+    </div>
+</section>
+{% endif %}
 
 <!-- Collapsible Validation Section -->
 {% if validations|length > 0 %}
@@ -2529,11 +2644,20 @@ function recomputeSummaryCards() {
 }
 
 // Recompute visible total based on currently visible rows
+function setCombinedTotal(payoutTotal) {
+    const row = document.getElementById('combined-total-row');
+    const el = document.getElementById('combined-total');
+    if (!row || !el) return;
+    const adhocTotal = parseFloat(row.getAttribute('data-adhoc-total') || '0') || 0;
+    el.textContent = formatMoney(payoutTotal + adhocTotal);
+}
+
 function recomputeVisibleTotal() {
     const rows = Array.from(document.querySelectorAll('#payouts-table tbody tr.payout-row'));
     if (!rows.length) {
         const el = document.getElementById('visible-total');
         if (el) el.textContent = formatMoney(0);
+        setCombinedTotal(0);
         return;
     }
     let total = 0;
@@ -2546,7 +2670,9 @@ function recomputeVisibleTotal() {
     if (totalEl) {
         totalEl.textContent = formatMoney(total);
     }
+    setCombinedTotal(total);
 }
+
 
 // Delegated click handlers for quick updates and toggling notes
 document.addEventListener('click', function (e) {
